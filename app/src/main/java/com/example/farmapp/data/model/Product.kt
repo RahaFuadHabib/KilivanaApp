@@ -37,7 +37,10 @@ data class Product(
     val county: String,
 
     @SerializedName("isVerified")
-    val isVerified: Boolean = false
+    val isVerified: Boolean = false,
+
+    @SerializedName("inspectionStatus")
+    val inspectionStatus: String = "Approved"
 ) {
     companion object {
         val mockList: List<Product> = listOf(
@@ -49,57 +52,96 @@ data class Product(
                 quantityKg = 850.0,
                 farmerName = "Wanjiku Mwangi",
                 county = "Murang'a",
-                isVerified = true
+                isVerified = true,
+                inspectionStatus = "Approved"
             ),
             Product(
                 id = 2L,
                 name = "French Beans (Export Grade)",
-                category = "Vegetables",
+                category = "Veggies",
                 pricePerKg = 180.0,
                 quantityKg = 420.0,
                 farmerName = "Peter Kiprop",
                 county = "Uasin Gishu",
-                isVerified = true
+                isVerified = true,
+                inspectionStatus = "Pending"
             ),
             Product(
                 id = 3L,
                 name = "Yellow Maize",
-                category = "Cereals & Grains",
+                category = "Cereals",
                 pricePerKg = 65.0,
                 quantityKg = 2500.0,
                 farmerName = "Alice Chebet",
                 county = "Trans Nzoia",
-                isVerified = true
+                isVerified = true,
+                inspectionStatus = "Approved"
             ),
             Product(
                 id = 4L,
-                name = "Purple Tea Leaves",
-                category = "Cash Crops",
-                pricePerKg = 240.0,
-                quantityKg = 310.0,
+                name = "Irish Potatoes (Shangi)",
+                category = "Tubers",
+                pricePerKg = 85.0,
+                quantityKg = 1600.0,
                 farmerName = "David Njoroge",
-                county = "Nyeri",
-                isVerified = false
+                county = "Nyandarua",
+                isVerified = true,
+                inspectionStatus = "Approved"
             ),
             Product(
                 id = 5L,
-                name = "Macadamia Nuts (In Shell)",
-                category = "Nuts & Seeds",
-                pricePerKg = 320.0,
-                quantityKg = 600.0,
+                name = "Apple Mangoes",
+                category = "Fruits",
+                pricePerKg = 140.0,
+                quantityKg = 750.0,
                 farmerName = "Grace Mutua",
-                county = "Embu",
-                isVerified = true
+                county = "Machakos",
+                isVerified = true,
+                inspectionStatus = "Approved"
             ),
             Product(
                 id = 6L,
                 name = "Red Bulb Onions",
-                category = "Vegetables",
+                category = "Veggies",
                 pricePerKg = 95.0,
                 quantityKg = 1200.0,
                 farmerName = "Hassan Abdi",
                 county = "Kajiado",
-                isVerified = true
+                isVerified = true,
+                inspectionStatus = "Approved"
+            ),
+            Product(
+                id = 7L,
+                name = "Purple Tea Leaves",
+                category = "Veggies",
+                pricePerKg = 240.0,
+                quantityKg = 310.0,
+                farmerName = "David Karanja",
+                county = "Nyeri",
+                isVerified = false,
+                inspectionStatus = "Flagged"
+            ),
+            Product(
+                id = 8L,
+                name = "Sweet Potatoes (Orange-Fleshed)",
+                category = "Tubers",
+                pricePerKg = 70.0,
+                quantityKg = 900.0,
+                farmerName = "Mary Achieng",
+                county = "Homa Bay",
+                isVerified = true,
+                inspectionStatus = "Pending"
+            ),
+            Product(
+                id = 9L,
+                name = "Pearl Millet",
+                category = "Cereals",
+                pricePerKg = 110.0,
+                quantityKg = 650.0,
+                farmerName = "John Musyoka",
+                county = "Kitui",
+                isVerified = true,
+                inspectionStatus = "Approved"
             )
         )
     }

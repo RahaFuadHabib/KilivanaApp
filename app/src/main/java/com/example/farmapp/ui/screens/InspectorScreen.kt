@@ -1,11 +1,16 @@
 package com.example.farmapp.ui.screens
 
+import com.example.farmapp.ui.components.KilivanaHeaderMetric
+import com.example.farmapp.ui.theme.KilivanaAccents
+import com.example.farmapp.ui.theme.KilivanaSpacing
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,10 +26,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,13 +46,11 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +64,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.farmapp.data.model.InspectionRecord
 import com.example.farmapp.data.model.mockInspectionRecords
+import com.example.farmapp.ui.components.FoodcourtHeaderBlock
+import com.example.farmapp.ui.theme.ForestGreen
+import com.example.farmapp.ui.theme.HarvestAmber
+import com.example.farmapp.ui.theme.InspectorHeroGradient
+import com.example.farmapp.ui.theme.InspectorPurple
+import com.example.farmapp.ui.theme.LeafGreen
 
 data class AuditCheckItem(
     val id: Int,
@@ -67,8 +83,19 @@ fun InspectorScreen(
     records: List<InspectionRecord> = mockInspectionRecords
 ) {
     val scrollState = rememberScrollState()
+    var inspectorSearchQuery by remember { mutableStateOf("") }
+
+    val filteredRecords = remember(records, inspectorSearchQuery) {
+        if (inspectorSearchQuery.isBlank()) records
+        else records.filter {
+            it.farmerName.contains(inspectorSearchQuery, ignoreCase = true) ||
+            it.parcelNumber.contains(inspectorSearchQuery, ignoreCase = true) ||
+            it.cropType.contains(inspectorSearchQuery, ignoreCase = true)
+        }
+    }
+
     var selectedRecordIndex by remember { mutableStateOf(0) }
-    val currentRecord = records.getOrNull(selectedRecordIndex) ?: records.first()
+    val currentRecord = filteredRecords.getOrNull(selectedRecordIndex) ?: filteredRecords.firstOrNull() ?: records.first()
 
     val auditItems = remember {
         listOf(
@@ -105,262 +132,505 @@ fun InspectorScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(16.dp)
     ) {
-        // Farm Selection Header
-        Text(
-            text = "Active Farm Audit",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+        // Foodcourt Shared Header Block: Greeting, Rounded Search Bar, Promo Card
+        FoodcourtHeaderBlock(
+            greetingName = "Grace",
+            searchPlaceholder = "Search farm parcels, land registries...",
+            searchQuery = inspectorSearchQuery,
+            onSearchQueryChange = { inspectorSearchQuery = it },
+            promoHighlight = "4 inspections due this week",
+            promoSubtitle = "Next: Parcel #42 (Nakuru Organic Farm)",
+            promoActionText = "Inspect",
+            onPromoAction = { selectedRecordIndex = 0 }
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        // Farm Record Selector Chips
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
+        // -------------------------------------------------------------------
+        // 1. Deep Royal Purple Gradient Header (Officer Credentials & Stats Row)
+        // -------------------------------------------------------------------
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)),
+            color = Color.Transparent
         ) {
-            items(records.indices.toList()) { index ->
-                val rec = records[index]
-                val isSelected = index == selectedRecordIndex
-                Card(
-                    modifier = Modifier.clickable {
-                        selectedRecordIndex = index
-                        inspectorNotes = rec.notes
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text(
-                        text = "${rec.farmerName} (Farm #${rec.farmId})",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Inspection Details Card
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Farm #${currentRecord.farmId}: ${currentRecord.farmerName}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    val isApproved = currentRecord.status == "APPROVED"
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isApproved) Color(0xFFE8F5E9) else Color(0xFFFFF3E0))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = currentRecord.status,
-                            color = if (isApproved) Color(0xFF2E7D32) else Color(0xFFE65100),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Scheduled Audit Date: ${currentRecord.inspectionDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Title Documentation: ${if (currentRecord.documentVerified) "Verified ✓" else "Pending Review"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (currentRecord.documentVerified) Color(0xFF2E7D32) else Color(0xFFE65100),
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Land Audit Checklist Section
-        Text(
-            text = "Land Audit Checklist",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Verify regulatory requirements according to agricultural compliance protocols.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        auditItems.forEach { item ->
-            val checked = checkedStates[item.id] ?: false
-            Card(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    .background(InspectorPurple)
+                    .padding(KilivanaSpacing.content)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = checked,
-                        onCheckedChange = { checkedStates[item.id] = it }
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Officer Identity Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            // Avatar with Golden / Purple Ring
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .border(2.5.dp, HarvestAmber, CircleShape)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Inspector Avatar",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            Column {
+                                Text(
+                                    text = "Grace Wambui",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Field Compliance Officer • Gov #802",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = MaterialTheme.typography.bodySmall.fontSize
+                                )
+                            }
+                        }
+
+                        // KEPHIS Regulatory Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.large)
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), MaterialTheme.shapes.large)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = null,
+                                    tint = HarvestAmber,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "KEPHIS Official",
+                                    color = Color.White,
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Stats Row: Pending, Approved, Flagged
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        InspectorStatPill(
+                            title = "Pending",
+                            count = "3",
+                            badgeColor = HarvestAmber,
+                            modifier = Modifier.weight(1f)
                         )
-                        Text(
-                            text = item.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        InspectorStatPill(
+                            title = "Approved",
+                            count = "12",
+                            badgeColor = LeafGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        InspectorStatPill(
+                            title = "Flagged",
+                            count = "1",
+                            badgeColor = Color(0xFFEF5350),
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Photo Capture Placeholders Section
-        Text(
-            text = "Photo Capture & Evidence",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Attach photographic evidence for the audit registry.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Body Content
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
         ) {
-            capturedPhotos.keys.take(2).forEach { label ->
-                PhotoCaptureCard(
-                    label = label,
-                    isCaptured = capturedPhotos[label] == true,
-                    onToggleCapture = {
-                        capturedPhotos[label] = !(capturedPhotos[label] ?: false)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            // Farm Record Selector Chips
+            Text(
+                text = "Active Land Parcels for Field Audit",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (filteredRecords.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No farm parcels found matching \"$inspectorSearchQuery\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(filteredRecords.indices.toList()) { index ->
+                        val rec = filteredRecords[index]
+                        val isSelected = index == selectedRecordIndex
+                        Card(
+                            modifier = Modifier.clickable {
+                                selectedRecordIndex = index
+                                inspectorNotes = rec.notes
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) InspectorPurple else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Text(
+                                text = "${rec.farmerName} (Parcel #${rec.parcelNumber})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            capturedPhotos.keys.drop(2).forEach { label ->
-                PhotoCaptureCard(
-                    label = label,
-                    isCaptured = capturedPhotos[label] == true,
-                    onToggleCapture = {
-                        capturedPhotos[label] = !(capturedPhotos[label] ?: false)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Inspector Notes
-        Text(
-            text = "Inspector Observations & Notes",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        OutlinedTextField(
-            value = inspectorNotes,
-            onValueChange = { inspectorNotes = it },
-            placeholder = { Text("Enter field inspection observations, findings, and remediation items...") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 3,
-            shape = RoundedCornerShape(10.dp)
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Decision Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Flag Issues Button (Red/Amber)
-            OutlinedButton(
-                onClick = { decisionResult = "FLAGGED" },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFC62828)
-                ),
-                shape = RoundedCornerShape(10.dp)
+            // -------------------------------------------------------------------
+            // 2. Assigned Land Parcel Card (GPS Tag & Soil pH / Moisture Readout)
+            // -------------------------------------------------------------------
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "Flag Issues",
-                    tint = Color(0xFFC62828),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Flag Issues", fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Parcel #${currentRecord.parcelNumber}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Farmer: ${currentRecord.farmerName} (Farm #${currentRecord.farmId})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        val isApproved = currentRecord.status == "APPROVED"
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isApproved) KilivanaAccents.success.container else KilivanaAccents.warning.container)
+                                .border(1.dp, if (isApproved) LeafGreen else HarvestAmber, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = currentRecord.status,
+                                color = if (isApproved) KilivanaAccents.success.content else KilivanaAccents.warning.content,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = MaterialTheme.typography.labelSmall.fontSize
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // GPS Coordinates Box (-1.1824° S, 36.9312° E)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(InspectorPurple.copy(alpha = 0.08f))
+                            .border(1.dp, InspectorPurple.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = "GPS Coordinates",
+                                    tint = KilivanaAccents.inspectorContent,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Audited GPS Coordinates",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "-1.1824° S, 36.9312° E",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = KilivanaAccents.inspectorContent
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(InspectorPurple.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "Accuracy: ±1.2m",
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = KilivanaAccents.inspectorContent
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Soil pH & Moisture Readout Container
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Soil pH
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Science,
+                                    contentDescription = "pH",
+                                    tint = LeafGreen,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(text = "Soil pH Level", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "6.4 (Optimal)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            // Soil Moisture
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.WaterDrop,
+                                    contentDescription = "Moisture",
+                                    tint = KilivanaAccents.information.content,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(text = "Moisture Content", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "28% (Well Drained)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = KilivanaAccents.information.content)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            // Approve Farm Button (Green)
-            Button(
-                onClick = { decisionResult = "APPROVED" },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2E7D32),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(10.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // -------------------------------------------------------------------
+            // 3. Evidence Photo Thumbnail Strip with Dashed "Snap" Camera Tile
+            // -------------------------------------------------------------------
+            Text(
+                text = "Geotagged Evidence Photo Strip",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Approve Farm",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Approve Farm", fontWeight = FontWeight.Bold)
-            }
-        }
+                // Dashed "Snap" Camera Tile
+                item {
+                    DashedSnapCameraTile(
+                        onClick = {
+                            capturedPhotos["Field Soil Core"] = true
+                        }
+                    )
+                }
 
-        Spacer(modifier = Modifier.height(60.dp))
+                // Captured Evidence Photo Thumbnails
+                items(capturedPhotos.entries.toList()) { (photoLabel, isDone) ->
+                    EvidencePhotoThumbnail(
+                        label = photoLabel,
+                        isCaptured = isDone,
+                        onToggle = { capturedPhotos[photoLabel] = !isDone }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // -------------------------------------------------------------------
+            // Statutory Audit Checklist
+            // -------------------------------------------------------------------
+            Text(
+                text = "Statutory Agronomic Checklist",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                auditItems.forEach { item ->
+                    val checked = checkedStates[item.id] ?: false
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { checkedStates[item.id] = !checked },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (checked) Color(0xFFF1F8E9) else MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { checkedStates[item.id] = it }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = item.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Inspector Observations & Notes
+            Text(
+                text = "Inspector Observations & Notes",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = inspectorNotes,
+                onValueChange = { inspectorNotes = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 4,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // -------------------------------------------------------------------
+            // 4. Split Decision Actions: Green "Grant Green Badge" vs Red "Flag"
+            // -------------------------------------------------------------------
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Red "Flag" Button
+                Button(
+                    onClick = { decisionResult = "FLAGGED" },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = KilivanaSpacing.touchTarget),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Flag Issues", fontWeight = FontWeight.Bold)
+                }
+
+                // Green "Grant Green Badge" Button
+                Button(
+                    onClick = { decisionResult = "APPROVED" },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = KilivanaSpacing.touchTarget),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ForestGreen,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Grant Green Badge", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(60.dp))
+        }
     }
 
     // Decision Confirmation Dialog
@@ -371,24 +641,31 @@ fun InspectorScreen(
                 Icon(
                     imageVector = if (decision == "APPROVED") Icons.Default.CheckCircle else Icons.Default.Warning,
                     contentDescription = null,
-                    tint = if (decision == "APPROVED") Color(0xFF2E7D32) else Color(0xFFC62828)
+                    tint = if (decision == "APPROVED") LeafGreen else KilivanaAccents.error.content
                 )
             },
             title = {
                 Text(
-                    text = if (decision == "APPROVED") "Farm Audit Approved" else "Compliance Issues Flagged"
+                    text = if (decision == "APPROVED") "Green Badge Awarded" else "Compliance Issues Flagged"
                 )
             },
             text = {
                 Text(
                     text = if (decision == "APPROVED")
-                        "Farm #${currentRecord.farmId} (${currentRecord.farmerName}) has met all agronomic, statutory, and quality compliance metrics. Certification issued."
+                        "Farm #${currentRecord.farmId} (${currentRecord.farmerName}) has met all agronomic, statutory, and quality compliance metrics. Green Badge issued."
                     else
                         "Audit flagged with compliance remediation items for Farm #${currentRecord.farmId}. An automated notification has been dispatched to the farmer."
                 )
             },
             confirmButton = {
-                Button(onClick = { decisionResult = null }) {
+                Button(
+                    onClick = { decisionResult = null },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ForestGreen,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
                     Text("Done")
                 }
             }
@@ -396,20 +673,87 @@ fun InspectorScreen(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Inspector Stat Pill Composable
+// ---------------------------------------------------------------------------
 @Composable
-fun PhotoCaptureCard(
+private fun InspectorStatPill(
+    title: String,
+    count: String,
+    badgeColor: Color,
+    modifier: Modifier = Modifier
+) {
+    KilivanaHeaderMetric(title = title, value = count, indicatorColor = badgeColor, modifier = modifier)
+}
+
+// ---------------------------------------------------------------------------
+// Dashed Snap Camera Tile Composable
+// ---------------------------------------------------------------------------
+@Composable
+private fun DashedSnapCameraTile(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(width = 110.dp, height = 105.dp)
+            .clip(MaterialTheme.shapes.large)
+            .border(1.5.dp, InspectorPurple.copy(alpha = 0.6f), MaterialTheme.shapes.large)
+            .background(InspectorPurple.copy(alpha = 0.06f))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(InspectorPurple.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoCamera,
+                    contentDescription = "Snap Evidence",
+                    tint = KilivanaAccents.inspectorContent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "+ Snap Evidence",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = KilivanaAccents.inspectorContent,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Evidence Photo Thumbnail Composable
+// ---------------------------------------------------------------------------
+@Composable
+private fun EvidencePhotoThumbnail(
     label: String,
     isCaptured: Boolean,
-    onToggleCapture: () -> Unit,
+    onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
-            .height(110.dp)
-            .clickable { onToggleCapture() },
-        shape = RoundedCornerShape(10.dp),
+            .size(width = 115.dp, height = 105.dp)
+            .clickable { onToggle() },
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = if (isCaptured) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = if (isCaptured) KilivanaAccents.success.container else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isCaptured) LeafGreen else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         )
     ) {
         Column(
@@ -421,33 +765,30 @@ fun PhotoCaptureCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
-                    .background(if (isCaptured) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    .background(if (isCaptured) LeafGreen else Color.Gray.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isCaptured) Icons.Default.Check else Icons.Default.Info,
+                    imageVector = if (isCaptured) Icons.Default.Check else Icons.Default.AddAPhoto,
                     contentDescription = label,
-                    tint = if (isCaptured) Color.White else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    tint = if (isCaptured) Color.White else Color.Gray,
+                    modifier = Modifier.size(17.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Bold,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 maxLines = 1
             )
-
             Text(
-                text = if (isCaptured) "Attached ✓" else "Tap to capture",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isCaptured) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
-                fontSize = 10.sp
+                text = if (isCaptured) "-1.1824° S" else "Tap to Snap",
+                fontSize = 9.sp,
+                color = if (isCaptured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

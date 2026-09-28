@@ -1,5 +1,9 @@
 package com.example.farmapp.ui.screens
 
+import androidx.compose.foundation.layout.imePadding
+import com.example.farmapp.ui.theme.KilivanaAccents
+import com.example.farmapp.ui.theme.KilivanaSpacing
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -97,13 +101,13 @@ fun OrderTrackingDialog(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .padding(vertical = 24.dp),
-            shape = RoundedCornerShape(20.dp),
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .imePadding().verticalScroll(rememberScrollState())
                     .padding(20.dp)
             ) {
                 // Header with title and close button
@@ -185,7 +189,7 @@ fun OrderTrackingDialog(
                                             Text(
                                                 text = "${index + 1}",
                                                 color = Color.White,
-                                                fontSize = 12.sp,
+                                                fontSize = MaterialTheme.typography.bodySmall.fontSize,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -194,7 +198,7 @@ fun OrderTrackingDialog(
                                     Text(
                                         text = stepName,
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
+                                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
                                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                                         textAlign = TextAlign.Center,
                                         color = if (isCompleted) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
@@ -229,7 +233,7 @@ fun OrderTrackingDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Payment Rail", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text("Payment Rail", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(currentOrder.paymentMethod, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                             Text("KES ${"%,.0f".format(currentOrder.totalPrice)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
@@ -240,18 +244,18 @@ fun OrderTrackingDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Escrow Status", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text("Escrow Status", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             val isReceived = currentOrder.paymentStatus == "RECEIVED"
                             Text(
                                 text = if (isReceived) "PAID OUT ✓" else "FUNDS IN ESCROW",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isReceived) Color(0xFF2E7D32) else Color(0xFFE65100)
+                                color = if (isReceived) KilivanaAccents.success.content else KilivanaAccents.warning.content
                             )
                             Text(
                                 text = if (isReceived) "Payout Released" else "Protected by Escrow",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -295,7 +299,7 @@ fun OrderTrackingDialog(
                                 Text(
                                     text = currentOrder.driverPhone,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -324,9 +328,9 @@ fun OrderTrackingDialog(
                         // Confidential OTP box
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFFFF8E1)
+                                containerColor = KilivanaAccents.warning.container
                             ),
                             border = CardDefaults.outlinedCardBorder().copy(
                                 brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFFFB300))
@@ -342,15 +346,15 @@ fun OrderTrackingDialog(
                                     Icon(
                                         imageVector = Icons.Default.Lock,
                                         contentDescription = null,
-                                        tint = Color(0xFFE65100),
+                                        tint = KilivanaAccents.warning.content,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = "Confidential Delivery OTP",
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFE65100),
-                                        fontSize = 14.sp
+                                        color = KilivanaAccents.warning.content,
+                                        fontSize = MaterialTheme.typography.bodyMedium.fontSize
                                     )
                                 }
 
@@ -371,9 +375,9 @@ fun OrderTrackingDialog(
                                         ) {
                                             Text(
                                                 text = char.toString(),
-                                                fontSize = 22.sp,
+                                                fontSize = MaterialTheme.typography.titleLarge.fontSize,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = Color(0xFF2E7D32)
+                                                color = KilivanaAccents.success.content
                                             )
                                         }
                                     }
@@ -383,9 +387,9 @@ fun OrderTrackingDialog(
                                 Text(
                                     text = "Share this 4-digit code with driver only after physical inspection of produce quantity and freshness.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 11.sp,
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
                                     textAlign = TextAlign.Center,
-                                    color = Color(0xFF5D4037)
+                                    color = KilivanaAccents.warning.content
                                 )
                             }
                         }
@@ -396,12 +400,12 @@ fun OrderTrackingDialog(
                         Button(
                             onClick = { showDriverOtpPrompt = true },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF2E7D32),
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .heightIn(min = KilivanaSpacing.touchTarget),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null)
@@ -414,7 +418,7 @@ fun OrderTrackingDialog(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                            colors = CardDefaults.cardColors(containerColor = KilivanaAccents.success.container)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -425,19 +429,19 @@ fun OrderTrackingDialog(
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = "Delivered",
-                                    tint = Color(0xFF2E7D32),
+                                    tint = KilivanaAccents.success.content,
                                     modifier = Modifier.size(36.dp)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "Delivery Completed & Handshake Verified",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
+                                    color = KilivanaAccents.success.content
                                 )
                                 Text(
                                     text = "Payout of KES ${"%,.0f".format(currentOrder.totalPrice)} released to farmer.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF1B5E20)
+                                    color = KilivanaAccents.success.content
                                 )
 
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -591,7 +595,7 @@ fun OrderTrackingDialog(
                         (1..5).forEach { starIndex ->
                             IconButton(
                                 onClick = { rating = starIndex.toFloat() },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(KilivanaSpacing.touchTarget)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Star,
@@ -627,7 +631,7 @@ fun OrderTrackingDialog(
                                 onClick = {
                                     if (isSel) selectedTags.remove(tag) else selectedTags.add(tag)
                                 },
-                                label = { Text(tag, fontSize = 11.sp) }
+                                label = { Text(tag, fontSize = MaterialTheme.typography.labelSmall.fontSize) }
                             )
                         }
                     }
@@ -642,7 +646,7 @@ fun OrderTrackingDialog(
                                 onClick = {
                                     if (isSel) selectedTags.remove(tag) else selectedTags.add(tag)
                                 },
-                                label = { Text(tag, fontSize = 11.sp) }
+                                label = { Text(tag, fontSize = MaterialTheme.typography.labelSmall.fontSize) }
                             )
                         }
                     }

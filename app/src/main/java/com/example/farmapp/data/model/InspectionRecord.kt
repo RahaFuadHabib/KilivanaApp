@@ -33,7 +33,19 @@ data class InspectionRecord(
     val status: String,
 
     @SerializedName("notes")
-    val notes: String
+    val notes: String,
+
+    @SerializedName("parcelNumber")
+    val parcelNumber: String = "LR-NAK-2024/88B",
+
+    @SerializedName("gpsCoordinates")
+    val gpsCoordinates: String = "-1.1824 S, 36.9312 E",
+
+    @SerializedName("acreage")
+    val acreage: Double = 5.4,
+
+    @SerializedName("cropType")
+    val cropType: String = "Hass Avocados"
 ) {
     companion object {
         val mockList: List<InspectionRecord> = listOf(
@@ -44,7 +56,11 @@ data class InspectionRecord(
                 inspectionDate = "2026-09-15",
                 documentVerified = true,
                 status = "APPROVED",
-                notes = "Organic orchard certification verified. Soil moisture and IPM standards fully compliant with KEPHIS export guidelines."
+                notes = "Organic orchard certification verified. Soil moisture and IPM standards fully compliant with KEPHIS export guidelines.",
+                parcelNumber = "LR-NAK-2024/88B",
+                gpsCoordinates = "-1.1824 S, 36.9312 E",
+                acreage = 5.4,
+                cropType = "Hass Avocados"
             ),
             InspectionRecord(
                 id = 802L,
@@ -53,7 +69,11 @@ data class InspectionRecord(
                 inspectionDate = "2026-09-18",
                 documentVerified = true,
                 status = "APPROVED",
-                notes = "Cold chain handling facilities inspected. Traceability logs up to date for export batches."
+                notes = "Cold chain handling facilities inspected. Traceability logs up to date for export batches.",
+                parcelNumber = "LR-ELD-2023/14C",
+                gpsCoordinates = "-1.1824 S, 36.9312 E",
+                acreage = 12.0,
+                cropType = "French Beans"
             ),
             InspectionRecord(
                 id = 803L,
@@ -62,7 +82,11 @@ data class InspectionRecord(
                 inspectionDate = "2026-09-20",
                 documentVerified = false,
                 status = "PENDING_AUDIT",
-                notes = "Awaiting updated water safety laboratory test results and grain storage fumigation certificate."
+                notes = "Awaiting updated water safety laboratory test results and grain storage fumigation certificate.",
+                parcelNumber = "LR-KIT-2024/02A",
+                gpsCoordinates = "-1.1824 S, 36.9312 E",
+                acreage = 8.5,
+                cropType = "Yellow Maize"
             ),
             InspectionRecord(
                 id = 804L,
@@ -71,7 +95,11 @@ data class InspectionRecord(
                 inspectionDate = "2026-09-21",
                 documentVerified = true,
                 status = "APPROVED",
-                notes = "Pruning and shade tree ratio optimal. Processing facility meets Fair Trade environmental guidelines."
+                notes = "Pruning and shade tree ratio optimal. Processing facility meets Fair Trade environmental guidelines.",
+                parcelNumber = "LR-NYE-2022/91D",
+                gpsCoordinates = "-1.1824 S, 36.9312 E",
+                acreage = 3.2,
+                cropType = "Purple Tea Leaves"
             ),
             InspectionRecord(
                 id = 805L,
@@ -80,7 +108,11 @@ data class InspectionRecord(
                 inspectionDate = "2026-09-22",
                 documentVerified = false,
                 status = "PENDING_AUDIT",
-                notes = "Field drainage adequate. Pending soil salinity analysis documentation from KALRO."
+                notes = "Field drainage adequate. Pending soil salinity analysis documentation from KALRO.",
+                parcelNumber = "LR-KAJ-2024/73F",
+                gpsCoordinates = "-1.1824 S, 36.9312 E",
+                acreage = 15.0,
+                cropType = "Red Bulb Onions"
             )
         )
     }

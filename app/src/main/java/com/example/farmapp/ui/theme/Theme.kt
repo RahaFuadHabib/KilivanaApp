@@ -1,5 +1,8 @@
 package com.example.farmapp.ui.theme
 
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +19,10 @@ val DarkColorScheme = darkColorScheme(
     onPrimary = DarkOnPrimary,
     primaryContainer = Color(0xFF00522B),
     onPrimaryContainer = Color(0xFF8CF5B5),
-    secondary = Color(0xFFFFB77C),
-    onSecondary = Color(0xFF4D2600),
-    secondaryContainer = Color(0xFF6E3900),
-    onSecondaryContainer = Color(0xFFFFDCC1),
+    secondary = Color(0xFFFFC45C),
+    onSecondary = Color(0xFF402A00),
+    secondaryContainer = Color(0xFF594000),
+    onSecondaryContainer = Color(0xFFFFDEA4),
     tertiary = Color(0xFF81C784),
     onTertiary = Color(0xFF003A0B),
     background = DarkBackground,
@@ -32,25 +35,25 @@ val DarkColorScheme = darkColorScheme(
 )
 
 val LightColorScheme = lightColorScheme(
-    primary = KilivanaGreen,
-    onPrimary = KilivanaOnPrimary,
+    primary = ForestGreen,
+    onPrimary = Color.White,
     primaryContainer = Color(0xFFD4E8DC),
     onPrimaryContainer = Color(0xFF052016),
-    secondary = KilivanaAmber,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFDCC1),
-    onSecondaryContainer = Color(0xFF2E1500),
-    tertiary = KilivanaLeaf,
+    secondary = HarvestAmber,
+    onSecondary = Color(0xFF302000),
+    secondaryContainer = Color(0xFFFFE3AF),
+    onSecondaryContainer = Color(0xFF302000),
+    tertiary = LeafGreen,
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFD1FAD7),
     onTertiaryContainer = Color(0xFF002206),
-    background = KilivanaBackground,
-    onBackground = KilivanaOnBackground,
-    surface = KilivanaSurface,
-    onSurface = KilivanaOnBackground,
-    surfaceVariant = Color(0xFFF0F4EF),
+    background = Color(0xFFFAF6EF),         // Foodcourt warm cream background
+    onBackground = Color(0xFF1A1C19),
+    surface = Color(0xFFFDF9F2),            // Foodcourt warm cream elevated surface
+    onSurface = Color(0xFF1A1C19),
+    surfaceVariant = Color(0xFFF4EEE2),
     onSurfaceVariant = Color(0xFF404943),
-    outline = Color(0xFF707973)
+    outline = Color(0xFFD8D0C2)
 )
 
 @Composable
@@ -71,6 +74,13 @@ fun FarmAppTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(4.dp),
+            small = RoundedCornerShape(8.dp),
+            medium = RoundedCornerShape(12.dp),
+            large = RoundedCornerShape(16.dp),
+            extraLarge = RoundedCornerShape(24.dp)
+        ),
         content = content
     )
 }

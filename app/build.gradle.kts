@@ -15,11 +15,24 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"https://march-cacti-flashcard.ngrok-free.dev/api/v1/\""
+        )
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            // Explicit opt-in only. Demo builds have separate app storage from the real client.
+            val mockAuth = providers.gradleProperty("kilivana.mockAuth").orNull == "true"
+            buildConfigField("boolean", "USE_MOCK_AUTH", mockAuth.toString())
+            if (mockAuth) applicationIdSuffix = ".demo"
+        }
         release {
+            buildConfigField("boolean", "USE_MOCK_AUTH", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -36,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

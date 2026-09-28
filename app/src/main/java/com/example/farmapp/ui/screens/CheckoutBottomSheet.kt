@@ -1,5 +1,9 @@
 package com.example.farmapp.ui.screens
 
+import androidx.compose.foundation.layout.imePadding
+import com.example.farmapp.ui.theme.KilivanaAccents
+import com.example.farmapp.ui.theme.KilivanaSpacing
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,7 +90,7 @@ fun CheckoutBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .imePadding().verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
             Text(
@@ -126,7 +130,7 @@ fun CheckoutBottomSheet(
                             Text(
                                 text = "${"%.0f".format(quantityKg)} kg",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = MaterialTheme.typography.bodyLarge.fontSize
                             )
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -161,21 +165,21 @@ fun CheckoutBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFE8F5E9))
+                    .background(KilivanaAccents.success.container)
                     .padding(10.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
-                        tint = Color(0xFF2E7D32),
+                        tint = KilivanaAccents.success.content,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Funds will be held securely in Kilivana Escrow until you provide your delivery OTP to the driver upon produce inspection.",
-                        color = Color(0xFF1B5E20),
-                        fontSize = 11.sp
+                        color = KilivanaAccents.success.content,
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize
                     )
                 }
             }
@@ -212,7 +216,7 @@ fun CheckoutBottomSheet(
             // Rail-specific form
             when (selectedRail) {
                 "MPESA" -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
                         Text("M-Pesa Express Checkout", style = MaterialTheme.typography.labelMedium)
                         OutlinedTextField(
                             value = mpesaPhone,
@@ -243,7 +247,7 @@ fun CheckoutBottomSheet(
                 }
 
                 "VISA" -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
                         Text("Visa / Mastercard Debit & Credit", style = MaterialTheme.typography.labelMedium)
                         OutlinedTextField(
                             value = cardNumber,
@@ -311,7 +315,7 @@ fun CheckoutBottomSheet(
                         Text(
                             text = "Fast, secure checkout backed by your Google Wallet",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Button(
@@ -340,7 +344,7 @@ fun CheckoutBottomSheet(
                                 .height(50.dp),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Pay with Google Pay", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Pay with Google Pay", fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.bodyLarge.fontSize)
                         }
                     }
                 }
@@ -363,17 +367,17 @@ fun CheckoutBottomSheet(
                             .background(Color(0xFF00A859)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("M", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("M", color = Color.White, fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.bodySmall.fontSize)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SIM Toolkit: M-PESA STK Push", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("SIM Toolkit: M-PESA STK Push", fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.bodyLarge.fontSize)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "Do you want to pay KES ${"%,.0f".format(totalPrice)} to Kilivana Escrow Account (Paybill: 489201)?",
-                        fontSize = 13.sp
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize
                     )
                     OutlinedTextField(
                         value = mpesaPin,

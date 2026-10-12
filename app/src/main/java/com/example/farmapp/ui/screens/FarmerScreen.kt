@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +39,10 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,6 +67,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +75,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -89,20 +98,32 @@ import com.example.farmapp.ui.theme.KilivanaFarmerShapes
 import com.example.farmapp.ui.theme.KilivanaSpacing
 import com.example.farmapp.ui.theme.LeafGreen
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun FarmerScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    farmerName: String = "David Karanja",
+    showCreateAction: Boolean = true,
+    searchQuery: String = "",
+    realProducts: List<com.example.farmapp.data.model.FarmerProductResponse>? = null,
+    productsError: String? = null,
+    productsLoading: Boolean = false,
+    onRefreshProducts: () -> Unit = {},
+    publishMessage: String? = null,
+    onResumeExisting: ((com.example.farmapp.data.model.FarmerProductResponse) -> Unit)? = null,
+    onOpenCrop: (com.example.farmapp.data.model.FarmerProductResponse) -> Unit = {}
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(1) } // Default to "My Crops" to showcase Behance listings
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(1) } // Default to "My Crops" to showcase Behance listings
+    val pullRefreshState = rememberPullToRefreshState()
+    val canPullRefresh = selectedTabIndex == 1 && realProducts != null
     val tabTitles = listOf("Incoming Orders", "My Crops", "Supplies Ordered")
 
-    var farmerSearchQuery by remember { mutableStateOf("") }
+    val farmerSearchQuery = searchQuery.trim()
 
-    val orders = remember { mutableStateListOf<Order>().apply { addAll(mockOrders) } }
+    val orders = remember { mutableStateListOf<Order>().apply { if (realProducts == null) addAll(mockOrders) } }
     val crops = remember {
         mutableStateListOf<Product>().apply {
-            addAll(
+            if (realProducts == null) addAll(
                 listOf(
                     mockProducts[0], // Hass Avocados - Approved
                     mockProducts[1], // French Beans - Pending
@@ -112,7 +133,7 @@ fun FarmerScreen(
             )
         }
     }
-    val supplies = remember { mutableStateListOf<SupplyItem>().apply { addAll(mockSupplyItems) } }
+    val supplies = remember { mutableStateListOf<SupplyItem>().apply { if (realProducts == null) addAll(mockSupplyItems) } }
 
     var showPostDialog by remember { mutableStateOf(false) }
     var activeTrackingOrder by remember { mutableStateOf<Order?>(null) }
@@ -121,8 +142,10 @@ fun FarmerScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        // The Farmer shell already owns system insets and toolbar/navigation padding.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            if (showCreateAction) ExtendedFloatingActionButton(
                 onClick = { showPostDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Create Crop", style = MaterialTheme.typography.labelLarge) },
@@ -132,110 +155,141 @@ fun FarmerScreen(
             )
         }
     ) { innerPadding ->
-        // One scrolling surface keeps the overview from squeezing the list on small phones.
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = KilivanaSpacing.content, end = KilivanaSpacing.content,
-                top = innerPadding.calculateTopPadding() + KilivanaSpacing.small,
-                bottom = innerPadding.calculateBottomPadding() + 104.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.section)
-        ) {
-            item(key = "greeting") {
-                Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.content)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Good morning", style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("David Karanja", style = MaterialTheme.typography.headlineSmall)
+        Box(Modifier.fillMaxSize().pullToRefresh(
+            state = pullRefreshState,
+            isRefreshing = productsLoading,
+            enabled = canPullRefresh && !productsLoading,
+            onRefresh = onRefreshProducts
+        )) {
+            // One scrolling surface keeps the overview from squeezing the list on small phones.
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = KilivanaSpacing.content, end = KilivanaSpacing.content,
+                    top = innerPadding.calculateTopPadding() + KilivanaSpacing.small,
+                    bottom = innerPadding.calculateBottomPadding() + 104.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.section)
+            ) {
+                item(key = "greeting") {
+                    Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.content)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Good morning", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(farmerName, style = MaterialTheme.typography.headlineSmall)
+                        }
+                        if (farmerSearchQuery.isNotEmpty()) Text("Search results for “$farmerSearchQuery”",
+                            style = MaterialTheme.typography.bodyMedium)
                     }
-                    OutlinedTextField(
-                        value = farmerSearchQuery,
-                        onValueChange = { farmerSearchQuery = it },
-                        placeholder = { Text("Search your crops, orders, supplies…", style = MaterialTheme.typography.bodyMedium) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        singleLine = true,
-                        shape = KilivanaFarmerShapes.pill,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
-            }
-            item(key = "overview") { FarmerOverview(crops.size, orders.size, supplies.size) }
-            item(key = "quick_access") {
-                Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
-                    Text("Your farm, at a glance", style = MaterialTheme.typography.titleMedium)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(KilivanaSpacing.small),
-                        verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.small),
-                        maxItemsInEachRow = 4
-                    ) {
-                        FarmerShortcut("My Crops", Icons.Default.Spa) { selectedTabIndex = 1 }
-                        FarmerShortcut("Orders", Icons.Default.LocalShipping) { selectedTabIndex = 0 }
-                        FarmerShortcut("Supplies", Icons.Default.Agriculture) { selectedTabIndex = 2 }
-                        FarmerShortcut("Audits", Icons.AutoMirrored.Filled.FactCheck) { showAuditsDialog = true }
-                    }
-                    Surface(shape = KilivanaFarmerShapes.inset,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)) {
-                        FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(Modifier.heightIn(min = KilivanaSpacing.touchTarget), verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.AutoMirrored.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.primary)
-                                Text("${crops.count { it.inspectionStatus == "Pending" }} pending inspection",
-                                    style = MaterialTheme.typography.bodyMedium)
+                item(key = "overview") { FarmerOverview(realProducts?.size ?: crops.size, orders.size, supplies.size) }
+                item(key = "quick_access") {
+                    Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
+                        Text("Your farm, at a glance", style = MaterialTheme.typography.titleMedium)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(KilivanaSpacing.small),
+                            verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.small),
+                            maxItemsInEachRow = 4
+                        ) {
+                            FarmerShortcut("My Crops", Icons.Default.Spa) { selectedTabIndex = 1 }
+                            FarmerShortcut("Orders", Icons.Default.LocalShipping) { selectedTabIndex = 0 }
+                            FarmerShortcut("Supplies", Icons.Default.Agriculture) { selectedTabIndex = 2 }
+                            FarmerShortcut("Audits", Icons.AutoMirrored.Filled.FactCheck) { showAuditsDialog = true }
+                        }
+                        Surface(shape = KilivanaFarmerShapes.inset,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant) {
+                            FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(Modifier.heightIn(min = KilivanaSpacing.touchTarget), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.AutoMirrored.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.primary)
+                                    Text("${crops.count { it.inspectionStatus == "Pending" }} pending inspection",
+                                        style = MaterialTheme.typography.bodyMedium)
+                                }
+                                TextButton(onClick = { selectedTabIndex = 1; showAuditsDialog = true }) { Text("Review") }
                             }
-                            TextButton(onClick = { selectedTabIndex = 1; showAuditsDialog = true }) { Text("Review") }
                         }
                     }
                 }
-            }
-            item(key = "section_selector") {
-                Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
-                    Text(tabTitles[selectedTabIndex], style = MaterialTheme.typography.titleLarge)
-                    ScrollableTabRow(
-                        selectedTabIndex = selectedTabIndex,
-                        edgePadding = 0.dp,
-                        containerColor = Color.Transparent,
-                        divider = {},
-                        indicator = {}
-                    ) {
-                        tabTitles.forEachIndexed { index, title ->
-                            val selected = selectedTabIndex == index
-                            Tab(selected = selected, onClick = { selectedTabIndex = index },
-                                modifier = Modifier.padding(end = 8.dp).clip(KilivanaFarmerShapes.pill)
-                                    .background(if (selected) ForestGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                                selectedContentColor = Color.White,
-                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                text = { Text(title, style = MaterialTheme.typography.labelLarge) })
+                item(key = "section_selector") {
+                    Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
+                        Text(tabTitles[selectedTabIndex], style = MaterialTheme.typography.titleLarge)
+                        ScrollableTabRow(
+                            selectedTabIndex = selectedTabIndex,
+                            edgePadding = 0.dp,
+                            containerColor = Color.Transparent,
+                            divider = {},
+                            indicator = {}
+                        ) {
+                            tabTitles.forEachIndexed { index, title ->
+                                val selected = selectedTabIndex == index
+                                Tab(selected = selected, onClick = { selectedTabIndex = index },
+                                    modifier = Modifier.padding(end = 8.dp).clip(KilivanaFarmerShapes.pill)
+                                        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant),
+                                    selectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = { Text(title, style = MaterialTheme.typography.labelLarge) })
+                            }
                         }
                     }
                 }
+                when (selectedTabIndex) {
+                    0 -> {
+                        if (orders.isEmpty()) item { KilivanaEmptyState("No incoming orders", "Your incoming orders will appear here.") }
+                        items(orders.filter { it.productName.contains(farmerSearchQuery, true) || it.buyerName.contains(farmerSearchQuery, true) }, key = { "order_${it.id}" }) { order ->
+                            FarmerOrderCard(order, onTrackOrder = { activeTrackingOrder = order })
+                        }
+                    }
+                    1 -> {
+                        if (realProducts != null) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    publishMessage?.let { Text(it) }
+                                    TextButton(onClick = onRefreshProducts, enabled = !productsLoading) { Text(if (productsLoading) "Loading?" else if (productsError != null) "Retry" else "Refresh My Crops") }
+                                    productsError?.let {
+                                        Text(if (realProducts.isNotEmpty()) "Could not refresh My Crops. Your previously loaded crops are still shown. $it" else it,
+                                            color = MaterialTheme.colorScheme.error)
+                                    }
+                                    if (realProducts.isEmpty() && !productsLoading && productsError == null) Text("No published crops yet.")
+                                }
+                            }
+                            val matchingProducts = realProducts.filter { it.name.contains(farmerSearchQuery, true) || it.description.orEmpty().contains(farmerSearchQuery, true) }
+                            if (matchingProducts.isEmpty() && realProducts.isNotEmpty()) item { KilivanaEmptyState("No crops found", "Try a different search.") }
+                            items(matchingProducts, key = { "real_crop_${it.productId}" }) { product ->
+                                Card(onClick = { onOpenCrop(product) }, modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        product.images.firstOrNull()?.let { ProductImage(it.url, product.name) }
+                                        Text(product.name, style = MaterialTheme.typography.titleMedium)
+                                        Text("${product.availableQuantity.toPlainString()} ${product.unit}")
+                                        Text("KES ${product.unitPrice.toPlainString()} / ${product.unit}")
+                                        onResumeExisting?.let { resume -> TextButton(onClick = { resume(product) }) { Text("Use this listing for pending draft") } }
+                                        product.description?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                                    }
+                                }
+                            }
+                        } else {
+                            if (crops.isEmpty()) item { KilivanaEmptyState("No crop listings", "Your crop listings will appear here.") }
+                            items(crops.filter { it.name.contains(farmerSearchQuery, true) }, key = { "crop_${it.id}" }) { crop ->
+                                FarmerCropCard(crop, onViewCrop = { selectedCropForView = crop })
+                            }
+                        }
+                    }
+                    2 -> {
+                        if (supplies.isEmpty()) item { KilivanaEmptyState("No supplies ordered", "Your supply orders will appear here.") }
+                        items(supplies.filter { it.itemName.contains(farmerSearchQuery, true) || it.supplierName.contains(farmerSearchQuery, true) }, key = { "supply_${it.id}" }) { FarmerSupplyCard(it) }
+                    }
+                }
             }
-            when (selectedTabIndex) {
-                0 -> {
-                    if (orders.isEmpty()) item { KilivanaEmptyState("No incoming orders", "Your incoming orders will appear here.") }
-                    items(orders, key = { "order_${it.id}" }) { order ->
-                        FarmerOrderCard(order, onTrackOrder = { activeTrackingOrder = order })
-                    }
-                }
-                1 -> {
-                    if (crops.isEmpty()) item { KilivanaEmptyState("No crop listings", "Your crop listings will appear here.") }
-                    items(crops, key = { "crop_${it.id}" }) { crop ->
-                        FarmerCropCard(crop, onViewCrop = { selectedCropForView = crop })
-                    }
-                }
-                2 -> {
-                    if (supplies.isEmpty()) item { KilivanaEmptyState("No supplies ordered", "Your supply orders will appear here.") }
-                    items(supplies, key = { "supply_${it.id}" }) { FarmerSupplyCard(it) }
-                }
+            if (canPullRefresh) {
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = productsLoading,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding())
+                )
             }
         }
     }
@@ -490,13 +544,14 @@ fun FarmerScreen(
 // Farmer-only presentation. Domain models, status values, and callbacks are unchanged.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
-    Surface(shape = KilivanaFarmerShapes.overview, color = ForestGreen, contentColor = Color.White,
+internal fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
+    Surface(shape = KilivanaFarmerShapes.overview,
+        color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Box {
             // Intentional botanical motif, not a stand-in for a farm photograph or map.
             Icon(Icons.Default.Spa, contentDescription = null,
-                tint = Color.White.copy(alpha = 0.06f),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.06f),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 20.dp).size(168.dp))
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -506,9 +561,9 @@ private fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Rooted in growth.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                     Text("Your produce, orders and supplies.\nTogether in one place.",
-                        style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FarmerOverviewMetric("Crop listings", cropCount, Modifier.weight(1f))
                     FarmerOverviewMetric("Incoming orders", orderCount, Modifier.weight(1f))
                     FarmerOverviewMetric("Supply entries", supplyCount, Modifier.weight(1f))
@@ -521,11 +576,11 @@ private fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FarmerOverviewMetric(label: String, count: Int, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = KilivanaFarmerShapes.inset,
-        color = Color.White.copy(alpha = 0.12f), contentColor = Color.White) {
+    Surface(modifier = modifier.fillMaxHeight().testTag("metric_$label"), shape = KilivanaFarmerShapes.inset,
+        color = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(count.toString(), style = MaterialTheme.typography.headlineSmall)
-            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(label, style = MaterialTheme.typography.labelMedium, minLines = 2)
         }
     }
 }

@@ -30,6 +30,14 @@ object AuthValidation {
         return auth
     }
 
+    /** Transport must provide the current profile contract; disk restoration accepts legacy omissions. */
+    fun validateBackend(auth: AuthResponse?): AuthResponse {
+        val valid = validate(auth)
+        if (valid.username.isNullOrBlank() || valid.region.isNullOrBlank() ||
+            valid.phoneNumber.isNullOrBlank()) throw InvalidAuthResponse()
+        return valid
+    }
+
     fun expiry(auth: AuthResponse): Instant = OffsetDateTime.parse(auth.refreshTokenExpiresAt).toInstant()
     fun canRefresh(auth: AuthResponse, now: Instant = Instant.now()) = expiry(auth).isAfter(now)
 }

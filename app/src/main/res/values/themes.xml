@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.FarmApp" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.FarmApp.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/kilivana_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/kilivana_splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.FarmApp</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 </resources>

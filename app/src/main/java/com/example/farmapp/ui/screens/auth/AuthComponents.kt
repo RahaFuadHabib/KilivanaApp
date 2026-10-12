@@ -35,6 +35,8 @@ import com.example.farmapp.ui.theme.ForestGreen
 import com.example.farmapp.ui.theme.HarvestAmber
 import com.example.farmapp.ui.theme.LeafGreen
 
+internal enum class SignupRole(val label: String) { FARMER("Farmer"), BUYER("Buyer"), SUPPLIER("Supplier"), INSPECTOR("Inspector") }
+
 // Presentation data only: the four pre-existing demo accounts, not routing rules.
 internal enum class DemoAccount(val label: String, val email: String) {
     FARMER("Farmer", "farmer@kilivana.com"),
@@ -184,6 +186,28 @@ internal fun AccountTypeDropdown(selectedAccount: DemoAccount?, onSelect: (DemoA
         )
         ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             DemoAccount.entries.forEach { account ->
+                DropdownMenuItem(text = { Text(account.label) },
+                    onClick = { onSelect(account); expanded = false },
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { selected = account == selectedAccount })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SignupRoleDropdown(selectedAccount: SignupRole?, onSelect: (SignupRole) -> Unit, enabled: Boolean = true) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(
+            value = selectedAccount?.label.orEmpty(), onValueChange = {}, readOnly = true, enabled = enabled,
+            label = { Text("Account type") }, placeholder = { Text("Select account type") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded && enabled) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled).fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp), colors = authFieldColors(), singleLine = true
+        )
+        ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+            SignupRole.entries.forEach { account ->
                 DropdownMenuItem(text = { Text(account.label) },
                     onClick = { onSelect(account); expanded = false },
                     modifier = Modifier.heightIn(min = 48.dp).semantics { selected = account == selectedAccount })

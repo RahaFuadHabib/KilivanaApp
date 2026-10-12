@@ -12,19 +12,46 @@ class AuthContractTest {
 
     @Test fun requestFieldsAndRelativeEndpointsExactlyMatchContract() {
         val login = JsonParser.parseString(gson.toJson(LoginRequest("person@example.test", "secret"))).asJsonObject
-        assertEquals(setOf("email", "password"), login.keySet())
+        assertEquals(setOf("identifier", "password"), login.keySet())
         assertEquals(setOf("refreshToken"), JsonParser.parseString(gson.toJson(RefreshRequest("refresh"))).asJsonObject.keySet())
         assertEquals(setOf("refreshToken"), JsonParser.parseString(gson.toJson(LogoutRequest("refresh"))).asJsonObject.keySet())
-        listOf("login", "refresh", "logout").forEach { name ->
+        listOf("login", "refresh", "logout", "signup").forEach { name ->
             val method = ApiService::class.java.methods.single { it.name == name }
             assertEquals("auth/$name", method.getAnnotation(POST::class.java)!!.value)
         }
     }
 
-    @Test fun responseRoundTripPreservesAllSevenFields() {
-        val auth = testAuth()
+    @Test fun phoneAndEmailUseIdentifierWithoutLegacyEmailKey() {
+        for (identifier in listOf("person@example.test", "0712345678", "+254712345678")) {
+            val json = JsonParser.parseString(gson.toJson(LoginRequest(identifier, " secret "))).asJsonObject
+            assertEquals(setOf("identifier", "password"), json.keySet())
+            assertEquals(identifier, json["identifier"].asString)
+            assertEquals(" secret ", json["password"].asString)
+        }
+    }
+
+    @Test fun legacyProfileOmissionsAreAcceptedOnlyForRestoration() {
+        val json = JsonParser.parseString(gson.toJson(testAuth())).asJsonObject
+        listOf("username", "region", "phoneNumber", "verificationStatus").forEach { json.remove(it) }
+        val legacy = gson.fromJson(json, AuthResponse::class.java)
+        assertEquals(legacy, AuthValidation.validate(legacy))
+        assertNull(legacy.username)
+        assertNull(legacy.region)
+        assertNull(legacy.phoneNumber)
+        assertNull(legacy.verificationStatus)
+        try { AuthValidation.validateBackend(legacy); fail() } catch (_: InvalidAuthResponse) { }
+        for (field in listOf("username", "region", "phoneNumber")) {
+            val incomplete = JsonParser.parseString(gson.toJson(testAuth())).asJsonObject
+            incomplete.remove(field)
+            try { AuthValidation.validateBackend(gson.fromJson(incomplete, AuthResponse::class.java)); fail(field) }
+            catch (_: InvalidAuthResponse) { }
+        }
+    }
+
+    @Test fun responseRoundTripPreservesAllElevenFields() {
+        val auth = testAuth().copy(verificationStatus = "PENDING")
         val json = gson.toJson(auth)
-        assertEquals(setOf("userId", "email", "fullName", "role", "accessToken", "refreshToken", "refreshTokenExpiresAt"),
+        assertEquals(setOf("userId", "email", "username", "region", "phoneNumber", "fullName", "role", "verificationStatus", "accessToken", "refreshToken", "refreshTokenExpiresAt"),
             JsonParser.parseString(json).asJsonObject.keySet())
         assertEquals(auth, AuthValidation.validate(gson.fromJson(json, AuthResponse::class.java)))
     }

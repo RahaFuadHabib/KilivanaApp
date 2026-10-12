@@ -20,6 +20,10 @@ import java.time.Instant
 class AuthFlowIntegrationTest {
     @get:Rule val compose = createComposeRule()
     private val viewModels = ViewModelStore()
+    private lateinit var vm: AuthViewModel
+    private var signupCalls = 0
+    private var receivedSignup: SignupRequest? = null
+    private var signupGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
     private val sessions = SessionState()
     private var stored: AuthResponse? = null
     private var receivedLogin: LoginRequest? = null
@@ -30,12 +34,20 @@ class AuthFlowIntegrationTest {
         override fun clear() { stored = null }
     }
     private val service = object : ApiService {
+        override suspend fun signup(request: SignupRequest): Response<AuthResponse> {
+            signupCalls++
+            receivedSignup = request
+            signupGate?.await()
+            return Response.success(AuthResponse(
+            "eb1f7b4e-8392-4bf4-8cdc-f96083411000", request.email, request.fullName, request.role,
+            "access", "refresh", Instant.now().plusSeconds(86400).toString(), "PENDING", request.username, request.region, "+254700000000"))
+        }
         override suspend fun login(request: LoginRequest): Response<AuthResponse> {
             receivedLogin = request
             if (request.password != "valid-test-password") return Response.error(401, "{}".toResponseBody())
             return Response.success(AuthResponse(
-                "eb1f7b4e-8392-4bf4-8cdc-f96083411000", request.email, "Test Person", "ADMIN",
-                "test-access", "test-refresh", Instant.now().plusSeconds(86400).toString()
+                "eb1f7b4e-8392-4bf4-8cdc-f96083411000", "test@example.test", "Test Person", "ADMIN",
+                "test-access", "test-refresh", Instant.now().plusSeconds(86400).toString(), "VERIFIED", "test_person", "Nairobi", "+254700000000"
             ))
         }
         override suspend fun refresh(request: RefreshRequest): Response<AuthResponse> =
@@ -47,7 +59,6 @@ class AuthFlowIntegrationTest {
     }
 
     @Before fun setup() {
-        lateinit var vm: AuthViewModel
         compose.runOnUiThread {
             vm = AuthViewModel(AuthRepository(service, sessions)) { persistence }
             viewModels.put("auth-test", vm)
@@ -62,11 +73,56 @@ class AuthFlowIntegrationTest {
         compose.onNodeWithText("Get Started").performClick()
         compose.onNode(hasText("Sign In") and hasClickAction()).performClick()
         compose.onNodeWithText("Account type").assertDoesNotExist()
+        compose.onNodeWithText("Username").assertDoesNotExist()
+    }
+
+    @Test fun signupIgnoresDuplicateSubmissionsWhileLoading() {
+        signupGate = kotlinx.coroutines.CompletableDeferred()
+        val request = SignupRequest("inspector@example.test", "password", "Inspector", "123", "INSPECTOR", username = "inspector", region = "Nairobi", employeeCode = "EMP")
+        compose.runOnUiThread {
+            vm.signup(request)
+            vm.signup(request)
+        }
+        compose.waitUntil(5000) { vm.uiState.value.isLoading }
+        compose.runOnIdle { signupGate!!.complete(Unit) }
+        compose.waitUntil(5000) { sessions.session.value.auth != null && !vm.uiState.value.isLoading }
+        assertEquals(1, signupCalls)
+    }
+
+    @Test fun inspectorSignupWaitsAndAuthoritativeSessionUpdateUnlocksDashboard() {
+        compose.onNodeWithText("Get Started").performClick()
+        compose.onNode(hasText("Sign Up") and hasClickAction()).performClick()
+        compose.onNodeWithText("Account type").performClick()
+        compose.onNodeWithText("Inspector").performClick()
+        compose.onNodeWithText("Full name").performScrollTo().performTextInput("Test Inspector")
+        compose.onNodeWithText("Email").performScrollTo().performTextInput("inspector@example.test")
+        compose.onNodeWithText("Phone number").performScrollTo().performTextInput("0700000000")
+        compose.onNodeWithText("Username").performScrollTo().performTextInput(" TEST_INSPECTOR ")
+        compose.onNodeWithText("Region").performScrollTo().performTextInput(" Nairobi ")
+        compose.onNodeWithText("Farm location").assertDoesNotExist()
+        compose.onNodeWithText("Employee code").performScrollTo().performTextInput("EMP-123")
+        compose.onNodeWithText("Next").performScrollTo().performClick()
+        compose.onNodeWithText("Password").performTextInput("valid-test-password")
+        compose.onNodeWithText("Create Account").performScrollTo().performClick()
+        compose.waitUntil(5000) { sessions.session.value.auth != null }
+        compose.onNodeWithText("Inspector verification pending").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Inspector Avatar").assertDoesNotExist()
+        assertEquals("PENDING", stored!!.verificationStatus)
+        assertEquals("test_inspector", receivedSignup!!.username)
+        assertEquals("Nairobi", receivedSignup!!.region)
+        assertNull(receivedSignup!!.farmName)
+        compose.runOnUiThread {
+            val current = sessions.session.value
+            sessions.rotate(current, current.auth!!.copy(verificationStatus = "VERIFIED"))
+        }
+        compose.onNodeWithText("Inspector verification pending").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Inspector Avatar").assertExists()
+        assertEquals("VERIFIED", stored!!.verificationStatus)
     }
 
     @Test fun realModeLoginUsesServerRoleAndUnsupportedRoleCanLogout() {
         openSignIn()
-        compose.onNodeWithText("Email").performTextInput("test@example.test")
+        compose.onNodeWithText("Email or phone number").performTextInput("test@example.test")
         compose.onNodeWithText("Password").performTextInput("valid-test-password")
         compose.onNodeWithContentDescription("Show password").performClick()
         compose.onNodeWithContentDescription("Hide password").assertExists()
@@ -78,20 +134,33 @@ class AuthFlowIntegrationTest {
         assertEquals("ADMIN", stored!!.role)
         compose.onNodeWithContentDescription("Log Out").performClick()
         compose.waitUntil(5000) { sessions.session.value.auth == null }
-        compose.onNodeWithText("Get Started").assertIsDisplayed()
+        compose.onNodeWithText("Get Started").assertDoesNotExist()
+        compose.onNodeWithText("Email or phone number").assertIsDisplayed()
+        compose.onNodeWithText("Password").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Log Out").assertDoesNotExist()
         assertEquals("test-refresh", receivedLogout!!.refreshToken)
+        assertNull(stored)
+    }
+
+    @Test fun phoneLoginUsesIdentifierAndPreservesPasswordWhitespace() {
+        openSignIn()
+        compose.onNodeWithText("Email or phone number").performTextInput(" 0712345678 ")
+        compose.onNodeWithText("Password").performTextInput(" wrong ")
+        compose.onNode(hasText("Sign In") and hasClickAction()).performScrollTo().performClick()
+        compose.waitUntil(5000) { receivedLogin != null && !vm.uiState.value.isLoading }
+        assertEquals(LoginRequest("0712345678", " wrong "), receivedLogin)
         assertNull(stored)
     }
 
     @Test fun invalidCredentialsKeepTheFormAndDisplayError() {
         openSignIn()
-        compose.onNodeWithText("Email").performTextInput("test@example.test")
+        compose.onNodeWithText("Email or phone number").performTextInput("test@example.test")
         compose.onNodeWithText("Password").performTextInput("wrong")
         compose.onNode(hasText("Sign In") and hasClickAction()).performScrollTo().performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("Invalid email or password.").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Invalid email or phone number, or password.").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Invalid email or password.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Invalid email or phone number, or password.").performScrollTo().assertIsDisplayed()
         assertNull(sessions.session.value.auth)
         assertNull(stored)
     }

@@ -35,15 +35,16 @@ class AuthNetworkTest {
             requests.add(request to body)
             response(request, 200, if (request.url.encodedPath.endsWith("logout")) "" else Gson().toJson(testAuth()))
         }
+        assertTrue(api.signup(SignupValidation.prepare(signupInput())).isSuccessful)
         assertTrue(api.login(LoginRequest("person@example.test", "password")).isSuccessful)
         assertTrue(api.refresh(RefreshRequest("refresh-token")).isSuccessful)
         assertTrue(api.logout(LogoutRequest("refresh-token")).isSuccessful)
-        assertEquals(listOf("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"),
+        assertEquals(listOf("/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"),
             requests.map { it.first.url.encodedPath })
         assertTrue(requests.all { it.first.header("Authorization") == null })
-        assertEquals(setOf("email", "password"), JsonParser.parseString(requests[0].second).asJsonObject.keySet())
-        assertEquals("refresh-token", JsonParser.parseString(requests[1].second).asJsonObject["refreshToken"].asString)
-        assertEquals(setOf("refreshToken"), JsonParser.parseString(requests[2].second).asJsonObject.keySet())
+        assertEquals(setOf("identifier", "password"), JsonParser.parseString(requests[1].second).asJsonObject.keySet())
+        assertEquals("refresh-token", JsonParser.parseString(requests[2].second).asJsonObject["refreshToken"].asString)
+        assertEquals(setOf("refreshToken"), JsonParser.parseString(requests[3].second).asJsonObject.keySet())
     }
 
     @Test fun unauthorizedApiRequestRefreshesAndRetriesOnceWithRotatedToken() {

@@ -18,7 +18,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"https://march-cacti-flashcard.ngrok-free.dev/api/v1/\""
+            "\"http://10.20.33.108:8080/api/v1/\""
         )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -53,9 +53,17 @@ android {
     }
 }
 
+// Preserve old demo sources on disk, but ship offline demo code only in the Review project.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    exclude("**/com/example/farmapp/demo/**", "**/DemoFarmerShell.kt", "**/DemoModePresentationTest.kt")
+}
+
 dependencies {
+    implementation(libs.mapbox.maps)
+    implementation(libs.mapbox.compose)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

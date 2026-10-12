@@ -12,12 +12,12 @@ import com.example.farmapp.ui.components.KilivanaErrorMessage
 
 @Composable
 internal fun SignInScreen(
-    email: String,
+    identifier: String,
     password: String,
     errorMessage: String?,
     isLoading: Boolean,
     demoMode: Boolean,
-    onEmailChange: (String) -> Unit,
+    onIdentifierChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onAccountSelected: (DemoAccount) -> Unit,
     onSignIn: () -> Unit,
@@ -33,12 +33,12 @@ internal fun SignInScreen(
         Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
             AuthHeading("Welcome back.", "Sign in to your Kilivana account.")
             if (demoMode) {
-                AccountTypeDropdown(DemoAccount.forEmail(email), onAccountSelected, enabled = !isLoading)
+                AccountTypeDropdown(DemoAccount.forEmail(identifier), onAccountSelected, enabled = !isLoading)
                 Text("Offline demo: choose an account type to fill demo credentials.",
                     Modifier.padding(top = 8.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AuthField(email, onEmailChange, "Email", KeyboardType.Email, enabled = !isLoading)
+            AuthField(identifier, onIdentifierChange, "Email or phone number", KeyboardType.Text, enabled = !isLoading)
             Spacer(Modifier.height(12.dp))
             AuthField(password, onPasswordChange, "Password", isPassword = true, enabled = !isLoading,
                 imeAction = ImeAction.Done, onDone = onSignIn)

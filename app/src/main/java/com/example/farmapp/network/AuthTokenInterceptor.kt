@@ -37,7 +37,7 @@ class RefreshCoordinator(
             try {
                 val response = service.refresh(RefreshRequest(auth.refreshToken))
                 if (response.isSuccessful) {
-                    val updated = AuthValidation.validate(response.body())
+                    val updated = AuthValidation.validateBackend(response.body())
                     if (!AuthValidation.canRefresh(updated)) throw InvalidAuthResponse()
                     val rotated = sessions.rotate(current, updated)
                     failedSnapshot = null

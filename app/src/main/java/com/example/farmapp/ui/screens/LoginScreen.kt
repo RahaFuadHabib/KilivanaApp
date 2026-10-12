@@ -9,17 +9,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.farmapp.ui.screens.auth.*
 import com.example.farmapp.viewmodel.AuthViewModel
 
-private enum class AuthStep { START, WELCOME, SIGN_IN, SIGN_UP, RECOVERY }
+internal enum class AuthStep { START, WELCOME, SIGN_IN, SIGN_UP, RECOVERY }
+
+internal fun initialAuthStep(afterExplicitLogout: Boolean): AuthStep =
+    if (afterExplicitLogout) AuthStep.SIGN_IN else AuthStep.START
 
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    afterExplicitLogout: Boolean = false
 ) {
-    var step by rememberSaveable { mutableStateOf(AuthStep.START) }
-    var email by rememberSaveable { mutableStateOf("") }
+    var step by rememberSaveable { mutableStateOf(initialAuthStep(afterExplicitLogout)) }
+    var identifier by rememberSaveable { mutableStateOf("") }
     // Passwords remain local and are never put in saved instance state or session persistence.
     var password by remember { mutableStateOf("") }
     val state by authViewModel.uiState.collectAsStateWithLifecycle()
@@ -47,21 +51,23 @@ fun LoginScreen(
                 onSignIn = { navigate(AuthStep.SIGN_IN) }, modifier = modifier
             )
             AuthStep.SIGN_IN -> SignInScreen(
-                email = email, password = password, errorMessage = state.errorMessage,
+                identifier = identifier, password = password, errorMessage = state.errorMessage,
                 isLoading = state.isLoading, demoMode = authViewModel.demoMode,
-                onEmailChange = { email = it; authViewModel.clearError() },
+                onIdentifierChange = { identifier = it; authViewModel.clearError() },
                 onPasswordChange = { password = it; authViewModel.clearError() },
                 onAccountSelected = {
-                    email = it.email
+                    identifier = it.email
                     password = it.password
                     authViewModel.clearError()
                 },
-                onSignIn = { focus.clearFocus(); authViewModel.login(email, password) },
+                onSignIn = { focus.clearFocus(); authViewModel.login(identifier, password) },
                 onBack = back, onSignUp = { navigate(AuthStep.SIGN_UP) },
                 onForgotPassword = { navigate(AuthStep.RECOVERY) },
                 isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme, modifier = modifier
             )
             AuthStep.SIGN_UP -> SignUpScreen(
+                onSignup = authViewModel::signup, onClearError = authViewModel::clearError,
+                isLoading = state.isLoading, errorMessage = state.errorMessage, demoMode = authViewModel.demoMode,
                 onBack = back, onSignIn = { navigate(AuthStep.SIGN_IN) },
                 isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme, modifier = modifier
             )

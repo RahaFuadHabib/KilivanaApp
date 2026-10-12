@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import com.example.farmapp.network.AuthValidation
 import com.example.farmapp.viewmodel.AuthViewModel
 import com.example.farmapp.ui.components.ProfileModal
+import com.example.farmapp.ui.screens.auth.AwaitingVerificationScreen
 import com.example.farmapp.ui.screens.BuyerScreen
-import com.example.farmapp.ui.screens.FarmerScreen
+import com.example.farmapp.ui.screens.FarmerShell
+import androidx.compose.runtime.key
 import com.example.farmapp.ui.screens.InspectorScreen
 import com.example.farmapp.ui.screens.LoginScreen
 import com.example.farmapp.ui.screens.SupplierScreen
@@ -53,6 +55,16 @@ fun AppNavigation(
     val authState by authViewModel.uiState.collectAsStateWithLifecycle()
     val currentUserAuth = session.auth
 
+    // Navigation preference only: authentication remains entirely session-driven.
+    // Set by an explicit logout action, never by initial restoration or session expiry.
+    var openSignInAfterLogout by rememberSaveable { mutableStateOf(false) }
+    val logout: () -> Unit = {
+        if (currentUserAuth != null && !authState.isLoading) {
+            openSignInAfterLogout = true
+            authViewModel.logout()
+        }
+    }
+
     // Modal state for role profile governance
     var showProfileModal by rememberSaveable(session.generation) { mutableStateOf(false) }
 
@@ -64,10 +76,19 @@ fun AppNavigation(
         } else if (currentUserAuth == null) {
             LoginScreen(
                 authViewModel = authViewModel,
+                afterExplicitLogout = openSignInAfterLogout,
                 isDarkTheme = isDarkTheme,
                 onToggleTheme = { isDarkTheme = !isDarkTheme },
                 modifier = modifier
             )
+        } else if (authDestination(currentUserAuth) == AuthDestination.FARMER) {
+            // Reset only UI navigation on a new session; refresh keeps the same generation.
+            key(session.generation) {
+                FarmerShell(auth = currentUserAuth, isLoading = authState.isLoading,
+                    errorMessage = authState.errorMessage, onLogout = logout,
+                    isDarkTheme = isDarkTheme, onToggleTheme = { isDarkTheme = !isDarkTheme },
+                    modifier = modifier)
+            }
         } else {
             val currentRole = currentUserAuth.role
 
@@ -103,7 +124,7 @@ fun AppNavigation(
                                 )
                             }
                             // Logout
-                            IconButton(onClick = authViewModel::logout, enabled = !authState.isLoading) {
+                            IconButton(onClick = logout, enabled = !authState.isLoading) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                                     contentDescription = "Log Out",
@@ -120,11 +141,11 @@ fun AppNavigation(
                 }
             ) { innerPadding ->
                 val screenModifier = Modifier.padding(innerPadding)
-                when (currentRole) {
-                    "FARMER" -> FarmerScreen(modifier = screenModifier)
-                    "BUYER" -> BuyerScreen(modifier = screenModifier)
-                    "SUPPLIER" -> SupplierScreen(modifier = screenModifier)
-                    "INSPECTOR" -> InspectorScreen(modifier = screenModifier)
+                when (authDestination(currentUserAuth)) {
+                    AuthDestination.BUYER -> BuyerScreen(modifier = screenModifier)
+                    AuthDestination.SUPPLIER -> SupplierScreen(modifier = screenModifier)
+                    AuthDestination.INSPECTOR -> InspectorScreen(modifier = screenModifier)
+                    AuthDestination.AWAITING_VERIFICATION -> AwaitingVerificationScreen(logout, authState.isLoading, screenModifier)
                     else -> Box(screenModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "This account type is not supported in the Android app yet. Please sign out to use another account.",
@@ -138,8 +159,8 @@ fun AppNavigation(
                 ProfileModal(
                     userRole = currentUserAuth.role,
                     userName = currentUserAuth.fullName,
-                    // The auth contract does not contain a phone number; do not invent one.
-                    userPhone = "Not provided by sign-in",
+                    // Older encrypted sessions may lack a phone until the next successful refresh.
+                    userPhone = currentUserAuth.phoneNumber ?: "Not provided",
                     onDismiss = { showProfileModal = false }
                 )
             }

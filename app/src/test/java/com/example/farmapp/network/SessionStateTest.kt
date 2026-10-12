@@ -27,6 +27,17 @@ class SessionStateTest {
         assertNull(store.rotate(before, testAuth("stale-access")))
     }
 
+    @Test fun legacySessionRestoresAndRefreshAtomicallyAddsAuthoritativeProfile() {
+        val legacy = testAuth().copy(username = null, region = null, phoneNumber = null, verificationStatus = null)
+        val disk = MemoryPersistence(legacy)
+        val store = SessionState().apply { initialize(disk) }
+        assertEquals(legacy, store.session.value.auth)
+        val updated = testAuth("new-access", "new-refresh").copy(username = "authoritative", region = "Kiambu", phoneNumber = "+254712345678")
+        assertNotNull(store.rotate(store.session.value, updated))
+        assertEquals(updated, store.session.value.auth)
+        assertEquals(updated, SessionState().apply { initialize(disk) }.session.value.auth)
+    }
+
     @Test fun logoutBlocksLateRefreshAndLoginCompletion() {
         val store = signedInStore()
         val before = store.session.value

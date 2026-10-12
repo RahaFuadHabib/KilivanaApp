@@ -1,6 +1,7 @@
 package com.example.farmapp.viewmodel
 
 import android.content.Context
+import com.example.farmapp.data.model.SignupRequest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -56,13 +57,13 @@ class AuthViewModel(
 
     fun clearError() { state.update { it.copy(errorMessage = null) } }
 
-    fun login(email: String, password: String) {
+    fun login(identifier: String, password: String) {
         if (state.value.isInitializing || state.value.isLoading) return
         state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             try {
                 restore()
-                repository.login(email, password)
+                repository.login(identifier, password)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AuthFailure) {
@@ -70,6 +71,26 @@ class AuthViewModel(
             } catch (_: Exception) {
                 // Never surface exception bodies or URLs which could contain sensitive server data.
                 state.update { it.copy(errorMessage = "Unable to sign in. Check your connection and try again.") }
+            } finally {
+                state.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    fun signup(request: SignupRequest) {
+        if (state.value.isInitializing || state.value.isLoading) return
+        state.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            try {
+                restore()
+                repository.signup(request)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: AuthFailure) {
+                state.update { it.copy(errorMessage = e.message) }
+            } catch (_: Exception) {
+                // Never surface exception bodies or URLs which could contain sensitive server data.
+                state.update { it.copy(errorMessage = "Unable to create your account. Check your connection and try again.") }
             } finally {
                 state.update { it.copy(isLoading = false) }
             }

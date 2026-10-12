@@ -115,6 +115,18 @@ class RefreshCoordinatorTest {
         assertNull(store.session.value.auth)
     }
 
+    @Test fun refreshUpgradesLegacyProfileThroughNormalSessionReplacement() = runBlocking {
+        val legacy = testAuth().copy(username = null, region = null, phoneNumber = null, verificationStatus = null)
+        val disk = MemoryPersistence(legacy)
+        val store = SessionState().apply { initialize(disk) }
+        val expected = testAuth("new-access", "new-refresh").copy(username = "updated", region = "Kiambu", phoneNumber = "+254712345678")
+        val coordinator = RefreshCoordinator(object : StubAuthService() {
+            override suspend fun refresh(request: RefreshRequest) = Response.success(expected)
+        }, store)
+        assertEquals(expected, coordinator.refresh(store.session.value)!!.auth)
+        assertEquals(expected, disk.saved)
+    }
+
     @Test fun cancellationIsRethrown() = runBlocking {
         val store = signedInStore()
         val coordinator = RefreshCoordinator(object : StubAuthService() {

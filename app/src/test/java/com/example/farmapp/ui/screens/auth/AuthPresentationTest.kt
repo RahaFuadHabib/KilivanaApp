@@ -11,10 +11,12 @@ class AuthPresentationTest {
     fun everyDropdownAccountStillAuthenticatesWithItsOriginalRole() = runBlocking {
         val expected = listOf("FARMER", "BUYER", "SUPPLIER", "INSPECTOR")
         assertEquals(expected, DemoAccount.entries.map { it.name })
+        assertEquals(expected, SignupRole.entries.map { it.name })
         DemoAccount.entries.forEach { account ->
             val response = MockAuthService().login(LoginRequest(account.email, account.password))
             assertTrue(response.isSuccessful)
             assertEquals(account.name, response.body()!!.role)
+            com.example.farmapp.network.AuthValidation.validateBackend(response.body())
         }
     }
 

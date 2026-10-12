@@ -1,5 +1,6 @@
 package com.example.farmapp.network
 
+import com.example.farmapp.data.model.SignupRequest
 import com.example.farmapp.data.model.AuthResponse
 import com.example.farmapp.data.model.LoginRequest
 import com.example.farmapp.data.model.RefreshRequest
@@ -12,6 +13,9 @@ import retrofit2.http.POST
 import java.time.Instant
 
 interface ApiService {
+    @POST("auth/signup")
+    suspend fun signup(@Body request: SignupRequest): Response<AuthResponse>
+
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
@@ -24,6 +28,10 @@ interface ApiService {
 
 /** Explicit offline/demo service only. No production fallback, and no signup simulation. */
 class MockAuthService : ApiService {
+    override suspend fun signup(request: SignupRequest): Response<AuthResponse> = Response.error(
+        503, "{}".toResponseBody("application/json".toMediaType())
+    )
+
     private val accounts = listOf(
         Triple("farmer@kilivana.com", "FARMER", "David Karanja"),
         Triple("buyer@kilivana.com", "BUYER", "Sarah Ochieng"),
@@ -32,12 +40,12 @@ class MockAuthService : ApiService {
     )
 
     override suspend fun login(request: LoginRequest): Response<AuthResponse> {
-        val index = accounts.indexOfFirst { it.first == request.email.trim().lowercase() }
+        val index = accounts.indexOfFirst { it.first == request.identifier.trim().lowercase() }
         if (index < 0 || request.password.trim() != "1234") return rejected()
         val (email, role, name) = accounts[index]
         return Response.success(AuthResponse(
             userId = "00000000-0000-4000-8000-00000000000${index + 1}",
-            email = email, fullName = name, role = role,
+            email = email, username = role.lowercase(), region = "Nairobi", phoneNumber = "+25470000000${index + 1}", fullName = name, role = role, verificationStatus = "VERIFIED",
             accessToken = "mock-${role.lowercase()}-access",
             refreshToken = "mock-${role.lowercase()}-refresh",
             refreshTokenExpiresAt = Instant.now().plusSeconds(14 * 24 * 60 * 60).toString()

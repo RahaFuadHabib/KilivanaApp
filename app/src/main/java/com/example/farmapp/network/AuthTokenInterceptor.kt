@@ -87,6 +87,7 @@ class AuthTokenInterceptor(
         val snapshot = sessions.session.value
         request.tag(SessionSnapshot::class.java)?.let { expected ->
             if (expected.generation != snapshot.generation || expected.auth?.userId != snapshot.auth?.userId ||
+                expected.auth?.role != snapshot.auth?.role || expected.auth?.backendContract != snapshot.auth?.backendContract ||
                 snapshot.loggingOut || expected.auth?.sessionOrigin != snapshot.auth?.sessionOrigin) {
                 throw IOException("The request session changed.")
             }

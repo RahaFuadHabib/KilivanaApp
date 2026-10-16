@@ -48,6 +48,9 @@ object ApiClient {
     val inspectorApi: com.example.farmapp.inspector.InspectorApi by lazy {
         retrofit(authenticatedClient).create(com.example.farmapp.inspector.InspectorApi::class.java)
     }
+    val supplierApi: com.example.farmapp.supplier.SupplierApi by lazy {
+        retrofit(authenticatedClient).create(com.example.farmapp.supplier.SupplierApi::class.java)
+    }
 
     /** Image transport attaches credentials only to same-origin image delivery routes. */
     fun imageUrl(url: String): HttpUrl {

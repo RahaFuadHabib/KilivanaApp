@@ -46,7 +46,7 @@ internal fun SignUpScreen(
     }
     BackHandler(onBack = back)
     val submit: () -> Unit = {
-        if (!isLoading && !demoMode) {
+        if (!isLoading && !demoMode && account != SignupRole.SUPPLIER) {
             focus.clearFocus()
             onSignup(SignupRequest(email = email, password = password, fullName = name,
                 phoneNumber = phone, role = account?.name.orEmpty(), username = username, region = region,
@@ -72,7 +72,7 @@ internal fun SignUpScreen(
                 AuthField(region, { region = it; onClearError() }, "Region", enabled = !isLoading)
                 Spacer(Modifier.height(12.dp))
                 when (account) {
-                    SignupRole.SUPPLIER -> AuthField(businessName, { businessName = it; onClearError() }, "Business name", enabled = !isLoading)
+                    SignupRole.SUPPLIER -> AuthNotice("Supplier accounts are provisioned by the administrator. Sign in using the credentials provided to you.")
                     SignupRole.INSPECTOR -> AuthField(employeeCode, { employeeCode = it; onClearError() }, "Employee code", enabled = !isLoading)
                     else -> Unit
                 }
@@ -87,7 +87,7 @@ internal fun SignUpScreen(
         Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AuthPrimaryButton(if (passwordStep) "Create Account" else "Next",
                 if (passwordStep) submit else ({ focus.clearFocus(); passwordStep = true }),
-                enabled = !isLoading && !demoMode, loading = isLoading)
+                enabled = !isLoading && !demoMode && account != SignupRole.SUPPLIER, loading = isLoading)
             TextButton(onSignIn, enabled = !isLoading, modifier = Modifier.padding(top = 8.dp)) {
                 Text("Already have an account? Sign In")
             }

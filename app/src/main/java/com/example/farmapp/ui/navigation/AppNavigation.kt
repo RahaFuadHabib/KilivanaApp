@@ -37,7 +37,6 @@ import com.example.farmapp.ui.screens.BuyerScreen
 import com.example.farmapp.ui.screens.FarmerShell
 import androidx.compose.runtime.key
 import com.example.farmapp.ui.screens.LoginScreen
-import com.example.farmapp.ui.screens.SupplierScreen
 import com.example.farmapp.ui.theme.FarmAppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,6 +90,11 @@ fun AppNavigation(
         } else if (authDestination(currentUserAuth) == AuthDestination.INSPECTOR) {
             key(session.generation) {
                 com.example.farmapp.inspector.InspectorShell(session, logout, isDarkTheme,
+                    { isDarkTheme = !isDarkTheme }, authState.isLoading, modifier)
+            }
+        } else if (authDestination(currentUserAuth) == AuthDestination.SUPPLIER) {
+            key(session.generation) {
+                com.example.farmapp.supplier.SupplierShell(session, logout, isDarkTheme,
                     { isDarkTheme = !isDarkTheme }, authState.isLoading, modifier)
             }
         } else {
@@ -147,7 +151,6 @@ fun AppNavigation(
                 val screenModifier = Modifier.padding(innerPadding)
                 when (authDestination(currentUserAuth)) {
                     AuthDestination.BUYER -> BuyerScreen(modifier = screenModifier)
-                    AuthDestination.SUPPLIER -> SupplierScreen(modifier = screenModifier)
                     AuthDestination.AWAITING_VERIFICATION -> AwaitingVerificationScreen(logout, authState.isLoading, screenModifier)
                     else -> Box(screenModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(

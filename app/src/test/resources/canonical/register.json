@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+  "id": 9007199254740993,
+  "name": "Fixture Farmer",
+  "email": "farmer@example.test",
+  "phone": "+254700000001",
+  "username": null,
+  "referenceCode": "F-014",
+  "region": "Kiambu",
+  "role": "FARMER",
+  "status": "ACTIVE",
+  "verificationStatus": "NOT_REQUIRED",
+  "createdAt": "2026-10-13T10:20:30.123"
+},
+  "timestamp": "2026-10-13T10:20:31",
+  "error": null
+}

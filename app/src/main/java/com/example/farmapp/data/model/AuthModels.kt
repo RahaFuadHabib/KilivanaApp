@@ -31,7 +31,10 @@ data class AuthResponse(
     // Fresh transport responses are checked by AuthValidation.validateBackend.
     @SerializedName("username") val username: String? = null,
     @SerializedName("region") val region: String? = null,
-    @SerializedName("phoneNumber") val phoneNumber: String? = null
+    @SerializedName("phoneNumber") val phoneNumber: String? = null,
+    @SerializedName("backendContract") val backendContract: String? = null,
+    @SerializedName("sessionOrigin") val sessionOrigin: String? = null,
+    @SerializedName("accessTokenExpiresAt") val accessTokenExpiresAt: String? = null
 ) {
     override fun toString() = "AuthResponse(redacted)"
 }

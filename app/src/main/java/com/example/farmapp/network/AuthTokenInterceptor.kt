@@ -73,23 +73,31 @@ class RefreshCoordinator(
 class AuthTokenInterceptor(
     private val baseUrl: HttpUrl,
     private val sessions: SessionStore,
-    private val refresh: RefreshCoordinator
+    private val refresh: RefreshCoordinator,
+    private val requestScope: ((HttpUrl) -> Boolean)? = null
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val url = request.url
-        val belongsToApi = url.scheme == baseUrl.scheme && url.host == baseUrl.host &&
-            url.port == baseUrl.port && url.encodedPath.startsWith(baseUrl.encodedPath)
-        if (!belongsToApi || url.encodedPath.startsWith(baseUrl.encodedPath + "auth/")) {
+        val belongsToApi = requestScope?.invoke(url) ?: (url.scheme == baseUrl.scheme && url.host == baseUrl.host &&
+            url.port == baseUrl.port && url.encodedPath.startsWith(baseUrl.encodedPath))
+        if (!belongsToApi || (url.encodedPath.startsWith(baseUrl.encodedPath + "auth/") && url.encodedPath != baseUrl.encodedPath + "auth/me")) {
             return chain.proceed(request)
         }
         val snapshot = sessions.session.value
+        request.tag(SessionSnapshot::class.java)?.let { expected ->
+            if (expected.generation != snapshot.generation || expected.auth?.userId != snapshot.auth?.userId ||
+                snapshot.loggingOut || expected.auth?.sessionOrigin != snapshot.auth?.sessionOrigin) {
+                throw IOException("The request session changed.")
+            }
+        }
         if (snapshot.isDemo) throw IOException("Offline demo mode does not call the backend.")
         if (snapshot.loggingOut) throw IOException("Sign-out is in progress.")
         val auth = snapshot.auth ?: return chain.proceed(request)
         val authenticated = request.newBuilder().header("Authorization", "Bearer ${auth.accessToken}").build()
         val response = chain.proceed(authenticated)
-        if (response.code != 401 || request.body?.isOneShot() == true ||
+        if ((auth.backendContract == "canonical" && request.method !in setOf("GET", "HEAD")) ||
+            response.code != 401 || request.body?.isOneShot() == true ||
             request.body?.isDuplex() == true || chain.call().isCanceled()) return response
 
         val updated = try {

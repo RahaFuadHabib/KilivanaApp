@@ -1,8 +1,22 @@
+import java.net.URI
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val canonicalBaseUrl = providers.gradleProperty("kilivana.apiBaseUrl").getOrElse("http://127.0.0.1:8081/api/v1/")
+val apiUri = runCatching { URI(canonicalBaseUrl) }.getOrNull()
+require(apiUri != null && apiUri.host != null && apiUri.rawPath == "/api/v1/" &&
+    apiUri.rawUserInfo == null && apiUri.rawQuery == null && apiUri.rawFragment == null &&
+    (apiUri.scheme == "https" || (apiUri.scheme == "http" && apiUri.host in setOf("127.0.0.1", "localhost", "10.0.2.2")))) {
+    "API base URL must be HTTPS (or HTTP loopback for local development), ending in /api/v1/ without credentials, query or fragment"
+}
+val isolateDevelopmentBackend = providers.gradleProperty("kilivana.isolateDevelopmentBackend").orNull == "true"
+val backendInstallKey = MessageDigest.getInstance("SHA-256")
+    .digest(canonicalBaseUrl.toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
 
 android {
     namespace = "com.example.farmapp"
@@ -18,9 +32,10 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"http://10.20.33.108:8080/api/v1/\""
+            "\"$canonicalBaseUrl\""
         )
 
+        buildConfigField("boolean", "USE_CANONICAL_BACKEND", (providers.gradleProperty("kilivana.canonicalBackend").orNull != "false").toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -30,6 +45,8 @@ android {
             val mockAuth = providers.gradleProperty("kilivana.mockAuth").orNull == "true"
             buildConfigField("boolean", "USE_MOCK_AUTH", mockAuth.toString())
             if (mockAuth) applicationIdSuffix = ".demo"
+            else if (isolateDevelopmentBackend) applicationIdSuffix = ".dev$backendInstallKey"
+            else if (providers.gradleProperty("kilivana.demoInstall").orNull == "true") applicationIdSuffix = ".canonicaldemo"
         }
         release {
             buildConfigField("boolean", "USE_MOCK_AUTH", "false")

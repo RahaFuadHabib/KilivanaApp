@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {"id": 42, "name": "Vegetables", "type": "farmer", "active": true,
+     "createdAt": "2026-10-13T09:00:00", "updatedAt": "2026-10-13T09:00:00"},
+    {"id": 43, "name": "Fertilizer", "type": "supplier", "active": false,
+     "createdAt": null, "updatedAt": null}
+  ],
+  "timestamp": "2026-10-13T10:20:31",
+  "error": null
+}

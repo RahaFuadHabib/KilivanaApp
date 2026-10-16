@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": {"email": "Invalid email format"},
+  "timestamp": null,
+  "error": {"code": "VALIDATION_ERROR", "details": "Request validation failed"}
+}

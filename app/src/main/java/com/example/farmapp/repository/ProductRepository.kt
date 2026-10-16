@@ -12,7 +12,8 @@ import java.io.IOException
 
 class ProductFailure(message: String, val rejected: Boolean = false, val httpStatus: Int? = null) : IOException(message)
 
-class ProductRepository(private val api: FarmApiService) {  //This is called constructor dependency injection.
+class ProductRepository(private val api: FarmApiService) {
+    val canonical get() = api.canonical  //This is called constructor dependency injection.
 
     // suspend:Marks a function that can suspend execution within a coroutine. It allows asynchronous operations without blocking the calling thread while suspended.
     suspend fun categories() = withContext(Dispatchers.IO) { checked(api.categories("FARM_PRODUCE")) }
@@ -28,7 +29,8 @@ class ProductRepository(private val api: FarmApiService) {  //This is called con
     suspend fun create(request: CreateProductRequest) = withContext(Dispatchers.IO) { checked(api.createProduct(request)) }
     suspend fun mine() = withContext(Dispatchers.IO) { managedResponse(api.myProducts(), "Refresh My Crops") }
     suspend fun upload(id: String, photo: MultipartBody.Part) = withContext(Dispatchers.IO) {
-        // The server may have accepted an upload whose response was lost. Reconcile its stable filename.
+        if (api.canonical) return@withContext checked(api.uploadProductImage(id, photo))
+        // Reference backend reconciliation only; canonical uncertainty is checkpointed by CropPublisher.
         val disposition = photo.headers?.get("Content-Disposition").orEmpty()
         val filename = Regex("filename=\"([^\"]+)\"").find(disposition)?.groupValues?.get(1)
         val existing = checked(api.productImages(id)).firstOrNull { it.fileName == filename }

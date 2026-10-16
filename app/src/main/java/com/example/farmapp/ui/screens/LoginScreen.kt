@@ -52,7 +52,7 @@ fun LoginScreen(
             )
             AuthStep.SIGN_IN -> SignInScreen(
                 identifier = identifier, password = password, errorMessage = state.errorMessage,
-                isLoading = state.isLoading, demoMode = authViewModel.demoMode,
+                isLoading = state.isLoading, demoMode = authViewModel.demoMode, canonicalMode = authViewModel.canonicalMode,
                 onIdentifierChange = { identifier = it; authViewModel.clearError() },
                 onPasswordChange = { password = it; authViewModel.clearError() },
                 onAccountSelected = {

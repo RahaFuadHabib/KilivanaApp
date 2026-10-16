@@ -17,6 +17,7 @@ internal fun SignInScreen(
     errorMessage: String?,
     isLoading: Boolean,
     demoMode: Boolean,
+    canonicalMode: Boolean = false,
     onIdentifierChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onAccountSelected: (DemoAccount) -> Unit,
@@ -38,7 +39,7 @@ internal fun SignInScreen(
                     Modifier.padding(top = 8.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AuthField(identifier, onIdentifierChange, "Email or phone number", KeyboardType.Text, enabled = !isLoading)
+            AuthField(identifier, onIdentifierChange, if (canonicalMode && !demoMode) "Email" else "Email or phone number", KeyboardType.Text, enabled = !isLoading)
             Spacer(Modifier.height(12.dp))
             AuthField(password, onPasswordChange, "Password", isPassword = true, enabled = !isLoading,
                 imeAction = ImeAction.Done, onDone = onSignIn)

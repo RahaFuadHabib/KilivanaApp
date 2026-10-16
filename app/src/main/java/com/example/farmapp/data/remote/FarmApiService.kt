@@ -14,6 +14,7 @@ import retrofit2.http.Query
  * Retrofit interface defining network endpoints for Farmer operations.
  */
 interface FarmApiService {
+    val canonical: Boolean get() = false
     @GET("users/me")
     suspend fun farmerProfile(): Response<com.example.farmapp.data.model.FarmerProfileResponse>
 

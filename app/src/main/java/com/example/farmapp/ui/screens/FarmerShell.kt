@@ -191,7 +191,7 @@ internal fun FarmerShell(
                 if ((current.categoryId == null || product.categoryId == current.categoryId) && product.name == current.name.trim() && product.unit == current.unit.label &&
                     product.availableQuantity.compareTo(current.quantity.toBigDecimal()) == 0 &&
                     product.unitPrice.compareTo(current.pricePerUnit.toBigDecimal()) == 0 && product.description == current.description.trim()) {
-                    val uploaded = product.images.map { it.fileName }.toSet()
+                    val uploaded = product.images.mapNotNull { it.fileName }.toSet()
                     val completed = current.photos.takeWhile { photo -> uploaded.any { it.substringBeforeLast('.') == photo.substringBeforeLast('.') } }.size
                     cropPhotos.update(current.copy(productId = product.productId, creationUncertain = false, uploadedPhotos = completed,
                         categoryId = product.categoryId, categoryName = product.categoryName))

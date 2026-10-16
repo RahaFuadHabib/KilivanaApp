@@ -19,10 +19,22 @@ class AuthRepository(
     private val sessions: SessionStore = TokenManager,
     val demoMode: Boolean = false
 ) {
+    val canonicalMode = service is com.example.farmapp.network.canonical.CanonicalAuthService
     val session = sessions.session
 
     suspend fun restore(persistence: SessionPersistence) = withContext(Dispatchers.IO) {
-        sessions.initialize(persistence)
+        sessions.initialize(object : SessionPersistence {
+            override fun read(): com.example.farmapp.data.model.AuthResponse? {
+                val saved = persistence.read() ?: return null
+                if (service is com.example.farmapp.network.canonical.CanonicalAuthService &&
+                    (saved.backendContract != "canonical" || saved.sessionOrigin != service.origin)) {
+                    persistence.clear(); return null
+                }
+                return saved
+            }
+            override fun write(auth: com.example.farmapp.data.model.AuthResponse) = persistence.write(auth)
+            override fun clear() = persistence.clear()
+        })
     }
 
     suspend fun login(identifier: String, password: String) = withContext(Dispatchers.IO) {
@@ -68,7 +80,7 @@ class AuthRepository(
     suspend fun logout() = withContext(Dispatchers.IO) {
         val current = sessions.beginLogout() ?: return@withContext
         try {
-            current.auth?.refreshToken?.takeIf { it.isNotBlank() }?.let {
+            current.auth?.refreshToken?.takeIf { it.isNotBlank() && current.auth?.backendContract != "canonical" }?.let {
                 val response = service.logout(LogoutRequest(it))
                 response.errorBody()?.close()
                 // A rejected/expired server token still ends the local session.

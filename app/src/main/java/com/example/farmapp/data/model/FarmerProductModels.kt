@@ -13,8 +13,8 @@ data class CreateProductRequest(
     val minimumOrderQuantity: BigDecimal? = null
 )
 
-data class ProductImageResponse(val imageId: String, val fileName: String, val contentType: String,
-    val sizeBytes: Long, val url: String, val sortOrder: Int)
+data class ProductImageResponse(val imageId: String, val fileName: String?, val contentType: String?,
+    val sizeBytes: Long?, val url: String, val sortOrder: Int)
 
 data class FarmerProductResponse(val productId: String, val name: String, val description: String?,
     val unit: String, val unitPrice: BigDecimal, val availableQuantity: BigDecimal,

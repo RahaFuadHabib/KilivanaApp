@@ -32,6 +32,7 @@ class AuthViewModel(
     val uiState = state.asStateFlow()
     val session = repository.session
     val demoMode = repository.demoMode
+    val canonicalMode = repository.canonicalMode
     private var storageReady = false
 
     init {

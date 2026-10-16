@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "id": 9223372036854775807,
+      "sellerId": 9007199254740993,
+      "sellerType": "farmer",
+      "categoryId": 42,
+      "name": "Fixture tomatoes",
+      "description": "Fresh produce",
+      "unit": "kg",
+      "price": 123456789012345.123456789,
+      "stockQty": 20,
+      "reservedQty": 3,
+      "soldQty": 4,
+      "minimumOrderQty": 1,
+      "status": "pending",
+      "createdAt": "2026-10-13T09:00:00",
+      "updatedAt": "2026-10-13T10:00:00",
+      "images": [
+        {
+          "id": 9007199254740995,
+          "url": "https://images.example.test/product.png",
+          "publicId": "kilivana/products/fixture",
+          "assetId": null,
+          "sortOrder": 0,
+          "isPrimary": true,
+          "createdAt": "2026-10-13T09:01:00"
+        }
+      ]
+    }
+  ],
+  "timestamp": "2026-10-13T10:20:31",
+  "error": null
+}

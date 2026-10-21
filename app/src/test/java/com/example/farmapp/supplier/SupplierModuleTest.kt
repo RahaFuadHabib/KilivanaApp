@@ -32,7 +32,7 @@ class SupplierModuleTest {
         assertEquals(AuthDestination.INSPECTOR, authDestination(supplierAuth().copy(role = "INSPECTOR")))
         assertEquals(AuthDestination.BUYER, authDestination(supplierAuth().copy(role = "BUYER")))
     }
-    @Test fun provisionedSupplierCanLoginButCannotRegister() = runBlocking {
+    @Test fun provisionedSupplierCanLoginAndInspectorCannotRegister() = runBlocking {
         val calls = mutableListOf<String>()
         val transport = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(CanonicalBackendApi::class.java)) { _, method, _ ->
             calls += method.name
@@ -43,7 +43,7 @@ class SupplierModuleTest {
         val store = SessionState().apply { initialize(MemoryPersistence()) }
         AuthRepository(service, store).login("supplier@example.test", "synthetic-password")
         assertEquals("SUPPLIER", store.session.value.auth!!.role)
-        try { service.signup(SignupRequest("supplier@example.test", "synthetic-password", "Synthetic supplier", "+254700000000", "SUPPLIER", "synthetic_supplier", "Synthetic area", businessName = "Synthetic business")); fail() }
+        try { service.signup(SignupRequest("inspector@example.test", "synthetic-password", "Synthetic inspector", "+254700000000", "INSPECTOR", "synthetic_inspector", "Synthetic area", employeeCode = "Synthetic code")); fail() }
         catch (_: AuthFailure) { }
         assertEquals(listOf("login"), calls)
     }

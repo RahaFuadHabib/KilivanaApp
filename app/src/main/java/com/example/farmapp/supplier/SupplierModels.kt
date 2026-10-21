@@ -28,18 +28,30 @@ fun CanonicalProductDto.toSupply(owner: Long): SupplyListing {
     return SupplyListing(id!!, validated.name, description.orEmpty(), validated.unit, validated.unitPrice,
         stockQty!! - reservedQty!!, reservedQty, minimumOrderQty!!, categoryId!!, validated.status, images.orEmpty())
 }
+enum class SupplyField { NAME, DESCRIPTION, UNIT, PRICE, AVAILABLE, MINIMUM, CATEGORY }
+
+fun SupplyDraft.validationErrors(categories: List<CanonicalCategoryDto>): Map<SupplyField, String> = buildMap {
+    if (name.trim().length !in 2..200) put(SupplyField.NAME, "Enter a supply name with 2 to 200 characters.")
+    if (description.trim().isEmpty() || description.length > 4000) put(SupplyField.DESCRIPTION, "Enter a description with 1 to 4000 characters.")
+    if (unit.trim().isEmpty() || unit.trim().length > 30) put(SupplyField.UNIT, "Enter a unit with 1 to 30 characters.")
+    val money = price.toBigDecimalOrNull()
+    if (money == null || money < BigDecimal("0.01") || money.scale() > 2 || money.precision() > 16)
+        put(SupplyField.PRICE, "Enter a price of at least KES 0.01 with at most 2 decimal places and 16 digits.")
+    if (available.toIntOrNull()?.let { it >= 0 } != true) put(SupplyField.AVAILABLE, "Enter available stock as a whole number from 0 to 2147483647.")
+    if (minimum.toIntOrNull()?.let { it >= 1 } != true) put(SupplyField.MINIMUM, "Enter a minimum order quantity as a whole number of at least 1.")
+    if (categories.none { it.id != null && it.id > 0 && it.id == categoryId && it.active == true && it.type in setOf("supplier", "SUPPLIER") })
+        put(SupplyField.CATEGORY, "Select an active Supplier category.")
+}
+
 fun SupplyDraft.request(categories: List<CanonicalCategoryDto>, reserved: Int = 0): CanonicalProductRequest {
+    validationErrors(categories).values.firstOrNull()?.let { throw SupplierFailure(it, true) }
     val quantity = available.toIntOrNull()
     val min = minimum.toIntOrNull()
     val money = price.toBigDecimalOrNull()
-    if (name.trim().length !in 2..200 || description.trim().isEmpty() || description.length > 4000 ||
-        unit.trim().isEmpty() || unit.trim().length > 30 || quantity == null || quantity < 0 || min == null || min < 1 ||
-        money == null || money < BigDecimal("0.01") || money.scale() > 2 || money.precision() > 16)
-        throw SupplierFailure("Check name (2–200 characters), description, unit, price (at most 2 decimal places), whole stock and minimum order quantity.", true)
     val category = categories.firstOrNull { it.id == categoryId && it.active == true && it.type in setOf("supplier", "SUPPLIER") }
         ?: throw SupplierFailure("Select an active Supplier category.", true)
-    val total = try { Math.addExact(quantity, reserved) } catch (_: ArithmeticException) { throw SupplierFailure("Stock quantity is too large.", true) }
-    return CanonicalProductRequest(name.trim(), description.trim(), unit.trim(), money, total, min, category.id!!)
+    val total = try { Math.addExact(quantity!!, reserved) } catch (_: ArithmeticException) { throw SupplierFailure("Stock quantity is too large.", true) }
+    return CanonicalProductRequest(name.trim(), description.trim(), unit.trim(), money!!, total, min!!, category.id!!)
 }
 fun SupplyListing.draft() = SupplyDraft(name, description, unit, price.toPlainString(), available.toString(), minimum.toString(), categoryId)
 const val SUPPLIER_ORDERS_BLOCKER = "Incoming orders are unavailable: the backend does not provide a Supplier-scoped order feed. No customer orders are fetched through buyer or administrator endpoints."

@@ -2,6 +2,8 @@ package com.example.farmapp.supplier
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.runtime.mutableStateOf
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.farmapp.data.model.canonical.*
 import com.example.farmapp.ui.theme.FarmAppTheme
@@ -59,5 +61,87 @@ class SupplierUiTest {
         compose.onNodeWithText("Synthetic service unavailable").assertExists()
         compose.onNodeWithText("Total listings").assertDoesNotExist()
         compose.onNodeWithText("Try again").assertExists()
+    }
+    @Test fun createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { FarmAppTheme {
+            SupplierContent(SupplierUiState(), "Synthetic Supplier", {}, false, {}, false,
+                {}, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Add supply").performScrollTo().performClick()
+        compose.onNodeWithText("Supply name").performTextInput("Unfinished supply")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("Unfinished supply").assertExists()
+        compose.onNodeWithContentDescription("Back to supplies").performClick()
+        compose.onNodeWithText("Discard unsaved changes?").assertExists()
+        compose.onNodeWithText("Keep editing").performClick()
+        compose.onNodeWithText("Unfinished supply").assertExists()
+        compose.onNodeWithContentDescription("Back to supplies").performClick()
+        compose.onNodeWithText("Discard changes").performClick()
+        compose.onNodeWithText("New supply").assertDoesNotExist()
+    }
+    @Test fun missingCategoriesExplainWhySubmissionIsDisabled() {
+        screen(SupplierUiState())
+        compose.onNodeWithText("Add supply").performScrollTo().performClick()
+        compose.onNodeWithText("No active Supplier categories are available. Ask your administrator to configure them, then refresh.").performScrollTo().assertExists()
+        compose.onNodeWithText("Review supply").performScrollTo().assertIsNotEnabled()
+    }
+    @Test fun invalidFieldsHaveSpecificMessages() {
+        screen(SupplierUiState(categories = listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true))))
+        compose.onNodeWithText("Add supply").performScrollTo().performClick()
+        compose.onNodeWithText("Review supply").performScrollTo().performClick()
+        compose.onNodeWithText("Enter a supply name with 2 to 200 characters.").performScrollTo().assertExists()
+        compose.onNodeWithText("Enter a description with 1 to 4000 characters.").performScrollTo().assertExists()
+        compose.onNodeWithText("Select an active Supplier category.").performScrollTo().assertExists()
+        compose.onNodeWithText("Confirm supply submission").assertDoesNotExist()
+    }
+    @Test fun refreshingAndFailedRefreshKeepVisibleListings() {
+        screen(SupplierUiState(listings = listOf(listing), catalogueLoaded = true, refreshing = true, error = "Synthetic refresh failed"))
+        compose.onNodeWithText("Refreshing Supplier data. Showing previously loaded data.").assertExists()
+        compose.onNodeWithText("Synthetic refresh failed").assertExists()
+        compose.onNodeWithText("Total listings").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic seed listing"))
+        compose.onNodeWithText("Synthetic seed listing").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Refresh Supplier data").assertIsNotEnabled()
+    }
+    @Test fun editDraftSurvivesDetailRefreshAndRestoration() {
+        val restoration = StateRestorationTester(compose)
+        val state = mutableStateOf(SupplierUiState(listings = listOf(listing), selectedId = listing.id, detail = listing,
+            catalogueLoaded = true, categories = listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true))))
+        restoration.setContent { FarmAppTheme {
+            SupplierContent(state.value, "Synthetic Supplier", {}, false, {}, false,
+                {}, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Edit pending listing").performScrollTo().performClick()
+        compose.onNodeWithText("Supply name").performTextReplacement("My unfinished edit")
+        compose.runOnIdle { state.value = state.value.copy(detail = listing.copy(name = "Changed on server"), refreshing = true) }
+        compose.onNodeWithText("My unfinished edit").assertExists()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("My unfinished edit").assertExists()
+        compose.onNodeWithContentDescription("Back to supplies").performClick()
+        compose.onNodeWithText("Discard unsaved changes?").assertExists()
+    }
+    @Test fun dirtyFormRequiresConfirmationBeforeLogout() {
+        var logouts = 0
+        compose.setContent { FarmAppTheme {
+            SupplierContent(SupplierUiState(), "Synthetic Supplier", { logouts++ }, false, {}, false,
+                {}, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Add supply").performScrollTo().performClick()
+        compose.onNodeWithText("Supply name").performTextInput("Unsaved")
+        compose.onNodeWithContentDescription("Sign out").performClick()
+        compose.runOnIdle { assertEquals(0, logouts) }
+        compose.onNodeWithText("Discard changes").performClick()
+        compose.runOnIdle { assertEquals(1, logouts) }
+    }
+    @Test fun confirmationDoubleTapSubmitsOnlyOnce() {
+        var submissions = 0
+        compose.setContent { FarmAppTheme {
+            SupplyEditor(SupplyDraft("Synthetic supply", "Synthetic description", "bag", "100.00", "10", "1", 2), {},
+                listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true)), false, false, null) { submissions++ }
+        } }
+        compose.onNodeWithText("Review supply").performClick()
+        compose.onNodeWithText("Submit supply").performTouchInput { doubleClick() }
+        compose.runOnIdle { assertEquals(1, submissions) }
     }
 }

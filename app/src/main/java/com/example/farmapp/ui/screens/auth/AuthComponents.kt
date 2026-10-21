@@ -152,20 +152,26 @@ internal fun AuthField(
     isPassword: Boolean = false,
     enabled: Boolean = true,
     imeAction: ImeAction = ImeAction.Next,
-    onDone: (() -> Unit)? = null
+    onDone: (() -> Unit)? = null,
+    errorMessage: String? = null,
+    supportingText: String? = null,
+    visibilityLabel: String = "password"
 ) {
     var visible by remember { mutableStateOf(false) }
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
     OutlinedTextField(
         value, onValueChange, modifier = Modifier.fillMaxWidth(), enabled = enabled,
         label = { Text(label) }, singleLine = true, shape = RoundedCornerShape(20.dp),
         colors = authFieldColors(),
+        isError = errorMessage != null,
+        supportingText = (errorMessage ?: supportingText)?.let { message -> ({ Text(message) }) },
         visualTransformation = if (isPassword && !visible) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboardType, imeAction = imeAction),
-        keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) }, onDone = { onDone?.invoke() }),
         trailingIcon = if (isPassword) ({
             IconButton(onClick = { visible = !visible }, enabled = enabled) {
                 Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    if (visible) "Hide password" else "Show password",
+                    if (visible) "Hide $visibilityLabel" else "Show $visibilityLabel",
                     tint = MaterialTheme.colorScheme.primary)
             }
         }) else null

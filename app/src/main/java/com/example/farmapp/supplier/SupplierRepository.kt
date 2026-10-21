@@ -20,6 +20,15 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
             ?: throw SupplierFailure("Supplier identity could not be verified.", true)
     }
     internal fun key(expected: SessionSnapshot) = origin + "|" + owner(expected)
+    private suspend fun authenticatedOwner(expected: SessionSnapshot): Long {
+        val id = owner(expected)
+        // This protected route cannot silently succeed with an anonymous/public projection.
+        val account = read(api.me(expected)).toAccount()
+        owner(expected)
+        if (account.userId != id.toString() || account.role != "SUPPLIER")
+            throw SupplierFailure("Supplier identity could not be verified.", true)
+        return id
+    }
     suspend fun profile(expected: SessionSnapshot): SupplierProfile {
         val id = owner(expected)
         val account = read(api.me(expected)).toAccount()
@@ -40,14 +49,14 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
         return result.filter { it.active == true }
     }
     suspend fun listings(expected: SessionSnapshot): List<SupplyListing> {
-        val id = owner(expected)
+        val id = authenticatedOwner(expected)
         val result = read(api.listings(id, expected)).map { it.toSupply(id) }
         owner(expected)
         if (result.map { it.id }.distinct().size != result.size) throw SupplierFailure("Duplicate supply records received.")
         return result.sortedByDescending { it.id }
     }
     suspend fun listing(expected: SessionSnapshot, id: Long): SupplyListing {
-        val owner = owner(expected)
+        val owner = authenticatedOwner(expected)
         if (id <= 0) throw SupplierFailure("Invalid supply selection.", true)
         val result = read(api.listing(id, expected)).toSupply(owner)
         this.owner(expected)

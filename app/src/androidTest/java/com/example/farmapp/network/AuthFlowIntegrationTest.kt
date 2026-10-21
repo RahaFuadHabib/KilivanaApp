@@ -78,7 +78,7 @@ class AuthFlowIntegrationTest {
 
     @Test fun signupIgnoresDuplicateSubmissionsWhileLoading() {
         signupGate = kotlinx.coroutines.CompletableDeferred()
-        val request = SignupRequest("inspector@example.test", "password", "Inspector", "123", "INSPECTOR", username = "inspector", region = "Nairobi", employeeCode = "EMP")
+        val request = SignupRequest("buyer@example.test", "password", "Buyer", "123", "BUYER", username = "buyer", region = "Nairobi")
         compose.runOnUiThread {
             vm.signup(request)
             vm.signup(request)
@@ -89,35 +89,14 @@ class AuthFlowIntegrationTest {
         assertEquals(1, signupCalls)
     }
 
-    @Test fun inspectorSignupWaitsAndAuthoritativeSessionUpdateUnlocksDashboard() {
+    @Test fun inspectorSelfRegistrationRemainsDisabled() {
         compose.onNodeWithText("Get Started").performClick()
         compose.onNode(hasText("Sign Up") and hasClickAction()).performClick()
         compose.onNodeWithText("Account type").performClick()
         compose.onNodeWithText("Inspector").performClick()
-        compose.onNodeWithText("Full name").performScrollTo().performTextInput("Test Inspector")
-        compose.onNodeWithText("Email").performScrollTo().performTextInput("inspector@example.test")
-        compose.onNodeWithText("Phone number").performScrollTo().performTextInput("0700000000")
-        compose.onNodeWithText("Username").performScrollTo().performTextInput(" TEST_INSPECTOR ")
-        compose.onNodeWithText("Region").performScrollTo().performTextInput(" Nairobi ")
-        compose.onNodeWithText("Farm location").assertDoesNotExist()
-        compose.onNodeWithText("Employee code").performScrollTo().performTextInput("EMP-123")
-        compose.onNodeWithText("Next").performScrollTo().performClick()
-        compose.onNodeWithText("Password").performTextInput("valid-test-password")
-        compose.onNodeWithText("Create Account").performScrollTo().performClick()
-        compose.waitUntil(5000) { sessions.session.value.auth != null }
-        compose.onNodeWithText("Inspector verification pending").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Inspector Avatar").assertDoesNotExist()
-        assertEquals("PENDING", stored!!.verificationStatus)
-        assertEquals("test_inspector", receivedSignup!!.username)
-        assertEquals("Nairobi", receivedSignup!!.region)
-        assertNull(receivedSignup!!.farmName)
-        compose.runOnUiThread {
-            val current = sessions.session.value
-            sessions.rotate(current, current.auth!!.copy(verificationStatus = "VERIFIED"))
-        }
-        compose.onNodeWithText("Inspector verification pending").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Inspector Avatar").assertExists()
-        assertEquals("VERIFIED", stored!!.verificationStatus)
+        compose.onNodeWithText("Inspector accounts are provided by the administrator. Sign in with your assigned credentials.").performScrollTo().assertExists()
+        compose.onNodeWithText("Create Account").performScrollTo().assertIsNotEnabled()
+        compose.runOnIdle { assertEquals(0, signupCalls); assertNull(sessions.session.value.auth) }
     }
 
     @Test fun realModeLoginUsesServerRoleAndUnsupportedRoleCanLogout() {

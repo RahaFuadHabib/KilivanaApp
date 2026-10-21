@@ -17,12 +17,17 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +42,11 @@ import kotlinx.coroutines.*
 import java.math.BigDecimal
 
 private enum class SupplierTab(val title: String) { DASHBOARD("Dashboard"), SUPPLIES("Supplies"), ORDERS("Orders"), PROFILE("Profile") }
+
+private val SupplyDraftSaver = listSaver<SupplyDraft, String>(
+    save = { listOf(it.name, it.description, it.unit, it.price, it.available, it.minimum, it.categoryId?.toString().orEmpty()) },
+    restore = { SupplyDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6].toLongOrNull()) }
+)
 
 @Composable
 fun SupplierShell(session: SessionSnapshot, onLogout: () -> Unit, isDarkTheme: Boolean,
@@ -55,12 +65,29 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
     create: (SupplyDraft) -> Unit, update: (Long, SupplyDraft) -> Unit, upload: (Long, SupplierPhoto) -> Unit,
     acknowledge: () -> Unit, modifier: Modifier = Modifier) {
     var tab by rememberSaveable { mutableStateOf(SupplierTab.DASHBOARD) }
-    var creating by rememberSaveable { mutableStateOf(false) }
-    var editing by remember { mutableStateOf(false) }
-    var confirmingReconciliation by remember { mutableStateOf(false) }
+    var creating by rememberSaveable(state.generation) { mutableStateOf(false) }
+    var editing by rememberSaveable(state.generation) { mutableStateOf(false) }
+    var draft by rememberSaveable(state.generation, stateSaver = SupplyDraftSaver) { mutableStateOf(SupplyDraft()) }
+    var baseline by rememberSaveable(state.generation, stateSaver = SupplyDraftSaver) { mutableStateOf(SupplyDraft()) }
+    var discardAction by remember(state.generation) { mutableStateOf<String?>(null) }
+    var lastNotice by rememberSaveable(state.generation) { mutableStateOf(state.notice) }
+    var confirmingReconciliation by remember(state.generation) { mutableStateOf(false) }
     val inDetails = state.selectedId != null
-    LaunchedEffect(state.notice) { if (state.notice != null) { creating = false; editing = false } }
-    val back: () -> Unit = { if (!state.submitting) { if (editing) editing = false else { creating = false; close() } } }
+    LaunchedEffect(state.notice) {
+        if (state.notice != lastNotice && state.notice != null) { creating = false; editing = false }
+        lastNotice = state.notice
+    }
+    val leave: (String) -> Unit = { action ->
+        if (action == "logout") onLogout()
+        else if (editing) editing = false else { creating = false; close() }
+    }
+    val requestLeave: (String) -> Unit = { action ->
+        if (!state.submitting && !signingOut) {
+            if ((creating || editing) && draft != baseline) discardAction = action else leave(action)
+        }
+    }
+    val back: () -> Unit = { requestLeave("back") }
+    val startCreate: () -> Unit = { baseline = SupplyDraft(); draft = baseline; creating = true }
     BackHandler(creating || inDetails) { back() }
     Scaffold(modifier.fillMaxSize(), topBar = {
         TopAppBar(title = { Column {
@@ -69,9 +96,9 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
         } }, navigationIcon = { if (creating || inDetails) IconButton(onClick = back, enabled = !state.submitting) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to supplies")
         } }, actions = {
-            IconButton(onClick = refresh, enabled = !state.submitting && !state.loading && !signingOut) { Icon(Icons.Default.Refresh, "Refresh Supplier data") }
+            IconButton(onClick = refresh, enabled = !state.submitting && !state.loading && !state.refreshing && !state.categoriesLoading && !signingOut) { Icon(Icons.Default.Refresh, "Refresh Supplier data") }
             IconButton(onClick = toggleTheme) { Icon(if (dark) Icons.Default.WbSunny else Icons.Default.Bedtime, "Toggle color theme") }
-            IconButton(onClick = onLogout, enabled = !signingOut) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Sign out") }
+            IconButton(onClick = { requestLeave("logout") }, enabled = !signingOut && !state.submitting) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Sign out") }
         })
     }, bottomBar = { if (!creating && !inDetails) NavigationBar {
         SupplierTab.entries.forEach { destination -> NavigationBarItem(tab == destination, { tab = destination },
@@ -80,6 +107,7 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
                 SupplierTab.PROFILE -> Icons.Default.Person }, destination.title) }, label = { Text(destination.title) }) }
     } }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (state.refreshing) item { Column { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Refreshing Supplier data. Showing previously loaded data.") } }
             state.notice?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             state.actionError?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             if (state.submitting) item { SupplierLoading("Submitting once. Waiting for the backend response…") }
@@ -93,17 +121,22 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
             if (creating) {
                 state.categoryError?.let { item { SupplierError(it, refresh) } }
                 if (state.categoriesLoading) item { SupplierLoading("Loading Supplier categories") }
-                item { SupplyEditor(SupplyDraft(), state.categories, state.submitting || state.pending != null, create) }
+                item { SupplyEditor(draft, { draft = it }, state.categories, state.submitting || state.pending != null || state.refreshing,
+                    state.categoriesLoading, state.categoryError, create) }
             } else if (inDetails) {
                 if (state.detailLoading) item { SupplierLoading("Loading your supply") }
                 state.detailError?.let { item { SupplierError(it) { state.selectedId?.let(open) } } }
                 state.detail?.let { listing ->
-                    if (editing) item { SupplyEditor(listing.draft(), state.categories, state.submitting || state.pending != null) { update(listing.id, it) } }
+                    if (editing) item {
+                        state.categoryError?.let { SupplierError(it, refresh) }
+                        SupplyEditor(draft, { draft = it }, state.categories, state.submitting || state.pending != null || state.refreshing,
+                            state.categoriesLoading, state.categoryError) { update(listing.id, it) }
+                    }
                     else item {
                         SupplyCard(listing)
                         Text(listing.description, Modifier.padding(vertical = 12.dp))
                         Text("Reserved stock: ${listing.reserved} ${listing.unit}. Minimum order: ${listing.minimum} ${listing.unit}.")
-                        Button(onClick = { editing = true }, enabled = !state.submitting && state.pending == null && listing.status == CanonicalProductStatus.PENDING_APPROVAL) { Text("Edit pending listing") }
+                        Button(onClick = { baseline = listing.draft(); draft = baseline; editing = true }, enabled = !state.submitting && state.pending == null && listing.status == CanonicalProductStatus.PENDING_APPROVAL) { Text("Edit pending listing") }
                         if (listing.status != CanonicalProductStatus.PENDING_APPROVAL) Text("Edits and photo changes are restricted to pending listings until reapproval rules are defined.")
                     }
                     if (!editing) {
@@ -123,8 +156,8 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
                         }
                     } }
                     if (state.loading) item { SupplierLoading("Loading your supplies") }
-                    else if (state.error != null) item { SupplierError(state.error, refresh) }
-                    else {
+                    state.error?.let { item { SupplierError(it, refresh) } }
+                    if (!state.loading && (state.catalogueLoaded || state.error == null)) {
                         item { val counts = supplierMetrics(state.listings)
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -136,7 +169,7 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
                                 Text("Stock availability excludes reserved units. No low-stock threshold is inferred.", style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        item { Button(onClick = { creating = true }, enabled = !state.submitting && state.pending == null) { Text("Add supply") } }
+                        item { Button(onClick = startCreate, enabled = !state.submitting && state.pending == null) { Text("Add supply") } }
                         item { Text("Recent listings", style = MaterialTheme.typography.titleLarge) }
                         if (state.listings.isEmpty()) item { SupplierEmpty() }
                         items(state.listings.take(5), key = { it.id }) { listing -> SupplyCard(listing) { open(listing.id) } }
@@ -145,11 +178,13 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
                 }
                 SupplierTab.SUPPLIES -> {
                     item { Text("My supplies", style = MaterialTheme.typography.headlineSmall) }
-                    item { Button(onClick = { creating = true }, enabled = !state.submitting && state.pending == null && !state.loading) { Text("Add supply") } }
+                    item { Button(onClick = startCreate, enabled = !state.submitting && state.pending == null && !state.loading) { Text("Add supply") } }
                     if (state.loading) item { SupplierLoading("Loading your supplies") }
-                    else if (state.error != null) item { SupplierError(state.error, refresh) }
-                    else if (state.listings.isEmpty()) item { SupplierEmpty() }
-                    else items(state.listings, key = { it.id }) { listing -> SupplyCard(listing) { open(listing.id) } }
+                    state.error?.let { item { SupplierError(it, refresh) } }
+                    if (!state.loading && (state.catalogueLoaded || state.error == null)) {
+                        if (state.listings.isEmpty()) item { SupplierEmpty() }
+                        else items(state.listings, key = { it.id }) { listing -> SupplyCard(listing) { open(listing.id) } }
+                    }
                 }
                 SupplierTab.ORDERS -> {
                     item { Text("Orders and fulfillment", style = MaterialTheme.typography.headlineSmall) }
@@ -180,40 +215,75 @@ internal fun SupplierContent(state: SupplierUiState, name: String, onLogout: () 
             }
         }
     }
+    if (discardAction != null) AlertDialog(onDismissRequest = { discardAction = null }, title = { Text("Discard unsaved changes?") },
+        text = { Text("Your unfinished supply details will be lost.") },
+        confirmButton = { TextButton(onClick = { val action = discardAction; discardAction = null; if (action != null) leave(action) }) { Text("Discard changes") } },
+        dismissButton = { TextButton(onClick = { discardAction = null }) { Text("Keep editing") } })
     if (confirmingReconciliation) AlertDialog(onDismissRequest = { confirmingReconciliation = false }, title = { Text("Review uncertain submission") },
         text = { Text("Inspect My supplies and the relevant image gallery first. Reload server records and acknowledge the marker only after checking that you will not create a duplicate. Delayed server completion cannot be excluded without backend idempotency.") },
         confirmButton = { TextButton(onClick = { confirmingReconciliation = false; acknowledge() }) { Text("Reload and acknowledge") } },
         dismissButton = { TextButton(onClick = { confirmingReconciliation = false }) { Text("Keep blocked") } })
 }
 
-@Composable private fun SupplyEditor(initial: SupplyDraft, categories: List<CanonicalCategoryDto>, busy: Boolean, save: (SupplyDraft) -> Unit) {
-    var draft by remember(initial) { mutableStateOf(initial) }
+@Composable internal fun SupplyEditor(draft: SupplyDraft, change: (SupplyDraft) -> Unit,
+    categories: List<CanonicalCategoryDto>, busy: Boolean, categoriesLoading: Boolean,
+    categoryError: String?, save: (SupplyDraft) -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var reviewed by rememberSaveable { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val errors = if (reviewed) draft.validationErrors(categories) else emptyMap()
+    val categoriesReady = !categoriesLoading && categoryError == null && categories.isNotEmpty()
+    val review: () -> Unit = {
+        focus.clearFocus()
+        reviewed = true
+        if (!busy && categoriesReady && draft.validationErrors(categories).isEmpty()) confirm = true
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Supply details", style = MaterialTheme.typography.titleLarge)
-        OutlinedTextField(draft.name, { draft = draft.copy(name = it) }, label = { Text("Supply name") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(draft.description, { draft = draft.copy(description = it) }, label = { Text("Description") }, minLines = 3, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        SupplierDraftField("Supply name", draft.name, { change(draft.copy(name = it)) }, SupplyField.NAME, errors, busy)
+        SupplierDraftField("Description", draft.description, { change(draft.copy(description = it)) }, SupplyField.DESCRIPTION, errors, busy, multiline = true)
         Box {
-            OutlinedButton(onClick = { menu = true }, enabled = !busy) { Text(categories.firstOrNull { it.id == draft.categoryId }?.name ?: "Choose Supplier category") }
-            DropdownMenu(menu, { menu = false }) { categories.forEach { category -> DropdownMenuItem(text = { Text(category.name.orEmpty()) }, onClick = { draft = draft.copy(categoryId = category.id); menu = false }) } }
+            OutlinedButton(onClick = { menu = true }, enabled = !busy && categoriesReady) {
+                Text(categories.firstOrNull { it.id == draft.categoryId }?.name ?: "Choose Supplier category")
+            }
+            DropdownMenu(menu, { menu = false }) { categories.forEach { category ->
+                DropdownMenuItem(text = { Text(category.name.orEmpty()) }, onClick = { change(draft.copy(categoryId = category.id)); menu = false })
+            } }
         }
-        OutlinedTextField(draft.unit, { draft = draft.copy(unit = it) }, label = { Text("Unit (kg, bag, piece…)") }, enabled = !busy, singleLine = true)
-        OutlinedTextField(draft.price, { draft = draft.copy(price = it) }, label = { Text("Price per unit (KES)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), enabled = !busy)
-        OutlinedTextField(draft.available, { draft = draft.copy(available = it) }, label = { Text("Available stock (whole units)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), enabled = !busy)
-        OutlinedTextField(draft.minimum, { draft = draft.copy(minimum = it) }, label = { Text("Minimum order quantity") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), enabled = !busy)
+        when {
+            categoriesLoading -> Text("Loading Supplier categories. Your draft is preserved.")
+            categoryError != null -> Text("Supplier categories are unavailable. Retry loading before submitting.", color = MaterialTheme.colorScheme.error)
+            categories.isEmpty() -> Text("No active Supplier categories are available. Ask your administrator to configure them, then refresh.", color = MaterialTheme.colorScheme.error)
+        }
+        errors[SupplyField.CATEGORY]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        SupplierDraftField("Unit (kg, bag, piece...)", draft.unit, { change(draft.copy(unit = it)) }, SupplyField.UNIT, errors, busy)
+        SupplierDraftField("Price per unit (KES)", draft.price, { change(draft.copy(price = it)) }, SupplyField.PRICE, errors, busy, KeyboardType.Decimal)
+        SupplierDraftField("Available stock (whole units)", draft.available, { change(draft.copy(available = it)) }, SupplyField.AVAILABLE, errors, busy, KeyboardType.Number)
+        SupplierDraftField("Minimum order quantity", draft.minimum, { change(draft.copy(minimum = it)) }, SupplyField.MINIMUM, errors, busy, KeyboardType.Number, done = review)
         Text("Listings require administrator approval. Product photos are added after the listing ID is confirmed.", style = MaterialTheme.typography.bodySmall)
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(onClick = {
-            error = try { draft.request(categories); null } catch (e: SupplierFailure) { e.message }
-            confirm = error == null
-        }, enabled = !busy && categories.isNotEmpty()) { Text("Review supply") }
+        Button(onClick = review, enabled = !busy && categoriesReady) { Text("Review supply") }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text("Confirm supply submission") },
-        text = { Text("${draft.name.trim()} · KES ${draft.price} / ${draft.unit}\nAvailable stock: ${draft.available}. Submit once and wait for the server response.") },
-        confirmButton = { TextButton(onClick = { confirm = false; save(draft) }, enabled = !busy) { Text("Submit supply") } },
+        text = { Text("${draft.name.trim()} | KES ${draft.price} / ${draft.unit}\nAvailable stock: ${draft.available}. Submit once and wait for the server response.") },
+        confirmButton = { TextButton(onClick = {
+            if (confirm && !busy && categoriesReady) {
+                confirm = false
+                if (draft.validationErrors(categories).isEmpty()) save(draft)
+            }
+        }, enabled = !busy && categoriesReady) { Text("Submit supply") } },
         dismissButton = { TextButton(onClick = { confirm = false }) { Text("Keep editing") } })
+}
+
+@Composable private fun SupplierDraftField(label: String, value: String, change: (String) -> Unit,
+    field: SupplyField, errors: Map<SupplyField, String>, busy: Boolean,
+    keyboard: KeyboardType = KeyboardType.Text, multiline: Boolean = false, done: (() -> Unit)? = null) {
+    val focus = LocalFocusManager.current
+    OutlinedTextField(value, change, label = { Text(label) }, enabled = !busy,
+        modifier = Modifier.fillMaxWidth(), singleLine = !multiline, minLines = if (multiline) 3 else 1,
+        isError = errors.containsKey(field), supportingText = errors[field]?.let { message -> ({ Text(message) }) },
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = if (done == null) ImeAction.Next else ImeAction.Done),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }, onDone = { done?.invoke() }))
 }
 
 @Composable private fun SupplierPhotoSection(listing: SupplyListing, state: SupplierUiState, upload: (Long, SupplierPhoto) -> Unit) {

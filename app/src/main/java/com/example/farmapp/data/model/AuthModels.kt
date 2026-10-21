@@ -50,7 +50,8 @@ data class SignupRequest(
     @SerializedName("region") val region: String,
     @SerializedName("farmName") val farmName: String? = null,
     @SerializedName("businessName") val businessName: String? = null,
-    @SerializedName("employeeCode") val employeeCode: String? = null
+    @SerializedName("employeeCode") val employeeCode: String? = null,
+    @SerializedName("businessLocation") val businessLocation: String? = null
 ) {
     override fun toString() = "SignupRequest(redacted)"
 }

@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal const val SUPPLIER_TEST_ORIGIN = "https://supplier.example.test/api/v1/"
 internal fun supplierAuth(id: String = "42") = testAuth(role = "SUPPLIER").copy(userId = id, backendContract = "canonical",
-    sessionOrigin = SUPPLIER_TEST_ORIGIN, refreshTokenExpiresAt = "", verificationStatus = "NOT_REQUIRED")
+    sessionOrigin = SUPPLIER_TEST_ORIGIN, refreshTokenExpiresAt = "", verificationStatus = "NOT_REQUIRED", accessTokenExpiresAt = java.time.Instant.now().plusSeconds(3600).toString())
 internal fun supplierStore() = signedInStore(supplierAuth())
 internal fun supplierUser(id: Long = 42) = CanonicalUserDto(id, "Synthetic Supplier", "supplier@example.test", "+254700000000",
     role = "SUPPLIER", status = "ACTIVE", verificationStatus = "NOT_REQUIRED")

@@ -8,13 +8,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 internal fun signupInput(role: String = "BUYER") = SignupRequest("person@example.test", "password", "Person", "0700000000", role, "person", "Nairobi",
-    "Farm", "Business", "Code")
+    "Farm", "Business", "Code", "Physical address")
 
 class SignupValidationTest {
     @Test fun eachRoleSerializesExactlyItsApplicableFields() {
         val common = setOf("email", "password", "fullName", "phoneNumber", "role", "username", "region")
         mapOf("FARMER" to setOf("farmName"), "BUYER" to emptySet(),
-            "SUPPLIER" to setOf("businessName"), "INSPECTOR" to setOf("employeeCode")).forEach { (role, extra) ->
+            "SUPPLIER" to setOf("businessName", "businessLocation"), "INSPECTOR" to setOf("employeeCode")).forEach { (role, extra) ->
             val json = JsonParser.parseString(Gson().toJson(SignupValidation.prepare(signupInput(role)))).asJsonObject
             assertEquals(common + extra, json.keySet())
             assertEquals(role, json["role"].asString)
@@ -45,8 +45,8 @@ class SignupValidationTest {
     @Test fun commonFieldsTrimWithoutNarrowingPhoneOrRegion() {
         for (role in listOf("FARMER", "BUYER", "SUPPLIER", "INSPECTOR")) {
             rejected(signupInput(role).copy(region = " "))
-            val prepared = SignupValidation.prepare(signupInput(role).copy(region = " Any free text region ", phoneNumber = " 0712 345 678 "))
-            assertEquals("Any free text region", prepared.region)
+            val prepared = SignupValidation.prepare(signupInput(role).copy(region = if (role == "SUPPLIER") " Nairobi " else " Any free text region ", phoneNumber = " 0712 345 678 "))
+            assertEquals(if (role == "SUPPLIER") "Nairobi City" else "Any free text region", prepared.region)
             assertEquals("0712 345 678", prepared.phoneNumber)
         }
     }

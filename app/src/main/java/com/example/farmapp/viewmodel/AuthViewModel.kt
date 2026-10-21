@@ -21,7 +21,8 @@ import kotlinx.coroutines.launch
 data class AuthUiState(
     val isInitializing: Boolean = true,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val supplierRegistrationRecovery: Boolean = false
 )
 
 class AuthViewModel(
@@ -78,22 +79,27 @@ class AuthViewModel(
         }
     }
 
-    fun signup(request: SignupRequest) {
+    fun signup(request: SignupRequest) = submitSignup(request, false)
+    fun recoverSupplierSignup(request: SignupRequest) = submitSignup(request, true)
+
+    private fun submitSignup(request: SignupRequest, recover: Boolean) {
         if (state.value.isInitializing || state.value.isLoading) return
         state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             try {
                 restore()
-                repository.signup(request)
+                if (recover) repository.recoverSupplierSignup(request) else repository.signup(request)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AuthFailure) {
                 state.update { it.copy(errorMessage = e.message) }
             } catch (_: Exception) {
                 // Never surface exception bodies or URLs which could contain sensitive server data.
-                state.update { it.copy(errorMessage = "Unable to create your account. Check your connection and try again.") }
+                state.update { it.copy(errorMessage = if (request.role == "SUPPLIER")
+                    "Account setup could not be confirmed. If you already submitted registration, use Sign in and finish Supplier setup; do not register again."
+                    else "Unable to create your account. Check your connection and try again.") }
             } finally {
-                state.update { it.copy(isLoading = false) }
+                state.update { it.copy(isLoading = false, supplierRegistrationRecovery = repository.supplierRegistrationNeedsRecovery) }
             }
         }
     }

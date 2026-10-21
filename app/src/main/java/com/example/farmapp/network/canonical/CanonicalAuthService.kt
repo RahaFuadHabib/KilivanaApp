@@ -32,7 +32,8 @@ class CanonicalAuthService(private val api: CanonicalBackendApi, val origin: Str
         return api.login(CanonicalLoginRequest(request.identifier.trim(), request.password)).mapped { it.toAndroidAuth(origin) }
     }
     override suspend fun signup(request: SignupRequest): Response<AuthResponse> {
-        if (request.role != "FARMER") throw AuthFailure("Shared-backend registration is currently enabled for farmers only. Other role demos are unchanged.")
+        if (request.role == "SUPPLIER") return signupSupplier(request)
+        if (request.role != "FARMER") throw AuthFailure("Self-registration is enabled for Farmers and Suppliers only. Inspector accounts are provided by the administrator.")
         val registration = api.register(CanonicalRegisterRequest(request.fullName, request.email, request.phoneNumber,
             request.password, request.role, request.username, request.region))
         if (!registration.isSuccessful) return Response.error(registration.code(), registration.errorBody() ?: "{}".toResponseBody())
@@ -49,6 +50,11 @@ class CanonicalAuthService(private val api: CanonicalBackendApi, val origin: Str
         if (profile.body()?.requireData()?.userId != registered.userId.toLong()) throw InvalidAuthResponse()
         return login
     }
+    suspend fun signupSupplier(request: SignupRequest, ensureCurrent: () -> Unit = {}): Response<AuthResponse> =
+        SupplierSignup(api, origin).register(request, ensureCurrent)
+
+    suspend fun recoverSupplierSignup(request: SignupRequest, ensureCurrent: () -> Unit = {}): Response<AuthResponse> =
+        SupplierSignup(api, origin).recover(request, ensureCurrent)
     override suspend fun refresh(request: RefreshRequest): Response<AuthResponse> =
         api.refresh(CanonicalRefreshRequest(request.refreshToken)).mapped { it.toAndroidAuth(origin) }
 

@@ -11,6 +11,7 @@ import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.Response
 import java.io.IOException
+import java.time.Instant
 
 /** Shared by all authenticated calls. The service uses a separate, non-refreshing client. */
 class RefreshCoordinator(
@@ -84,12 +85,26 @@ class AuthTokenInterceptor(
         if (!belongsToApi || (url.encodedPath.startsWith(baseUrl.encodedPath + "auth/") && url.encodedPath != baseUrl.encodedPath + "auth/me")) {
             return chain.proceed(request)
         }
-        val snapshot = sessions.session.value
-        request.tag(SessionSnapshot::class.java)?.let { expected ->
-            if (expected.generation != snapshot.generation || expected.auth?.userId != snapshot.auth?.userId ||
-                expected.auth?.role != snapshot.auth?.role || expected.auth?.backendContract != snapshot.auth?.backendContract ||
-                snapshot.loggingOut || expected.auth?.sessionOrigin != snapshot.auth?.sessionOrigin) {
+        var snapshot = sessions.session.value
+        val expected = request.tag(SessionSnapshot::class.java)
+        fun checkSession(current: SessionSnapshot) {
+            if (expected != null && (expected.generation != current.generation || expected.auth?.userId != current.auth?.userId ||
+                expected.auth?.role != current.auth?.role || expected.auth?.backendContract != current.auth?.backendContract ||
+                current.loggingOut || current.isDemo || expected.auth?.sessionOrigin != current.auth?.sessionOrigin)) {
                 throw IOException("The request session changed.")
+            }
+        }
+        checkSession(snapshot)
+        // Public catalogue routes can silently mask expired tokens as anonymous. Only Supplier-tagged
+        // reads opt into proactive refresh; writes remain single-attempt and other modules are unchanged.
+        if (expected?.auth?.role == "SUPPLIER" && expected.auth.backendContract == "canonical" &&
+            request.method in setOf("GET", "HEAD")) {
+            val expiry = snapshot.auth?.accessTokenExpiresAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+            if (expiry == null || !expiry.isAfter(Instant.now().plusSeconds(30))) {
+                snapshot = runBlocking { refresh.refresh(snapshot) }
+                    ?: throw IOException("Supplier authentication could not be refreshed.")
+                checkSession(snapshot)
+                if (sessions.session.value !== snapshot) throw IOException("The request session changed.")
             }
         }
         if (snapshot.isDemo) throw IOException("Offline demo mode does not call the backend.")
@@ -110,6 +125,7 @@ class AuthTokenInterceptor(
             throw e
         } ?: return response
         if (sessions.session.value !== updated || chain.call().isCanceled()) return response
+        try { checkSession(updated) } catch (e: IOException) { response.close(); throw e }
         response.close()
         val retried = chain.proceed(request.newBuilder()
             .header("Authorization", "Bearer ${updated.auth!!.accessToken}").build())

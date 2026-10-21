@@ -13,6 +13,10 @@ interface CanonicalBackendApi {
     @POST("auth/refresh") suspend fun refresh(@Body request: CanonicalRefreshRequest): Response<CanonicalApiResponse<CanonicalAuthTokenDto>>
     @POST("profiles/farmers/{id}") suspend fun createFarmerProfile(@Path("id") id: Long,
         @Header("Authorization") bearer: String, @Body request: CanonicalFarmProfileRequest): Response<CanonicalApiResponse<CanonicalCreatedProfileDto>>
+    @POST("profiles/suppliers/{id}") suspend fun createSupplierProfile(@Path("id") id: Long,
+        @Header("Authorization") bearer: String, @Body request: CanonicalSupplierProfileRequest): Response<CanonicalApiResponse<CanonicalCreatedSupplierProfileDto>>
+    @GET("profiles/suppliers/{id}") suspend fun supplierProfile(@Path("id") id: Long,
+        @Header("Authorization") bearer: String): Response<CanonicalApiResponse<CanonicalCreatedSupplierProfileDto>>
     @GET("auth/me") suspend fun me(): Response<CanonicalApiResponse<CanonicalUserDto>>
     @PUT("users/me") suspend fun updateProfile(@Body request: CanonicalProfileUpdate): Response<CanonicalApiResponse<CanonicalUserDto>>
     @GET("categories/type/FARMER") suspend fun categories(): Response<CanonicalApiResponse<List<CanonicalCategoryDto>>>
@@ -31,3 +35,7 @@ data class CanonicalProductRequest(val name: String, val description: String, va
     val price: BigDecimal, val stockQty: Int, val minimumOrderQty: Int, val categoryId: Long)
 
 data class CanonicalCreatedProfileDto(val userId: Long? = null, val farmName: String? = null)
+data class CanonicalSupplierProfileRequest(val businessName: String, val location: String) {
+    override fun toString() = "CanonicalSupplierProfileRequest(redacted)"
+}
+data class CanonicalCreatedSupplierProfileDto(val id: Long? = null, val userId: Long? = null)

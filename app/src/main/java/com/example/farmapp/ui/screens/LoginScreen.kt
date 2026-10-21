@@ -69,7 +69,9 @@ fun LoginScreen(
                 onSignup = authViewModel::signup, onClearError = authViewModel::clearError,
                 isLoading = state.isLoading, errorMessage = state.errorMessage, demoMode = authViewModel.demoMode,
                 onBack = back, onSignIn = { navigate(AuthStep.SIGN_IN) },
-                isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme, modifier = modifier
+                isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme, modifier = modifier,
+                supplierRecoveryRequired = state.supplierRegistrationRecovery,
+                onRecoverSupplierSignup = authViewModel::recoverSupplierSignup
             )
             AuthStep.RECOVERY -> PasswordRecoveryScreen(
                 onBack = back, isDarkTheme = isDarkTheme,

@@ -56,6 +56,11 @@ internal data class CropDetailPresentation(val name: String, val quantity: Strin
 internal fun FarmerProductResponse.detailPresentation() = CropDetailPresentation(name,
     "${availableQuantity.toPlainString()} $unit",
     "KES ${unitPrice.toPlainString()} / ${CropUnit.entries.firstOrNull { it.label == unit }?.priceUnit ?: unit}",
-    description.orEmpty(), status, images.minByOrNull { it.sortOrder }?.url)
+    description.orEmpty(), productStatusLabel(status), images.minByOrNull { it.sortOrder }?.url)
+
+internal fun productStatusLabel(status: String): String = status.trim().split('_', ' ')
+    .filter { it.isNotBlank() }.joinToString(" ") { word ->
+        word.lowercase(java.util.Locale.ROOT).replaceFirstChar { it.titlecase(java.util.Locale.ROOT) }
+    }.ifBlank { "Unknown" }
 
 internal class CropEditRefreshFailure(cause: Exception) : IllegalStateException("Crop updated, but refreshing My Crops failed.", cause)

@@ -1,5 +1,6 @@
 import java.net.URI
 import java.security.MessageDigest
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -8,15 +9,23 @@ plugins {
 }
 
 val canonicalBaseUrl = providers.gradleProperty("kilivana.apiBaseUrl").getOrElse("http://127.0.0.1:8081/api/v1/")
-val apiUri = runCatching { URI(canonicalBaseUrl) }.getOrNull()
-require(apiUri != null && apiUri.host != null && apiUri.rawPath == "/api/v1/" &&
-    apiUri.rawUserInfo == null && apiUri.rawQuery == null && apiUri.rawFragment == null &&
-    (apiUri.scheme == "https" || (apiUri.scheme == "http" && apiUri.host in setOf("127.0.0.1", "localhost", "10.0.2.2")))) {
-    "API base URL must be HTTPS (or HTTP loopback for local development), ending in /api/v1/ without credentials, query or fragment"
+// Machine-specific overrides apply only to debug builds; shared/release selection stays unchanged.
+val localDevelopmentProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.isFile) localFile.inputStream().use { load(it) }
+}
+val debugBaseUrl = localDevelopmentProperties.getProperty("kilivana.debug.apiBaseUrl") ?: canonicalBaseUrl
+listOf(canonicalBaseUrl, debugBaseUrl).forEach { baseUrl ->
+    val apiUri = runCatching { URI(baseUrl) }.getOrNull()
+    require(apiUri != null && apiUri.host != null && apiUri.rawPath == "/api/v1/" &&
+        apiUri.rawUserInfo == null && apiUri.rawQuery == null && apiUri.rawFragment == null &&
+        (apiUri.scheme == "https" || (apiUri.scheme == "http" && apiUri.host in setOf("127.0.0.1", "localhost", "10.0.2.2")))) {
+        "API base URL must be HTTPS (or HTTP loopback for local development), ending in /api/v1/ without credentials, query or fragment"
+    }
 }
 val isolateDevelopmentBackend = providers.gradleProperty("kilivana.isolateDevelopmentBackend").orNull == "true"
 val backendInstallKey = MessageDigest.getInstance("SHA-256")
-    .digest(canonicalBaseUrl.toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
+    .digest(debugBaseUrl.toByteArray(Charsets.UTF_8)).take(8).joinToString("") { "%02x".format(it) }
 
 android {
     namespace = "com.example.farmapp"
@@ -41,6 +50,7 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("String", "API_BASE_URL", "\"$debugBaseUrl\"")
             // Explicit opt-in only. Demo builds have separate app storage from the real client.
             val mockAuth = providers.gradleProperty("kilivana.mockAuth").orNull == "true"
             buildConfigField("boolean", "USE_MOCK_AUTH", mockAuth.toString())

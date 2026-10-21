@@ -15,6 +15,10 @@ import retrofit2.http.Query
  */
 interface FarmApiService {
     val canonical: Boolean get() = false
+    suspend fun productDetail(id: String): Response<com.example.farmapp.data.model.FarmerProductResponse> =
+        throw com.example.farmapp.repository.ProductFailure("Crop detail refresh is unavailable for this backend.", true)
+    suspend fun changeProductLifecycle(id: String, action: com.example.farmapp.data.model.FarmerProductAction): Response<Unit> =
+        throw com.example.farmapp.repository.ProductFailure("Product lifecycle actions require the updated canonical backend.", true)
     @GET("users/me")
     suspend fun farmerProfile(): Response<com.example.farmapp.data.model.FarmerProfileResponse>
 

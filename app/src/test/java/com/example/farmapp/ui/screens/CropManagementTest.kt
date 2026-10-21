@@ -19,6 +19,13 @@ class CropManagementTest {
         assertEquals("Fresh", detail.description)
         assertEquals("/api/v1/images/i", detail.imageUrl)
         assertEquals("ACTIVE", product.status)
+        assertEquals("Active", detail.status)
+    }
+    @Test fun statusLabelsAreReadableWithoutChangingWireValues() {
+        assertEquals("Pending Approval", productStatusLabel("PENDING_APPROVAL"))
+        assertEquals("Archived", productStatusLabel("ARCHIVED"))
+        assertEquals("Unlisted", productStatusLabel("unlisted"))
+        assertEquals("Unknown", productStatusLabel(" "))
     }
     @Test fun completeRequestPreservesUnitsAndSettings() {
         CropUnit.entries.forEach {

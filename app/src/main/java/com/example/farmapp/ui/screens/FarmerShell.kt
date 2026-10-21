@@ -84,6 +84,9 @@ internal fun FarmerShell(
         update = { id, request -> repository.update(id, request); Unit },
         unlist = { repository.unlist(it) }, mine = { repository.mine() }) }
     val cropSave = remember(manager) { CropSaveController(manager) }
+    val lifecycle = remember(repository) { CropLifecycleController(
+        mutate = { id, action -> repository.lifecycle(id, action); Unit },
+        mine = { repository.mine() }, detail = { repository.detail(it) }) }
     suspend fun refreshOrders() { orderRefresh.refresh { repository.orders() } }
     val selectedCrop = products.firstOrNull { it.productId == selectedCropId }
     val sellerOrders = orders?.let { cropOrders(it, auth.userId) }
@@ -114,8 +117,15 @@ internal fun FarmerShell(
     }
     suspend fun refreshProducts() {
         productRefresh.refresh(
-            load = { repository.mine() },
-            onSuccess = { products = it; productsError = null },
+            load = {
+                val loaded = repository.mine()
+                val id = selectedCropId
+                if (repository.canonical && id != null && loaded.any { it.productId == id }) {
+                    val detail = repository.detail(id)
+                    loaded.map { if (it.productId == id) detail else it }
+                } else loaded
+            },
+            onSuccess = { products = it; productsError = null; lifecycle.refreshed() },
             onFailure = { productsError = productError(it) }
         )
     }
@@ -270,10 +280,28 @@ internal fun FarmerShell(
                             categories = categories, onRetryCategories = { scope.launch { refreshCategories() } }, saveState = cropSave.state,
                             refreshing = detailRefresh.refreshing || loadingProducts || loadingOrders,
                             refreshError = productsError,
+                            canonicalLifecycle = repository.canonical, authenticatedUserId = auth.userId, authenticatedRole = auth.role,
+                            lifecycleBlocked = lifecycle.refreshRequired,
+                            onLifecycle = { action ->
+                                if (!managementBusy && !loadingProducts && lifecycle.begin()) {
+                                    managementBusy = true
+                                    managementMessage = null
+                                    cropSave.reset()
+                                    scope.launch {
+                                        try {
+                                            lifecycle.execute(selectedCrop.productId, action,
+                                                onProducts = { products = it; productsError = null },
+                                                onDeleted = { selectedCropId = null; showingCropOrders = false })
+                                            managementMessage = lifecycle.message
+                                            publishMessage = lifecycle.message
+                                        } finally { managementBusy = false }
+                                    }
+                                }
+                            },
                             onRefresh = { if (!managementBusy && !loadingProducts && !loadingOrders) scope.launch { detailRefresh.refresh(::refreshProducts, ::refreshOrders) } })
                     } else FarmerScreen(contentModifier,
                         farmerName = auth.fullName, showCreateAction = false, searchQuery = searchQuery,
-                        realProducts = products.filter { it.status != "HIDDEN" }, productsError = productsError, productsLoading = loadingProducts,
+                        realProducts = products.filter { it.status !in setOf("HIDDEN", "DELETED") }, productsError = productsError, productsLoading = loadingProducts,
                         onRefreshProducts = { scope.launch { refreshProducts() } }, publishMessage = publishMessage,
                         onResumeExisting = if (cropPhotos.draft.creationUncertain && !publishing) ({ recoveryProduct = it }) else null,
                         onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } })

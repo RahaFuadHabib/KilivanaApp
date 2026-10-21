@@ -83,14 +83,13 @@ class CanonicalIntegrationAdapterTest {
         assertEquals(BigDecimal("5"), result.body()!!.availableQuantity)
         assertEquals("PENDING_APPROVAL", result.body()!!.status)
     }
-    @Test fun unsupportedFractionDeleteAndOrderFeedNeverMakeRequests() = runBlocking {
+    @Test fun unsupportedFractionAndOrderFeedNeverMakeRequests() = runBlocking {
         var calls = 0
         val service = CanonicalFarmService(api { _, _ -> calls++; error("No requests allowed") }, store()) { error("No downloads") }
         suspend fun rejects(block: suspend () -> Unit) {
             try { block(); fail() } catch (_: ProductFailure) {}
         }
         rejects { service.createProduct(CreateProductRequest("Tomatoes", "Fresh", "kg", BigDecimal.ONE, BigDecimal("1.5"), "1")) }
-        rejects { service.unlistProduct("7") }
         rejects { service.farmerOrders() }
         assertEquals(0, calls)
     }

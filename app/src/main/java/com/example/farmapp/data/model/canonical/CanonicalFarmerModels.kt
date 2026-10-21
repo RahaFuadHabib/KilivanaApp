@@ -22,7 +22,10 @@ enum class CanonicalProductStatus(val wireValue: String) {
     ACTIVE("active"),
     PENDING_APPROVAL("pending"),
     REJECTED("rejected"),
-    SUSPENDED("suspended")
+    SUSPENDED("suspended"),
+    UNLISTED("unlisted"),
+    ARCHIVED("archived"),
+    DELETED("deleted")
 }
 
 /** Display metadata, not the active upload/reconciliation ProductImageResponse. */

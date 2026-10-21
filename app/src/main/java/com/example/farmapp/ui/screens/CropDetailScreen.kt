@@ -26,7 +26,9 @@ internal fun CropDetailScreen(product: FarmerProductResponse, modifier: Modifier
     message: String?, orderCount: Int?, onBack: () -> Unit, onOrders: () -> Unit,
     onSave: (CropEdit) -> Unit, onRemove: () -> Unit,
     categories: CategoryCatalog = CategoryCatalog(), onRetryCategories: () -> Unit = {}, saveState: CropSaveState = CropSaveState(), refreshing: Boolean = false,
-    refreshError: String? = null, onRefresh: () -> Unit = {}, demoMode: Boolean = false) {
+    refreshError: String? = null, onRefresh: () -> Unit = {}, demoMode: Boolean = false,
+    canonicalLifecycle: Boolean = false, authenticatedUserId: String? = null, authenticatedRole: String? = null,
+    lifecycleBlocked: Boolean = false, onLifecycle: (FarmerProductAction) -> Unit = {}) {
     val detail = product.detailPresentation()
     val scroll = rememberScrollState()
     val pullState = rememberPullToRefreshState()
@@ -58,10 +60,14 @@ internal fun CropDetailScreen(product: FarmerProductResponse, modifier: Modifier
                 Text(detail.price)
                 Text(detail.description)
                 Text("Status: ${detail.status}")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                if (canonicalLifecycle) CropLifecycleActions(product, authenticatedUserId, authenticatedRole,
+                    enabled = !busy && !refreshing && !lifecycleBlocked && !editing,
+                    onAction = onLifecycle, onEdit = { editing = !editing }, onOrders = onOrders, orderCount = orderCount,
+                    editEnabled = !busy && !refreshing, ordersEnabled = !busy)
+                else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     TextButton(onClick = { editing = !editing }, enabled = !busy && !refreshing) { Icon(Icons.Default.Edit, "Edit crop"); Text("Edit") }
                     TextButton(onClick = onOrders, enabled = !busy) { Icon(Icons.Default.ShoppingBag, "View crop orders"); Text("Orders ${orderCount ?: "\u2014"}") }
-                    TextButton(onClick = onRemove, enabled = !busy && !refreshing && product.status == "ACTIVE") { Icon(Icons.Default.Delete, "Unlist crop"); Text("Unlist") }
+                    if (!canonicalLifecycle) TextButton(onClick = onRemove, enabled = !busy && !refreshing && product.status == "ACTIVE") { Icon(Icons.Default.Delete, "Unlist crop"); Text("Unlist") }
                 }
                 if (!editing) {
                     TextButton(onClick = onRefresh, enabled = !busy && !refreshing) {
@@ -74,7 +80,7 @@ internal fun CropDetailScreen(product: FarmerProductResponse, modifier: Modifier
                     }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                message?.let { Text(it) }
+                message?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
                 if (editing) {
                     OutlinedTextField(title, { title = it }, label = { Text("Crop name") }, enabled = !busy)
                     CropCategoryDropdown(categories, categoryId, categoryName, !busy, onRetryCategories) {
@@ -82,7 +88,8 @@ internal fun CropDetailScreen(product: FarmerProductResponse, modifier: Modifier
                     }
                     OutlinedTextField(quantity, { quantity = it }, label = { Text("Available quantity") }, enabled = !busy)
                     Text("Unit: $unit")
-                    Text(if (demoMode) "Zero quantity makes this demo listing inactive. Changes stay local."
+                    Text(if (canonicalLifecycle) "Stock edits do not change approval status. Use the lifecycle actions to hide or submit a crop for Admin review."
+                        else if (demoMode) "Zero quantity makes this demo listing inactive. Changes stay local."
                         else "Setting quantity to zero makes this listing inactive. Only the backend can reactivate it.", style = MaterialTheme.typography.bodySmall)
                     FlowRowUnits(unit, !busy) { unit = it }
                     OutlinedTextField(price, { price = it }, label = { Text("Unit price (KES)") }, enabled = !busy)

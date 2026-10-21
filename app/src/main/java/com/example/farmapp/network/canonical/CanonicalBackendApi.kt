@@ -6,8 +6,15 @@ import retrofit2.Response
 import retrofit2.http.*
 import java.math.BigDecimal
 
-/** Existing canonical contracts only. No general order feed or destructive product DELETE. */
+/** Existing canonical contracts, including the server's archived-product soft deletion. */
 interface CanonicalBackendApi {
+    @GET("auth/me") suspend fun managementIdentity(@Tag session: com.example.farmapp.network.SessionSnapshot): Response<CanonicalApiResponse<CanonicalUserDto>>
+    @GET("products/{id}") suspend fun managementProduct(@Path("id") id: Long,
+        @Tag session: com.example.farmapp.network.SessionSnapshot): Response<CanonicalApiResponse<CanonicalProductDto>>
+    @PUT("products/{id}/status") suspend fun sellerProductStatus(@Path("id") id: Long, @Query("status") status: String,
+        @Tag session: com.example.farmapp.network.SessionSnapshot): Response<CanonicalApiResponse<CanonicalProductDto>>
+    @DELETE("products/{id}") suspend fun deleteArchivedProduct(@Path("id") id: Long,
+        @Tag session: com.example.farmapp.network.SessionSnapshot): Response<CanonicalApiResponse<Unit>>
     @POST("auth/login") suspend fun login(@Body request: CanonicalLoginRequest): Response<CanonicalApiResponse<CanonicalAuthTokenDto>>
     @POST("auth/register") suspend fun register(@Body request: CanonicalRegisterRequest): Response<CanonicalApiResponse<CanonicalUserDto>>
     @POST("auth/refresh") suspend fun refresh(@Body request: CanonicalRefreshRequest): Response<CanonicalApiResponse<CanonicalAuthTokenDto>>

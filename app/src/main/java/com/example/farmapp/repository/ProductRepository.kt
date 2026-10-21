@@ -19,6 +19,10 @@ class ProductRepository(private val api: FarmApiService) {
     suspend fun categories() = withContext(Dispatchers.IO) { checked(api.categories("FARM_PRODUCE")) }
     suspend fun update(id: String, request: UpdateProductRequest) = withContext(Dispatchers.IO) { managedResponse(api.updateProduct(id, request), "Update crop") }
     suspend fun orders() = withContext(Dispatchers.IO) { checked(api.farmerOrders()) }
+    suspend fun detail(id: String) = withContext(Dispatchers.IO) { managedResponse(api.productDetail(id), "Refresh crop details") }
+    suspend fun lifecycle(id: String, action: FarmerProductAction) = withContext(Dispatchers.IO) {
+        managedResponse(api.changeProductLifecycle(id, action), action.label)
+    }
     suspend fun unlist(id: String) = withContext(Dispatchers.IO) {
         val response = api.unlistProduct(id)
         if (!response.isSuccessful) {
@@ -65,7 +69,8 @@ class ProductRepository(private val api: FarmApiService) {
             }.getOrDefault("")
         }.orEmpty()
         val fallback = when (response.code()) {
-            401, 403 -> "Your session or permissions could not be verified."
+            401 -> "Your session expired or could not be verified. Sign in again."
+            403 -> "Your account is not permitted to change this crop."
             404 -> "The crop could not be found."
             409 -> "The crop conflicts with its current server state."
             400, 422 -> "Check the crop details and category."

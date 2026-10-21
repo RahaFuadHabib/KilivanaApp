@@ -263,6 +263,7 @@ fun FarmerScreen(
                                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         product.images.firstOrNull()?.let { ProductImage(it.url, product.name) }
                                         Text(product.name, style = MaterialTheme.typography.titleMedium)
+                                        Text("Status: ${productStatusLabel(product.status)}")
                                         Text("${product.availableQuantity.toPlainString()} ${product.unit}")
                                         Text("KES ${product.unitPrice.toPlainString()} / ${product.unit}")
                                         onResumeExisting?.let { resume -> TextButton(onClick = { resume(product) }) { Text("Use this listing for pending draft") } }

@@ -19,7 +19,8 @@ fun CanonicalProductDto.toAndroidProduct(): FarmerProductResponse {
     val view = toFarmerProduct()
     return FarmerProductResponse(view.productId, view.name, view.description, view.unit, view.unitPrice,
         view.availableQuantity, images.orEmpty().sortedBy { it.sortOrder ?: 0 }.map { it.toAndroidImage() },
-        view.status.name, view.categoryId, minimumOrderQuantity = view.minimumOrderQuantity)
+        view.status.name, view.categoryId, minimumOrderQuantity = view.minimumOrderQuantity,
+        sellerId = view.sellerId, reservedQuantity = view.reservedQuantity)
 }
 fun canonicalWholeQuantity(value: BigDecimal): Int = try { canonicalStockQuantity(value) }
 catch (_: CanonicalContractException) { throw ProductFailure("Enter a whole-number quantity within the supported range. Fractional quantities cannot be rounded.", true) }
@@ -87,7 +88,15 @@ class CanonicalFarmService(private val api: CanonicalBackendApi, private val ses
             images.isEmpty()).mapped { it.toAndroidImage() }
     }
     override suspend fun productImageContent(url: String) = download(url)
-    override suspend fun unlistProduct(id: String): Response<Void> = throw ProductFailure("Unlisting is unavailable. Physical deletion is disabled.", true)
+    override suspend fun productDetail(id: String): Response<FarmerProductResponse> =
+        FarmerProductLifecycle(api, sessions).detail(numericId(id))
+    override suspend fun changeProductLifecycle(id: String, action: FarmerProductAction): Response<Unit> =
+        FarmerProductLifecycle(api, sessions).change(numericId(id), action)
+    override suspend fun unlistProduct(id: String): Response<Void> {
+        val response = changeProductLifecycle(id, FarmerProductAction.UNLIST)
+        return if (response.isSuccessful) Response.success(null)
+            else Response.error(response.code(), response.errorBody() ?: throw IOException("Missing error response"))
+    }
     override suspend fun farmerOrders(): Response<List<FarmerOrderResponse>> = throw ProductFailure("Farmer orders are unavailable until a secure seller-scoped API exists.", true)
     override suspend fun getFarmers(): List<Farmer> = unavailable()
     override suspend fun getFarmerById(id: Long): Farmer = unavailable()

@@ -105,7 +105,7 @@ class CanonicalContractTest {
     }
 
     @Test fun allCanonicalProductWireStatesAreExplicitAndUnknownStatesFail() {
-        listOf("active", "pending", "rejected", "suspended").zip(CanonicalProductStatus.entries).forEach { (wire, state) ->
+        listOf("active", "pending", "rejected", "suspended", "unlisted", "archived", "deleted").zip(CanonicalProductStatus.entries).forEach { (wire, state) ->
             assertEquals(state, canonicalProductStatus(wire))
             assertEquals(state, product().copy(status = wire).toFarmerProduct().status)
         }

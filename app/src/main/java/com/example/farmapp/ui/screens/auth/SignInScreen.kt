@@ -27,7 +27,8 @@ internal fun SignInScreen(
     onForgotPassword: () -> Unit,
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    diagnosticMessage: String? = null
 ) {
     AuthPage("Sign In", isDarkTheme, onToggleTheme, modifier, onBack) {
         AgriculturalVisual(password = true)
@@ -47,6 +48,7 @@ internal fun SignInScreen(
                 Text("Forgot password?")
             }
             if (errorMessage != null) KilivanaErrorMessage(errorMessage)
+            diagnosticMessage?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
         }
         Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AuthPrimaryButton("Sign In", onSignIn, enabled = !isLoading, loading = isLoading)

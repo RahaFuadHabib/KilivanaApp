@@ -17,6 +17,33 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
 
 class InspectorWorkflowTest {
+    @Test fun refreshIsSingleFlightAndRetainsAssignmentsOnFailure() = runBlocking {
+        val sessions = store()
+        val release = CompletableDeferred<Unit>()
+        var calls = 0
+        var failReads = false
+        val api = object : Api() {
+            override suspend fun inspections(inspectorId: Long): Response<CanonicalApiResponse<List<InspectionDto>>> {
+                calls++
+                if (calls > 1) release.await()
+                if (failReads) throw IOException("Synthetic failure")
+                return Response.success(CanonicalApiResponse(true, data = listOf(current)))
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val holder = InspectorStateHolder(InspectorRepository(api, sessions, origin), sessions, scope)
+        try {
+            assertEquals(1, holder.uiState.value.jobs.size)
+            failReads = true
+            holder.refresh(); holder.refresh()
+            assertEquals(2, calls)
+            assertEquals(1, holder.uiState.value.jobs.size)
+            release.complete(Unit)
+            assertFalse(holder.uiState.value.loadingJobs)
+            assertNotNull(holder.uiState.value.jobsError)
+            assertEquals(1, holder.uiState.value.jobs.size)
+        } finally { holder.close(); scope.cancel() }
+    }
     private val origin = "https://fixture.example.test/api/v1/"
     private fun auth() = testAuth(role = "INSPECTOR").copy(userId = "42", backendContract = "canonical",
         sessionOrigin = origin, refreshTokenExpiresAt = "", verificationStatus = "NOT_REQUIRED")

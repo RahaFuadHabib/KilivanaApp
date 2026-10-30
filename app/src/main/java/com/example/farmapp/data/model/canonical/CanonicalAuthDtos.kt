@@ -34,7 +34,9 @@ data class CanonicalUserDto(
     val role: String? = null,
     val status: String? = null,
     val verificationStatus: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val emailVerified: Boolean? = null,
+    val emailVerificationChallengeId: java.util.UUID? = null
 )
 
 data class CanonicalAuthTokenDto(
@@ -43,7 +45,9 @@ data class CanonicalAuthTokenDto(
     val tokenType: String? = null,
     /** Seconds; null is the canonical non-expiring-access contract, not a refresh deadline. */
     val expiresIn: Long? = null,
-    val user: CanonicalUserDto? = null
+    val user: CanonicalUserDto? = null,
+    val emailVerificationRequired: Boolean? = null,
+    val emailVerificationChallengeId: java.util.UUID? = null
 ) {
     override fun toString() = "CanonicalAuthTokenDto(redacted)"
 }

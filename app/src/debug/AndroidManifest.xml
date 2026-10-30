@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug opt-in only. Shell can read a user-triggered sanitized report, never app storage or credentials. -->
+        <provider android:name="com.example.farmapp.buyer.DebugCartStructureProvider"
+            android:authorities="${applicationId}.buyer-cart-structure"
+            android:enabled="${cartStructureDiagnosticEnabled}"
+            android:exported="true"
+            android:readPermission="android.permission.DUMP"
+            android:writePermission="android.permission.DUMP" />
+        <provider android:name="com.example.farmapp.ui.screens.auth.AuthDiagnosticProvider"
+            android:authorities="${applicationId}.auth-diagnostics"
+            android:enabled="${safeAuthDiagnosticsEnabled}"
+            android:exported="true"
+            android:readPermission="android.permission.DUMP"
+            android:writePermission="android.permission.DUMP" />
+    </application>
+</manifest>

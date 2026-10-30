@@ -8,8 +8,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 
-class SupplierRepository(private val api: SupplierApi, private val sessions: SessionStore, private val origin: String) {
+class SupplierRepository(private val api: SupplierApi, private val sessions: SessionStore, private val origin: String,
+    private val galleryApi: SupplierGalleryApi? = null) {
     internal fun owner(expected: SessionSnapshot): Long {
         val current = sessions.session.value
         val auth = current.auth
@@ -20,20 +24,43 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
             ?: throw SupplierFailure("Supplier identity could not be verified.", true)
     }
     internal fun key(expected: SessionSnapshot) = origin + "|" + owner(expected)
+    suspend fun orders(expected: SessionSnapshot, page: Int, size: Int = 20): SupplierOrderPage {
+        if (page < 0 || size !in 1..100) throw SupplierFailure("Invalid order page.", true)
+        val id = authenticatedOwner(expected)
+        val response = api.orders(id, page, size, expected)
+        owner(expected)
+        if (!response.isSuccessful) {
+            response.errorBody()?.close()
+            throw SupplierFailure(when (response.code()) {
+                401 -> "Your session has expired. Please sign in again."
+                403 -> "This Supplier account cannot access orders. Contact support."
+                404 -> "Supplier orders are not available from the service yet."
+                429 -> "Too many requests. Please wait before trying again."
+                else -> "Couldn't load orders. Check your connection and try again."
+            }, response.code() in setOf(401, 403))
+        }
+        val data = response.body()?.requireData() ?: throw SupplierFailure("Incomplete order response.")
+        val result = data.verified(id, page, size)
+        owner(expected)
+        return result
+    }
     private suspend fun authenticatedOwner(expected: SessionSnapshot): Long {
+        return authenticatedAccount(expected).userId.toLong()
+    }
+    private suspend fun authenticatedAccount(expected: SessionSnapshot): CanonicalAccount {
         val id = owner(expected)
         // This protected route cannot silently succeed with an anonymous/public projection.
         val account = read(api.me(expected)).toAccount()
         owner(expected)
         if (account.userId != id.toString() || account.role != "SUPPLIER")
             throw SupplierFailure("Supplier identity could not be verified.", true)
-        return id
+        return account
     }
     suspend fun profile(expected: SessionSnapshot): SupplierProfile {
+        return profile(expected, authenticatedAccount(expected))
+    }
+    private suspend fun profile(expected: SessionSnapshot, account: CanonicalAccount): SupplierProfile {
         val id = owner(expected)
-        val account = read(api.me(expected)).toAccount()
-        owner(expected)
-        if (account.userId != id.toString() || account.role != "SUPPLIER") throw SupplierFailure("Supplier identity could not be verified.")
         val response = api.profile(id, expected)
         val business = if (response.code() == 404) { response.errorBody()?.close(); null } else read(response)
         owner(expected)
@@ -49,20 +76,45 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
         return result.filter { it.active == true }
     }
     suspend fun listings(expected: SessionSnapshot): List<SupplyListing> {
-        val id = authenticatedOwner(expected)
+        return listings(expected, authenticatedOwner(expected))
+    }
+    private suspend fun listings(expected: SessionSnapshot, id: Long): List<SupplyListing> {
+        if (owner(expected) != id) throw SupplierFailure("Supplier identity could not be verified.", true)
         val result = read(api.listings(id, expected)).map { it.toSupply(id) }
         owner(expected)
         if (result.map { it.id }.distinct().size != result.size) throw SupplierFailure("Duplicate supply records received.")
         return result.sortedByDescending { it.id }
     }
     suspend fun listing(expected: SessionSnapshot, id: Long): SupplyListing {
-        val owner = authenticatedOwner(expected)
+        return listing(expected, id, authenticatedOwner(expected))
+    }
+    private suspend fun listing(expected: SessionSnapshot, id: Long, owner: Long): SupplyListing {
+        if (this.owner(expected) != owner) throw SupplierFailure("Supplier identity could not be verified.", true)
         if (id <= 0) throw SupplierFailure("Invalid supply selection.", true)
         val result = read(api.listing(id, expected)).toSupply(owner)
         this.owner(expected)
         if (result.id != id) throw SupplierFailure("Supply selection could not be verified.")
         return result
     }
+    /** Exactly one protected identity read per refresh, never shared across refreshes or sessions. */
+    internal inner class ReadBatch internal constructor(private val expected: SessionSnapshot, scope: CoroutineScope) {
+        // A failed identity read must not cancel independent category reads or strand loading flags.
+        private val account = scope.async(start = CoroutineStart.LAZY) {
+            try { Result.success(authenticatedAccount(expected)) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Result.failure<CanonicalAccount>(e) }
+        }
+        private suspend fun verified(): CanonicalAccount {
+            owner(expected)
+            val result = account.await().getOrThrow()
+            owner(expected)
+            return result
+        }
+        suspend fun listings() = listings(expected, verified().userId.toLong())
+        suspend fun profile() = profile(expected, verified())
+        suspend fun listing(id: Long) = listing(expected, id, verified().userId.toLong())
+    }
+    internal fun readBatch(expected: SessionSnapshot, scope: CoroutineScope) = ReadBatch(expected, scope)
     suspend fun create(expected: SessionSnapshot, draft: SupplyDraft): SupplyListing {
         val id = owner(expected)
         val request = draft.request(categories(expected))
@@ -95,7 +147,36 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
         return afterWrite {
             owner(expected)
             image.toImageView()
-            listing(expected, id) // Failure after accepted upload must remain uncertain, not become a safe retry.
+            listing(expected, id).also { listing ->
+                if (listing.images.none { it.id == image.id }) throw SupplierFailure("Uploaded photo is not visible in the refreshed gallery yet.")
+            } // Failure after accepted upload must remain uncertain, not become a safe retry.
+        }
+    }
+    suspend fun gallery(expected: SessionSnapshot, id: Long, action: GalleryAction): SupplyListing {
+        val current = listing(expected, id)
+        if (current.status != CanonicalProductStatus.PENDING_APPROVAL) throw SupplierFailure("Photo changes are limited to pending listings until reapproval is defined.", true)
+        val api = galleryApi ?: throw SupplierFailure("Gallery management is unavailable.", true)
+        val images = read(this.api.images(id, expected)).sortedBy { it.sortOrder ?: 0 }
+        val ids = images.map { it.toImageView().imageId.toLong() }
+        if (ids.distinct().size != ids.size || action.imageId !in ids) throw SupplierFailure("Refresh the gallery before changing this photo.", true)
+        owner(expected)
+        val response = when (action.change) {
+            GalleryChange.DELETE -> api.delete(id, action.imageId, expected)
+            GalleryChange.PRIMARY -> api.primary(id, action.imageId, expected)
+            GalleryChange.MOVE_UP -> {
+                val index = ids.indexOf(action.imageId)
+                if (index <= 0) throw SupplierFailure("This photo is already first.", true)
+                val reordered = ids.toMutableList().apply { this[index] = ids[index - 1]; this[index - 1] = action.imageId }
+                api.reorder(id, reordered, expected)
+            }
+        }
+        if (!response.isSuccessful) {
+            response.errorBody()?.close()
+            throw SupplierFailure("Gallery change was not confirmed. Refresh before trying again.", response.code() in setOf(400, 401, 403, 404, 422))
+        }
+        return afterWrite {
+            response.body()?.requireSuccess() ?: throw SupplierFailure("Incomplete gallery response.")
+            listing(expected, id)
         }
     }
     private suspend fun <T> afterWrite(block: suspend () -> T): T = try { block() }

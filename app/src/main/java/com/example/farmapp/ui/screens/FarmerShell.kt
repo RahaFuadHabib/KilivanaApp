@@ -304,7 +304,8 @@ internal fun FarmerShell(
                         realProducts = products.filter { it.status !in setOf("HIDDEN", "DELETED") }, productsError = productsError, productsLoading = loadingProducts,
                         onRefreshProducts = { scope.launch { refreshProducts() } }, publishMessage = publishMessage,
                         onResumeExisting = if (cropPhotos.draft.creationUncertain && !publishing) ({ recoveryProduct = it }) else null,
-                        onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } })
+                        onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } },
+                        onOpenSupplies = { destination = FarmerDestination.SUPPLIES }, onOpenOrders = { destination = FarmerDestination.ORDERS })
                     FarmerDestination.ORDERS -> FarmerOrdersScreen(sellerOrders, ordersError, loadingOrders,
                         null, contentModifier, null, { scope.launch { refreshOrders() } },
                         onTracking = { trackingFrom = FarmerDestination.ORDERS })
@@ -322,46 +323,46 @@ internal fun FarmerShell(
 @Composable
 internal fun FarmerBottomBar(destination: FarmerDestination, onSelect: (FarmerDestination) -> Unit) {
     val colors = MaterialTheme.colorScheme
-                Surface(shadowElevation = 6.dp, color = colors.surface) {
-                    BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding()) {
-                    // Five equal columns put Add in the center; large text remains scrollable.
-                    val itemWidth = maxOf(52.dp, maxWidth / 5, 52.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale)
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        FarmerDestination.bottomTabs.forEach { tab ->
-                            val active = destination == tab
-                            if (tab == FarmerDestination.ADD) {
-                                Column(Modifier.width(itemWidth), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    FilledIconButton(onClick = { onSelect(tab) },
-                                        modifier = Modifier.size(52.dp).border(if (active) 3.dp else 0.dp,
-                                            if (active) colors.primary else Color.Transparent, CircleShape)
-                                            .semantics { selected = active },
-                                        shape = CircleShape,
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = HarvestAmber, contentColor = ForestGreen)) {
-                                        Icon(Icons.Default.Add, contentDescription = "Add crop", modifier = Modifier.size(32.dp))
-                                    }
-                                    Text("Add", style = MaterialTheme.typography.labelMedium,
-                                        color = if (active) colors.primary else colors.onSurfaceVariant)
+    Surface(shadowElevation = 6.dp, color = colors.surface) {
+        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            // Five equal columns put Add in the center; large text remains scrollable.
+            val itemWidth = maxOf(52.dp, maxWidth / 5, 52.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                FarmerDestination.bottomTabs.forEach { tab ->
+                    val active = destination == tab
+                    if (tab == FarmerDestination.ADD) {
+                        Column(Modifier.width(itemWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilledIconButton(onClick = { onSelect(tab) },
+                                modifier = Modifier.size(52.dp).border(if (active) 3.dp else 0.dp,
+                                    if (active) colors.primary else Color.Transparent, CircleShape)
+                                    .semantics { selected = active },
+                                shape = CircleShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = HarvestAmber, contentColor = ForestGreen)) {
+                                Icon(Icons.Default.Add, contentDescription = "Add crop", modifier = Modifier.size(32.dp))
+                            }
+                            Text("Add", style = MaterialTheme.typography.labelMedium,
+                                color = if (active) colors.primary else colors.onSurfaceVariant)
+                        }
+                    } else {
+                        Surface(onClick = { onSelect(tab) },
+                            modifier = Modifier.width(itemWidth).heightIn(min = 72.dp).semantics { selected = active },
+                            color = Color.Transparent) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Surface(shape = CircleShape, color = if (active) colors.primaryContainer else Color.Transparent) {
+                                    Icon(tab.icon(), contentDescription = tab.label, modifier = Modifier.padding(10.dp).size(24.dp),
+                                        tint = if (active) colors.primary else colors.onSurfaceVariant)
                                 }
-                            } else {
-                                Surface(onClick = { onSelect(tab) },
-                                    modifier = Modifier.width(itemWidth).heightIn(min = 72.dp).semantics { selected = active },
-                                    color = Color.Transparent) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                        Surface(shape = CircleShape, color = if (active) colors.primaryContainer else Color.Transparent) {
-                                            Icon(tab.icon(), contentDescription = tab.label, modifier = Modifier.padding(10.dp).size(24.dp),
-                                                tint = if (active) colors.primary else colors.onSurfaceVariant)
-                                        }
-                                        Text(tab.label, style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                                            color = if (active) colors.primary else colors.onSurfaceVariant)
-                                    }
-                                }
+                                Text(tab.label, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                                    color = if (active) colors.primary else colors.onSurfaceVariant)
                             }
                         }
                     }
-                    }
                 }
+            }
+        }
+    }
 }
 
 private fun FarmerDestination.icon(): ImageVector = when (this) {

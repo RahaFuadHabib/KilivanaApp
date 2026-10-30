@@ -8,13 +8,25 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val canonicalBaseUrl = providers.gradleProperty("kilivana.apiBaseUrl").getOrElse("http://127.0.0.1:8081/api/v1/")
-// Machine-specific overrides apply only to debug builds; shared/release selection stays unchanged.
+// Release has no implicit deployed endpoint. CI/developers must supply it explicitly.
+val configuredBaseUrl = providers.gradleProperty("kilivana.apiBaseUrl")
+    .orElse(providers.environmentVariable("KILIVANA_API_BASE_URL")).orNull
+// Used only to configure non-release tasks; validateReleaseBackend blocks release without HTTPS configuration.
+val canonicalBaseUrl = configuredBaseUrl ?: "http://127.0.0.1:8081/api/v1/"
+// Machine-specific overrides apply only to debug builds.
 val localDevelopmentProperties = Properties().apply {
     val localFile = rootProject.file("local.properties")
     if (localFile.isFile) localFile.inputStream().use { load(it) }
 }
-val debugBaseUrl = localDevelopmentProperties.getProperty("kilivana.debug.apiBaseUrl") ?: canonicalBaseUrl
+val debugBaseUrl = providers.gradleProperty("kilivana.debug.apiBaseUrl")
+    .orElse(providers.environmentVariable("KILIVANA_DEBUG_API_BASE_URL")).orNull
+    ?: localDevelopmentProperties.getProperty("kilivana.debug.apiBaseUrl")
+    ?: configuredBaseUrl ?: "http://10.0.2.2:8081/api/v1/"
+val debugInstallSuffix = providers.gradleProperty("kilivana.debug.applicationIdSuffix").orNull
+    ?: localDevelopmentProperties.getProperty("kilivana.debug.applicationIdSuffix")
+require(debugInstallSuffix == null || Regex("\\.dev[0-9a-f]{16}").matches(debugInstallSuffix)) {
+    "Debug install suffix must be .dev followed by sixteen lowercase hex digits"
+}
 listOf(canonicalBaseUrl, debugBaseUrl).forEach { baseUrl ->
     val apiUri = runCatching { URI(baseUrl) }.getOrNull()
     require(apiUri != null && apiUri.host != null && apiUri.rawPath == "/api/v1/" &&
@@ -45,18 +57,33 @@ android {
         )
 
         buildConfigField("boolean", "USE_CANONICAL_BACKEND", (providers.gradleProperty("kilivana.canonicalBackend").orNull != "false").toString())
+        // Set only after Daniel confirms the environment for this exact deployed backend. No secrets.
+        val mpesaEnvironment = providers.gradleProperty("kilivana.mpesa.environment").orNull ?: "UNKNOWN"
+        val mpesaConfirmedUrl = providers.gradleProperty("kilivana.mpesa.confirmedApiBaseUrl").orNull ?: ""
+        require(mpesaEnvironment in setOf("UNKNOWN", "SANDBOX", "PRODUCTION"))
+        require(mpesaConfirmedUrl.isEmpty() || mpesaConfirmedUrl in setOf(canonicalBaseUrl, debugBaseUrl))
+        buildConfigField("String", "BUYER_MPESA_ENVIRONMENT", "\"$mpesaEnvironment\"")
+        buildConfigField("String", "BUYER_MPESA_CONFIRMED_API_BASE_URL", "\"$mpesaConfirmedUrl\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
+            val safeAuthDiagnostics = providers.gradleProperty("kilivana.authDiagnostics").orNull == "true"
+            buildConfigField("boolean", "ENABLE_AUTH_DIAGNOSTICS", safeAuthDiagnostics.toString())
+            manifestPlaceholders["safeAuthDiagnosticsEnabled"] = safeAuthDiagnostics.toString()
+            val cartStructureDiagnostic = providers.gradleProperty("kilivana.cartStructureDiagnostic").orNull == "true"
+            buildConfigField("boolean", "ENABLE_CART_STRUCTURE_DIAGNOSTIC", cartStructureDiagnostic.toString())
+            manifestPlaceholders["cartStructureDiagnosticEnabled"] = cartStructureDiagnostic.toString()
             buildConfigField("String", "API_BASE_URL", "\"$debugBaseUrl\"")
             // Explicit opt-in only. Demo builds have separate app storage from the real client.
             val mockAuth = providers.gradleProperty("kilivana.mockAuth").orNull == "true"
             buildConfigField("boolean", "USE_MOCK_AUTH", mockAuth.toString())
             if (mockAuth) applicationIdSuffix = ".demo"
+            else if (debugInstallSuffix != null) applicationIdSuffix = debugInstallSuffix
             else if (isolateDevelopmentBackend) applicationIdSuffix = ".dev$backendInstallKey"
             else if (providers.gradleProperty("kilivana.demoInstall").orNull == "true") applicationIdSuffix = ".canonicaldemo"
+            else applicationIdSuffix = ".debug"
         }
         release {
             buildConfigField("boolean", "USE_MOCK_AUTH", "false")
@@ -78,6 +105,20 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// Fail before release build/test/package work instead of shipping a loopback or temporary default.
+val validateReleaseBackend = tasks.register("validateReleaseBackend") {
+    doLast {
+        val endpoint = configuredBaseUrl?.let { URI(it) }
+        require(endpoint != null && endpoint.scheme == "https" &&
+            endpoint.host !in setOf("localhost", "127.0.0.1", "10.0.2.2", "::1", "[::1]")) {
+            "Release requires an explicit HTTPS backend: -Pkilivana.apiBaseUrl=<url> or KILIVANA_API_BASE_URL. No production endpoint is assumed."
+        }
+    }
+}
+tasks.configureEach {
+    if (name.contains("Release") && name != "validateReleaseBackend") dependsOn(validateReleaseBackend)
 }
 
 // Preserve old demo sources on disk, but ship offline demo code only in the Review project.
@@ -108,6 +149,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // 1. MVVM & ViewModel for Jetpack Compose
+    implementation("androidx.navigation:navigation-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
 

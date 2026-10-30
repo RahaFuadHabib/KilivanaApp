@@ -60,10 +60,12 @@ class FarmerProfilePresentationTest {
         compose.onNodeWithText("@mary_wanjiku").assertIsDisplayed()
         compose.onNodeWithText("Verification pending").assertIsDisplayed()
         compose.onNodeWithText("Verified").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Refresh profile").performClick()
+        compose.onNodeWithContentDescription("Refresh profile").assertDoesNotExist()
+        compose.onNodeWithTag("farmer-profile-scroll").performTouchInput { swipeDown(durationMillis = 600) }
         compose.runOnIdle { assertEquals(1, refreshes) }
         compose.onNodeWithText("Edit").performScrollTo().performClick()
         compose.onNodeWithText("Phone number").performScrollTo().performTextReplacement("+254722222222")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
         compose.onNodeWithText("Cancel").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(0, saves) }
         compose.onNodeWithText("Save phone").assertDoesNotExist()

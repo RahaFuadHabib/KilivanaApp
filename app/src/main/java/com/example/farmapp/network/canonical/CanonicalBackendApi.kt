@@ -20,6 +20,8 @@ interface CanonicalBackendApi {
     @POST("auth/refresh") suspend fun refresh(@Body request: CanonicalRefreshRequest): Response<CanonicalApiResponse<CanonicalAuthTokenDto>>
     @POST("profiles/farmers/{id}") suspend fun createFarmerProfile(@Path("id") id: Long,
         @Header("Authorization") bearer: String, @Body request: CanonicalFarmProfileRequest): Response<CanonicalApiResponse<CanonicalCreatedProfileDto>>
+    @GET("profiles/farmers/{id}") suspend fun farmerProfile(@Path("id") id: Long,
+        @Header("Authorization") bearer: String): Response<CanonicalApiResponse<CanonicalCreatedProfileDto>> = throw UnsupportedOperationException("Farmer profile lookup is unavailable in this transport")
     @POST("profiles/suppliers/{id}") suspend fun createSupplierProfile(@Path("id") id: Long,
         @Header("Authorization") bearer: String, @Body request: CanonicalSupplierProfileRequest): Response<CanonicalApiResponse<CanonicalCreatedSupplierProfileDto>>
     @GET("profiles/suppliers/{id}") suspend fun supplierProfile(@Path("id") id: Long,

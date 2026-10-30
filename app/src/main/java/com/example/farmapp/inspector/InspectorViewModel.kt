@@ -33,6 +33,7 @@ internal class InspectorStateHolder(
     private var detailJob: Job? = null
     private var writeJob: Job? = null
     private val writeGate = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val refreshGate = java.util.concurrent.atomic.AtomicBoolean(false)
     private val sessionGuard = scope.launch {
         sessions.session.collect { session ->
             if (session.generation != state.value.generation || session.loggingOut || session.isDemo || session.auth?.role != "INSPECTOR") {
@@ -48,40 +49,40 @@ internal class InspectorStateHolder(
         }) }.distinctUntilChanged(), refreshes) { identity, refresh -> identity to refresh }
             .collectLatest {
                 detailJob?.cancel()
-                val unresolved = state.value.reconciliationRequired
-                state.value = InspectorUiState(reconciliationRequired = unresolved)
                 val expected = sessions.session.value
+                val previous = state.value.takeIf { it.generation == expected.generation } ?: InspectorUiState()
                 try { repository.owner(expected) } catch (e: InspectorFailure) {
                     if (expected.auth?.role == "INSPECTOR" && !expected.loggingOut) {
                         state.value = InspectorUiState(generation = expected.generation, jobsError = e.message, profileError = e.message)
                     }
+                    refreshGate.set(false)
                     return@collectLatest
                 }
-                state.value = InspectorUiState(generation = expected.generation, loadingJobs = true, loadingProfile = true,
-                    reconciliationRequired = unresolved)
-                coroutineScope {
+                refreshGate.set(true)
+                state.value = previous.copy(generation = expected.generation, loadingJobs = true, loadingProfile = true)
+                try { coroutineScope {
                     launch {
                         try {
                             val jobs = repository.jobs(expected)
-                            publish(expected) { it.copy(jobs = jobs, loadingJobs = false) }
+                            publish(expected) { it.copy(jobs = jobs, loadingJobs = false, jobsError = null) }
                         } catch (e: CancellationException) { throw e }
                         catch (e: Exception) { publish(expected) { it.copy(loadingJobs = false, jobsError = safeMessage(e)) } }
                     }
                     launch {
                         try {
                             val profile = repository.profile(expected)
-                            publish(expected) { it.copy(profile = profile, loadingProfile = false) }
+                            publish(expected) { it.copy(profile = profile, loadingProfile = false, profileError = null) }
                         } catch (e: CancellationException) { throw e }
                         catch (e: Exception) { publish(expected) { it.copy(loadingProfile = false, profileError = safeMessage(e)) } }
                     }
-                }
+                } } finally { refreshGate.set(false) }
             }
     }
     private fun publish(expected: SessionSnapshot, update: (InspectorUiState) -> InspectorUiState) {
         try { repository.owner(expected) } catch (_: InspectorFailure) { return }
         state.update(update)
     }
-    fun refresh() { if (!writeGate.get()) refreshes.value++ }
+    fun refresh() { if (!writeGate.get() && refreshGate.compareAndSet(false, true)) refreshes.value++ }
     fun open(id: Long) {
         if (writeGate.get()) return
         if (state.value.jobs.none { it.id == id }) return
@@ -114,7 +115,7 @@ internal class InspectorStateHolder(
     fun submitFinding(result: InspectionFinding, notes: String) = submit { expected, id -> repository.submitFinding(expected, id, result, notes) }
     private fun submit(action: suspend (SessionSnapshot, Long) -> Inspection) {
         val selected = state.value.detail ?: return
-        if (selected.id in state.value.reconciliationRequired || state.value.loadingDetail || !writeGate.compareAndSet(false, true)) return
+        if (selected.id in state.value.reconciliationRequired || state.value.loadingDetail || refreshGate.get() || !writeGate.compareAndSet(false, true)) return
         val expected = sessions.session.value
         try { repository.owner(expected) } catch (_: InspectorFailure) { writeGate.set(false); return }
         state.update { it.copy(submitting = true, writeError = null, writeNotice = null) }

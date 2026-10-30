@@ -111,11 +111,13 @@ fun FarmerScreen(
     onRefreshProducts: () -> Unit = {},
     publishMessage: String? = null,
     onResumeExisting: ((com.example.farmapp.data.model.FarmerProductResponse) -> Unit)? = null,
-    onOpenCrop: (com.example.farmapp.data.model.FarmerProductResponse) -> Unit = {}
+    onOpenCrop: (com.example.farmapp.data.model.FarmerProductResponse) -> Unit = {},
+    onOpenSupplies: (() -> Unit)? = null,
+    onOpenOrders: (() -> Unit)? = null
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(1) } // Default to "My Crops" to showcase Behance listings
     val pullRefreshState = rememberPullToRefreshState()
-    val canPullRefresh = selectedTabIndex == 1 && realProducts != null
+    val canPullRefresh = selectedTabIndex in 0..1 && realProducts != null
     val tabTitles = listOf("Incoming Orders", "My Crops", "Supplies Ordered")
 
     val farmerSearchQuery = searchQuery.trim()
@@ -182,7 +184,7 @@ fun FarmerScreen(
                             style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                item(key = "overview") { FarmerOverview(realProducts?.size ?: crops.size, orders.size, supplies.size) }
+                item(key = "overview") { FarmerOverview(realProducts?.size ?: crops.size, orders.size, supplies.size, realProducts != null) }
                 item(key = "quick_access") {
                     Column(verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
                         Text("Your farm, at a glance", style = MaterialTheme.typography.titleMedium)
@@ -193,8 +195,8 @@ fun FarmerScreen(
                             maxItemsInEachRow = 4
                         ) {
                             FarmerShortcut("My Crops", Icons.Default.Spa) { selectedTabIndex = 1 }
-                            FarmerShortcut("Orders", Icons.Default.LocalShipping) { selectedTabIndex = 0 }
-                            FarmerShortcut("Supplies", Icons.Default.Agriculture) { selectedTabIndex = 2 }
+                            FarmerShortcut("Orders", Icons.Default.LocalShipping) { onOpenOrders?.invoke() ?: run { selectedTabIndex = 0 } }
+                            FarmerShortcut("Supplies", Icons.Default.Agriculture) { onOpenSupplies?.invoke() ?: run { selectedTabIndex = 2 } }
                             FarmerShortcut("Audits", Icons.AutoMirrored.Filled.FactCheck) { showAuditsDialog = true }
                         }
                         Surface(shape = KilivanaFarmerShapes.inset,
@@ -206,7 +208,7 @@ fun FarmerScreen(
                                 Row(Modifier.heightIn(min = KilivanaSpacing.touchTarget), verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Icon(Icons.AutoMirrored.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text("${crops.count { it.inspectionStatus == "Pending" }} pending inspection",
+                                    Text(if (realProducts != null) "Inspection history unavailable" else "${crops.count { it.inspectionStatus == "Pending" }} pending inspection",
                                         style = MaterialTheme.typography.bodyMedium)
                                 }
                                 TextButton(onClick = { selectedTabIndex = 1; showAuditsDialog = true }) { Text("Review") }
@@ -238,7 +240,8 @@ fun FarmerScreen(
                 }
                 when (selectedTabIndex) {
                     0 -> {
-                        if (orders.isEmpty()) item { KilivanaEmptyState("No incoming orders", "Your incoming orders will appear here.") }
+                        if (orders.isEmpty()) item { KilivanaEmptyState(if (realProducts != null) "Incoming orders unavailable" else "No incoming orders",
+                            if (realProducts != null) "A secure seller-scoped order API is required. An empty local list does not establish that you have no orders." else "Your incoming orders will appear here.") }
                         items(orders.filter { it.productName.contains(farmerSearchQuery, true) || it.buyerName.contains(farmerSearchQuery, true) }, key = { "order_${it.id}" }) { order ->
                             FarmerOrderCard(order, onTrackOrder = { activeTrackingOrder = order })
                         }
@@ -279,7 +282,8 @@ fun FarmerScreen(
                         }
                     }
                     2 -> {
-                        if (supplies.isEmpty()) item { KilivanaEmptyState("No supplies ordered", "Your supply orders will appear here.") }
+                        if (supplies.isEmpty()) item { KilivanaEmptyState(if (realProducts != null) "Supply purchases unavailable" else "No supplies ordered",
+                            if (realProducts != null) "Farmer purchase permissions are not confirmed. Browse published inputs in the Supplies marketplace." else "Your supply orders will appear here.") }
                         items(supplies.filter { it.itemName.contains(farmerSearchQuery, true) || it.supplierName.contains(farmerSearchQuery, true) }, key = { "supply_${it.id}" }) { FarmerSupplyCard(it) }
                     }
                 }
@@ -545,7 +549,7 @@ fun FarmerScreen(
 // Farmer-only presentation. Domain models, status values, and callbacks are unchanged.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
+internal fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int, unavailableCommerce: Boolean = false) {
     Surface(shape = KilivanaFarmerShapes.overview,
         color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
@@ -566,8 +570,8 @@ internal fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
                 }
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FarmerOverviewMetric("Crop listings", cropCount, Modifier.weight(1f))
-                    FarmerOverviewMetric("Incoming orders", orderCount, Modifier.weight(1f))
-                    FarmerOverviewMetric("Supply entries", supplyCount, Modifier.weight(1f))
+                    FarmerOverviewMetric("Incoming orders", orderCount.takeUnless { unavailableCommerce }, Modifier.weight(1f))
+                    FarmerOverviewMetric("Supply entries", supplyCount.takeUnless { unavailableCommerce }, Modifier.weight(1f))
                 }
             }
         }
@@ -576,11 +580,11 @@ internal fun FarmerOverview(cropCount: Int, orderCount: Int, supplyCount: Int) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FarmerOverviewMetric(label: String, count: Int, modifier: Modifier = Modifier) {
+private fun FarmerOverviewMetric(label: String, count: Int?, modifier: Modifier = Modifier) {
     Surface(modifier = modifier.fillMaxHeight().testTag("metric_$label"), shape = KilivanaFarmerShapes.inset,
         color = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(count.toString(), style = MaterialTheme.typography.headlineSmall)
+            Text(count?.toString() ?: "Unavailable", style = if (count == null) MaterialTheme.typography.labelLarge else MaterialTheme.typography.headlineSmall)
             Text(label, style = MaterialTheme.typography.labelMedium, minLines = 2)
         }
     }

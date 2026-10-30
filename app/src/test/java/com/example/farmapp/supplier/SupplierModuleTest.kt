@@ -36,8 +36,11 @@ class SupplierModuleTest {
         val calls = mutableListOf<String>()
         val transport = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(CanonicalBackendApi::class.java)) { _, method, _ ->
             calls += method.name
-            check(method.name == "login")
-            Response.success(CanonicalApiResponse(true, data = CanonicalAuthTokenDto("fixture-access", "fixture-refresh", "Bearer", 3600, supplierUser())))
+            when (method.name) {
+                "login" -> Response.success(CanonicalApiResponse(true, data = CanonicalAuthTokenDto("fixture-access", "fixture-refresh", "Bearer", 3600, supplierUser())))
+                "supplierProfile" -> Response.success(CanonicalApiResponse(true, data = CanonicalCreatedSupplierProfileDto(5, 42)))
+                else -> error("Unexpected synthetic route")
+            }
         } as CanonicalBackendApi
         val service = CanonicalAuthService(transport, SUPPLIER_TEST_ORIGIN)
         val store = SessionState().apply { initialize(MemoryPersistence()) }
@@ -45,7 +48,7 @@ class SupplierModuleTest {
         assertEquals("SUPPLIER", store.session.value.auth!!.role)
         try { service.signup(SignupRequest("inspector@example.test", "synthetic-password", "Synthetic inspector", "+254700000000", "INSPECTOR", "synthetic_inspector", "Synthetic area", employeeCode = "Synthetic code")); fail() }
         catch (_: AuthFailure) { }
-        assertEquals(listOf("login"), calls)
+        assertEquals(listOf("login", "supplierProfile"), calls)
     }
     @Test fun profileUsesAuthenticatedSupplierAndMissingBusinessIsExplicit() = runBlocking {
         val api = StubSupplierApi(); val store = supplierStore(); val repo = repository(api, store)
@@ -173,11 +176,12 @@ class SupplierModuleTest {
         assertNull(VerifiedPaymentStatus.parse("cancelled")) // Backend collapses non-success/cancellation to FAILED.
         assertNull(VerifiedPaymentStatus.parse("STK accepted"))
     }
-    @Test fun supplierApiHasNoOrderDriverPaymentOrPublicRegistrationRequests() {
+    @Test fun supplierApiOnlyAllowsSupplierScopedOrderReadsAndNoPaymentOrDriverRequests() {
         val paths = SupplierApi::class.java.methods.mapNotNull { method ->
             method.getAnnotation(retrofit2.http.GET::class.java)?.value ?: method.getAnnotation(retrofit2.http.POST::class.java)?.value ?: method.getAnnotation(retrofit2.http.PUT::class.java)?.value
         }
-        assertFalse(paths.any { it.contains("orders") || it.contains("payments") || it.contains("logistics") || it.contains("register") })
+        assertEquals(listOf("suppliers/{supplierId}/orders"), paths.filter { it.contains("orders") })
+        assertFalse(paths.any { it.contains("payments") || it.contains("logistics") || it.contains("register") })
     }
     @Test fun httpRejectionsHaveSafeMessagesAndUnknownServerOutcomesAreNotRetried() = runBlocking {
         val store = supplierStore()

@@ -25,6 +25,8 @@ internal class MemorySupplierOperations : SupplierOperationStore {
     override fun write(accountKey: String, pending: PendingSupplyOperation?) { if (pending == null) values.remove(accountKey) else values[accountKey] = pending }
 }
 internal open class StubSupplierApi : SupplierApi {
+    override suspend fun orders(supplierId: Long, page: Int, size: Int, session: SessionSnapshot) =
+        Response.success(CanonicalApiResponse(true, data = SupplierOrderPageDto(emptyList(), page, size, true, 0, 0)))
     var account = supplierUser()
     var business: SupplierProfileDto? = SupplierProfileDto(3, 42, "Synthetic input business", "Synthetic details", "Synthetic area")
     var categoryValues = listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true))

@@ -47,6 +47,24 @@ class AuthNetworkTest {
         assertEquals(setOf("refreshToken"), JsonParser.parseString(requests[3].second).asJsonObject.keySet())
     }
 
+    @Test fun protectedSingleReadDoesNotRefreshRetryOrClearSessionOn401() {
+        val store = signedInStore()
+        val before = store.session.value
+        var refreshCalls = 0; var gets = 0
+        val api = object : StubAuthService() {
+            override suspend fun refresh(request: RefreshRequest): retrofit2.Response<AuthResponse> {
+                refreshCalls++; error("Read-only diagnostic must not refresh")
+            }
+        }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(AuthTokenInterceptor(base.toHttpUrl(), store, RefreshCoordinator(api, store)))
+            .addInterceptor { chain -> gets++; response(chain.request(), 401) }.build()
+        client.newCall(Request.Builder().url(base + "carts/buyer/42")
+            .tag(PreserveSessionOnReadFailure::class.java, PreserveSessionOnReadFailure()).build())
+            .execute().use { assertEquals(401, it.code) }
+        assertEquals(1, gets); assertEquals(0, refreshCalls); assertSame(before, store.session.value)
+    }
+
     @Test fun unauthorizedApiRequestRefreshesAndRetriesOnceWithRotatedToken() {
         val store = signedInStore()
         val refreshCalls = AtomicInteger()

@@ -90,6 +90,7 @@ data class RequisitionOrder(
 )
 
 @Composable
+@Deprecated("Legacy mock screen. Production Supplier navigation must use SupplierShell.", level = DeprecationLevel.ERROR)
 fun SupplierScreen(
     modifier: Modifier = Modifier
 ) {

@@ -24,12 +24,13 @@ internal fun SignUpScreen(
     onBack: () -> Unit, onSignIn: () -> Unit, isDarkTheme: Boolean, onToggleTheme: () -> Unit,
     onSignup: (SignupRequest) -> Unit, onClearError: () -> Unit, isLoading: Boolean,
     errorMessage: String?, demoMode: Boolean, modifier: Modifier = Modifier,
-    supplierRecoveryRequired: Boolean = false, onRecoverSupplierSignup: ((SignupRequest) -> Unit)? = null
+    supplierRecoveryRequired: Boolean = false, onRecoverSupplierSignup: ((SignupRequest) -> Unit)? = null,
+    initialSupplierEmail: String? = null
 ) {
-    var account by rememberSaveable { mutableStateOf<SignupRole?>(null) }
+    var account by rememberSaveable(initialSupplierEmail) { mutableStateOf<SignupRole?>(if (initialSupplierEmail != null) SignupRole.SUPPLIER else null) }
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable(initialSupplierEmail) { mutableStateOf(initialSupplierEmail.orEmpty()) }
     // Neither password is saved into instance state, a model, persistence, or logs.
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -38,7 +39,7 @@ internal fun SignUpScreen(
     var businessName by rememberSaveable { mutableStateOf("") }
     var town by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
-    var recoveryMode by rememberSaveable { mutableStateOf(false) }
+    var recoveryMode by rememberSaveable(initialSupplierEmail) { mutableStateOf(initialSupplierEmail != null) }
     var sent by remember { mutableStateOf(false) }
     var reviewed by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
@@ -54,7 +55,7 @@ internal fun SignUpScreen(
     val back: () -> Unit = { if (!isLoading) { focus.clearFocus(); onClearError(); onBack() } }
     BackHandler(onBack = back)
     val submit: () -> Unit = {
-        if (!busy && !demoMode && account != SignupRole.INSPECTOR) {
+        if (!isLoading && !sent && !demoMode && account != SignupRole.INSPECTOR) {
             focus.clearFocus()
             reviewed = true
             localError = null

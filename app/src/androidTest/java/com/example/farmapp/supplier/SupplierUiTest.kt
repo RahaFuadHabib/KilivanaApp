@@ -4,6 +4,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.farmapp.data.model.canonical.*
 import com.example.farmapp.ui.theme.FarmAppTheme
@@ -24,13 +30,11 @@ class SupplierUiTest {
             SupplierContent(state, "Synthetic Supplier", {}, false, {}, false, {}, {}, {}, create, { _, _ -> }, { _, _ -> }, {})
         } }
     }
-    @Test fun dashboardUsesListingsAndOrdersExplainMissingBackend() {
-        screen(SupplierUiState(listings = listOf(listing)))
+    @Test fun dashboardUsesListingsAndOrdersRemainReadOnly() {
+        screen(SupplierUiState(listings = listOf(listing), ordersLoaded = true, ordersLast = true))
         compose.onNodeWithText("Total listings").assertExists()
         compose.onNodeWithText("Orders").performClick()
-        compose.onNodeWithText(SUPPLIER_ORDERS_BLOCKER).assertExists()
-        compose.onNodeWithText("Delivery tracking").performScrollTo().assertExists()
-        compose.onNodeWithText("Payment status unavailable").performScrollTo().assertExists()
+        compose.onNodeWithText("No orders yet").assertExists()
         compose.onAllNodesWithText("Pay now").assertCountEquals(0)
     }
     @Test fun creatingSupplyRequiresValidFormAndExplicitConfirmation() {
@@ -61,6 +65,18 @@ class SupplierUiTest {
         compose.onNodeWithText("Synthetic service unavailable").assertExists()
         compose.onNodeWithText("Total listings").assertDoesNotExist()
         compose.onNodeWithText("Try again").assertExists()
+    }
+    @Test fun initialCatalogueWaitsInsteadOfClaimingNoSupplies() {
+        screen(SupplierUiState())
+        compose.onNodeWithText("Loading your supplies").assertExists()
+        compose.onNodeWithText("Total listings").assertDoesNotExist()
+        compose.onNodeWithText("No supplies listed").assertDoesNotExist()
+    }
+    @Test fun confirmedEmptyInventoryHasHelpfulEmptyState() {
+        screen(SupplierUiState(catalogueLoaded = true))
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("No supplies listed"))
+        compose.onNodeWithText("No supplies listed").assertIsDisplayed()
+        compose.onNodeWithText("Currently unavailable").assertDoesNotExist()
     }
     @Test fun createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving() {
         val restoration = StateRestorationTester(compose)
@@ -97,12 +113,45 @@ class SupplierUiTest {
     }
     @Test fun refreshingAndFailedRefreshKeepVisibleListings() {
         screen(SupplierUiState(listings = listOf(listing), catalogueLoaded = true, refreshing = true, error = "Synthetic refresh failed"))
-        compose.onNodeWithText("Refreshing Supplier data. Showing previously loaded data.").assertExists()
         compose.onNodeWithText("Synthetic refresh failed").assertExists()
+        compose.onNodeWithText("Showing previously loaded listings. Stock and prices may have changed.").assertExists()
         compose.onNodeWithText("Total listings").assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic seed listing"))
         compose.onNodeWithText("Synthetic seed listing").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Refresh Supplier data").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Refresh Supplier data").assertDoesNotExist()
+    }
+    @Test fun pullGestureRefreshesWithoutToolbarReload() {
+        var refreshes = 0
+        compose.setContent { FarmAppTheme {
+            SupplierContent(SupplierUiState(catalogueLoaded = true), "Synthetic Supplier", {}, false, {}, false,
+                { refreshes++ }, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithContentDescription("Refresh Supplier data").assertDoesNotExist()
+        compose.onNodeWithTag("supplier-list").performTouchInput { swipeDown(durationMillis = 600) }
+        compose.runOnIdle { assertEquals(1, refreshes) }
+    }
+    @Test fun creationAndEditingExposeProductPhotoSelection() {
+        val state = mutableStateOf(SupplierUiState(catalogueLoaded = true, categories = listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true))))
+        compose.setContent { FarmAppTheme {
+            SupplierContent(state.value, "Synthetic Supplier", {}, false, {}, false, {}, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Add supply").performScrollTo().performClick()
+        compose.onNodeWithTag("supplier-list").performScrollToNode(hasContentDescription("Add product photo"))
+        compose.onNodeWithContentDescription("Add product photo").assertIsDisplayed().assertHasClickAction()
+        compose.onNodeWithText("Choose product photo").assertDoesNotExist()
+    }
+    @Test fun photoUploadCompletionKeepsUnsavedEditDraft() {
+        val state = mutableStateOf(SupplierUiState(listings = listOf(listing), selectedId = listing.id, detail = listing,
+            catalogueLoaded = true, categories = listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true))))
+        compose.setContent { FarmAppTheme {
+            SupplierContent(state.value, "Synthetic Supplier", {}, false, {}, false, {}, {}, {}, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Edit pending listing").performScrollTo().performClick()
+        compose.onNodeWithText("Supply name").performScrollTo().performTextReplacement("Unsaved supply name")
+        compose.runOnIdle { state.value = state.value.copy(notice = "Photo saved", completedOperation = SupplyOperation.UPLOAD) }
+        compose.onNodeWithText("Supply name").performScrollTo().assertTextContains("Unsaved supply name")
+        compose.onNodeWithTag("supplier-list").performScrollToNode(hasContentDescription("Add product photo"))
+        compose.onNodeWithContentDescription("Add product photo").assertIsDisplayed()
     }
     @Test fun editDraftSurvivesDetailRefreshAndRestoration() {
         val restoration = StateRestorationTester(compose)
@@ -137,11 +186,73 @@ class SupplierUiTest {
     @Test fun confirmationDoubleTapSubmitsOnlyOnce() {
         var submissions = 0
         compose.setContent { FarmAppTheme {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
             SupplyEditor(SupplyDraft("Synthetic supply", "Synthetic description", "bag", "100.00", "10", "1", 2), {},
                 listOf(CanonicalCategoryDto(2, "Synthetic seeds", "supplier", true)), false, false, null) { submissions++ }
+            }
         } }
-        compose.onNodeWithText("Review supply").performClick()
+        compose.onNodeWithText("Review supply").performScrollTo().performClick()
         compose.onNodeWithText("Submit supply").performTouchInput { doubleClick() }
         compose.runOnIdle { assertEquals(1, submissions) }
+    }
+
+    @Test fun localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords() {
+        screen(SupplierUiState(listings = listOf(listing, listing.copy(id = 8, name = "Irrigation kit", categoryId = 3,
+            status = CanonicalProductStatus.ACTIVE)), categories = listOf(
+            CanonicalCategoryDto(2, "Seeds", "SUPPLIER", true), CanonicalCategoryDto(3, "Irrigation", "SUPPLIER", true))))
+        compose.onNodeWithText("Supplies").performClick()
+        compose.onNodeWithText("Search supplies").performTextInput("not found")
+        compose.onNodeWithText("No matching supplies").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Clear filters").performClick()
+        compose.onNodeWithText("Seeds").performScrollTo().performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(listing.name))
+        compose.onNodeWithText(listing.name).assertIsDisplayed()
+        compose.onNodeWithText("Irrigation kit").assertDoesNotExist()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("All categories"))
+        compose.onNodeWithText("All categories").performClick()
+        compose.onNodeWithText("active", substring = false).performScrollTo().performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Irrigation kit"))
+        compose.onNodeWithText("Irrigation kit").assertIsDisplayed()
+        compose.onNodeWithText(listing.name).assertDoesNotExist()
+    }
+
+    @Test fun publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities() {
+        val active = listing.copy(status = CanonicalProductStatus.ACTIVE)
+        screen(SupplierUiState(listings = listOf(active), selectedId = active.id, detail = active))
+        compose.onNodeWithText("Edit pending listing").performScrollTo().assertIsNotEnabled()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasContentDescription("Add product photo"))
+        compose.onNodeWithContentDescription("Add product photo").assertIsNotEnabled()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Reserved"))
+        compose.onNodeWithText("Reserved").assertExists()
+        compose.onNodeWithText("2 bag").assertExists()
+        compose.onAllNodesWithText("Delete").assertCountEquals(0)
+        compose.onAllNodesWithText("Archive").assertCountEquals(0)
+    }
+
+    @Test fun selectingSupplyRecomposesIntoDetailWithoutResettingSessionState() {
+        val state = MutableStateFlow(SupplierUiState(listings = listOf(listing), catalogueLoaded = true))
+        compose.setContent { FarmAppTheme {
+            SupplierContent(state.collectAsState().value, "Synthetic Supplier", {}, false, {}, false, {},
+                { state.value = state.value.copy(selectedId = it, detail = listing) },
+                { state.value = state.value.copy(selectedId = null, detail = null) }, {}, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Supplies").performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(listing.name))
+        compose.onNodeWithText(listing.name).performClick()
+        compose.runOnIdle { assertEquals(listing.id, state.value.selectedId) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Back to supplies").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Back to supplies").assertExists()
+        compose.onNodeWithText("Edit pending listing").performScrollTo().assertIsEnabled()
+    }
+
+    @Test fun imageGallerySupportsSelectionAndSafeUnavailableImageFallback() {
+        val images = listOf(
+            CanonicalProductImageDto(71, "https://untrusted.invalid/photo-one.jpg", "71", sortOrder = 0, isPrimary = true),
+            CanonicalProductImageDto(72, "https://untrusted.invalid/photo-two.jpg", "72", sortOrder = 1, isPrimary = false))
+        compose.setContent { FarmAppTheme { SupplierTheme(false) { SupplierGallery(listing.copy(images = images)) } } }
+        compose.onNodeWithText("Photo unavailable").assertExists()
+        compose.onNodeWithContentDescription("View ${listing.name} photo 1").assertIsSelected()
+        compose.onNodeWithContentDescription("View ${listing.name} photo 2").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("View ${listing.name} photo 1").assertIsNotSelected()
     }
 }

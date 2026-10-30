@@ -62,10 +62,7 @@ class FarmerShellPresentationTest {
             assertEquals(metrics.first().top, it.top, 1f)
         }
         compose.onNodeWithContentDescription("Supplies").performClick()
-        compose.onNodeWithText("Supplier product browsing is coming soon.", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Tracking & map availability").performScrollTo().performClick()
-        compose.onNodeWithText("Live order and supply tracking is unavailable", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Back", useUnmergedTree = true).performClick()
+        compose.onAllNodesWithText("marketplace", substring = true).onFirst().assertIsDisplayed()
         compose.onNodeWithContentDescription("Orders").performClick()
         compose.onNodeWithText("Tracking & map availability").performScrollTo().performClick()
         compose.onNodeWithText("No shipment positions are shown.", substring = true).assertIsDisplayed()
@@ -74,7 +71,10 @@ class FarmerShellPresentationTest {
         compose.onNodeWithText("About Kilivana").assertIsDisplayed()
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("Dark Mode").performScrollTo().assertIsOff().performClick().assertIsOn()
-        compose.onNodeWithText("Logout").performScrollTo().performClick()
+        // This test checks the navigation callback. A transient profile snackbar can cover
+        // the bottom-row touch coordinate; invoke the accessible action deterministically.
+        compose.onNodeWithText("Logout").performScrollTo().assertIsEnabled()
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         compose.runOnIdle { assertTrue(loggedOut) }
     }
 

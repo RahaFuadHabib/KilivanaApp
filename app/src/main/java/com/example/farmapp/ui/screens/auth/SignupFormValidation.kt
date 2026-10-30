@@ -13,10 +13,11 @@ internal fun supplierProfileLocation(town: String, address: String) = "${locatio
 internal fun signupFormErrors(request: SignupRequest, town: String, address: String, confirmation: String,
     recovering: Boolean): Map<SignupField, String> = buildMap {
     val supplier = request.role == "SUPPLIER"
-    if (request.role !in setOf("FARMER", "BUYER", "SUPPLIER")) put(SignupField.ROLE, "Select Farmer or Supplier. Inspector signup is unavailable.")
+    val boundedName = supplier || request.role == "BUYER"
+    if (request.role !in setOf("FARMER", "BUYER", "SUPPLIER")) put(SignupField.ROLE, "Select Farmer, Buyer or Supplier. Inspector signup is unavailable.")
     if (!recovering) {
-        if (request.fullName.isBlank() || (supplier && request.fullName.trim().length !in 2..100))
-            put(SignupField.NAME, if (supplier) "Enter your full name (2 to 100 characters)." else "Enter your full name.")
+        if (request.fullName.isBlank() || (boundedName && request.fullName.trim().length !in 2..100))
+            put(SignupField.NAME, if (boundedName) "Enter your full name (2 to 100 characters)." else "Enter your full name.")
         if (request.phoneNumber.isBlank()) put(SignupField.PHONE, "Enter your phone number.")
         val username = request.username.trim()
         if (!(supplier && username.isEmpty()) && !username.matches(Regex("[a-zA-Z][a-zA-Z0-9_]{2,29}")))

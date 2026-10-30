@@ -214,4 +214,18 @@ class SupplierSignupTest {
         rejected { repo.signup(request()) }
         assertEquals(listOf("register"), backend.calls)
     }
+
+    @Test fun duplicateRecoverySubmissionCannotCreateTwoProfiles() = runBlocking {
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val backend = Backend().apply { hook = { if (it == "createSupplierProfile") { entered.countDown(); check(release.await(5, TimeUnit.SECONDS)) } } }
+        val repo = AuthRepository(backend.service(), store())
+        val first = async(Dispatchers.Default) { repo.recoverSupplierSignup(request()) }
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            rejected { repo.recoverSupplierSignup(request()) }
+            assertEquals(1, backend.calls.count { it == "createSupplierProfile" })
+            assertFalse(backend.calls.contains("register"))
+        } finally { release.countDown() }
+        first.await()
+    }
 }

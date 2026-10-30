@@ -10,9 +10,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -41,6 +43,7 @@ internal fun FarmerProfileScreen(auth: AuthResponse, errorMessage: String?, modi
         isDarkTheme, onToggleTheme, onLogout, isLoading)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FarmerProfileContent(auth: AuthResponse, state: FarmerProfileState,
     onSavePhone: (String) -> Unit, onRefresh: () -> Unit, errorMessage: String?, modifier: Modifier,
@@ -67,20 +70,16 @@ internal fun FarmerProfileContent(auth: AuthResponse, state: FarmerProfileState,
             snackbars.showSnackbar(message, withDismissAction = true, duration = SnackbarDuration.Short)
         }
     }
-    var about by rememberSaveable { mutableStateOf(false) }
-    if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("About Kilivana") },
-        text = { Text("Kilivana connects farmers, buyers, suppliers and inspectors.") },
-        confirmButton = { TextButton(onClick = { about = false }) { Text("Close") } })
+    var editProfile by remember { mutableStateOf(false) }
+    if (editProfile) com.example.farmapp.profile.ProfileEditor { editProfile = false; onRefresh() }
     val colors = MaterialTheme.colorScheme
     // The Farmer shell owns toolbar, navigation and system insets; only the editor handles the IME.
-    Box(modifier.imePadding()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+    PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy && !editingPhone && !editProfile) onRefresh() }, modifier = modifier.imePadding()) {
+        Column(Modifier.fillMaxSize().testTag("farmer-profile-scroll").verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Your profile", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                IconButton(onClick = onRefresh, enabled = !state.busy) {
-                    Icon(Icons.Default.Refresh, "Refresh profile", tint = colors.primary)
-                }
+                TextButton(onClick = { editProfile = true }, enabled = !state.busy) { Text("Edit profile") }
             }
             ProfileIdentityHeader(profile?.fullName ?: auth.fullName, profile?.username ?: auth.username,
                 profile?.email ?: auth.email, profile?.region ?: auth.region,
@@ -148,15 +147,6 @@ internal fun FarmerProfileContent(auth: AuthResponse, state: FarmerProfileState,
                         }
                         Switch(checked = isDarkTheme, onCheckedChange = null)
                     }
-                    HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = colors.outlineVariant)
-                    Surface(onClick = { about = true }, color = colors.surfaceContainerLow) {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            ProfileSettingIcon(Icons.Default.Info)
-                            Text("About", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ChevronRight, null, tint = colors.onSurfaceVariant)
-                        }
-                    }
                 }
             }
             OutlinedButton(onClick = onLogout, enabled = !isLoading, shape = RoundedCornerShape(16.dp),
@@ -165,6 +155,7 @@ internal fun FarmerProfileContent(auth: AuthResponse, state: FarmerProfileState,
                 Spacer(Modifier.width(8.dp))
                 Text("Logout")
             }
+            com.example.farmapp.profile.AboutKilivana()
             Spacer(Modifier.height(8.dp))
         }
         SnackbarHost(snackbars, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp))

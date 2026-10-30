@@ -22,6 +22,16 @@ import java.math.BigDecimal
 /** Exercises real Retrofit serialization against an in-memory transport; never contacts a server. */
 class DevelopmentBackendTest {
     private val base = BuildConfig.API_BASE_URL.toHttpUrl()
+    @Test fun selectedBackendHasOneApiPrefixAndIsolatedDebugPackage() {
+        assertEquals("/api/v1/", base.encodedPath)
+        assertTrue(base.isHttps || base.host in setOf("127.0.0.1", "localhost", "10.0.2.2"))
+        assertEquals("/api/v1/auth/login", base.resolve("auth/login")!!.encodedPath)
+        assertEquals("/api/v1/products/search", base.resolve("products/search")!!.encodedPath)
+        assertTrue(BuildConfig.APPLICATION_ID == "com.example.farmapp.debug" ||
+            Regex("com\\.example\\.farmapp\\.dev[0-9a-f]{16}").matches(BuildConfig.APPLICATION_ID))
+        assertTrue(BuildConfig.USE_CANONICAL_BACKEND)
+        assertFalse(BuildConfig.USE_MOCK_AUTH)
+    }
     private fun fixture(name: String) = checkNotNull(javaClass.getResourceAsStream("/canonical/$name.json"))
         .bufferedReader().use { it.readText() }
     private fun api(body: String, inspect: (Request) -> Unit): CanonicalBackendApi {

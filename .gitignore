@@ -14,3 +14,16 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local validation output and API audit captures
+/buyer-validation*.log
+/docs/buyer-api-read-20261028.json
+/docs/buyer-git-review.json
+*.jks
+*.keystore
+.env
+.env.*
+
+# Read-only API investigation captures stay local.
+/docs/kilivana-*openapi*.json
+/docs/marketplace-public-read*.json

@@ -14,7 +14,7 @@ object SignupValidation {
         if (input.role == "SUPPLIER" && KenyanCounties.normalize(input.region) == null)
             throw AuthFailure("Select a supported Kenyan county/region.")
         if (input.fullName.isBlank()) throw AuthFailure("Please enter your full name.")
-        if (input.role == "SUPPLIER" && input.fullName.trim().length !in 2..100) throw AuthFailure("Name must contain 2 to 100 characters.")
+        if (input.role in setOf("BUYER", "SUPPLIER") && input.fullName.trim().length !in 2..100) throw AuthFailure("Name must contain 2 to 100 characters.")
         if (input.email.isBlank() || !input.email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")))
             throw AuthFailure("Please enter a valid email address.")
         if (input.phoneNumber.isBlank()) throw AuthFailure("Please enter your phone number.")

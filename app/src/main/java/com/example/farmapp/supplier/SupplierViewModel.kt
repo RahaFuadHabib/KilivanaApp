@@ -17,7 +17,13 @@ data class SupplierUiState(val generation: Long = -1, val listings: List<SupplyL
     val selectedId: Long? = null, val detail: SupplyListing? = null, val detailLoading: Boolean = false,
     val detailError: String? = null, val submitting: Boolean = false, val actionError: String? = null,
     val notice: String? = null, val pending: PendingSupplyOperation? = null,
-    val catalogueLoaded: Boolean = false, val refreshing: Boolean = false)
+    val catalogueLoaded: Boolean = false, val refreshing: Boolean = false, val completedOperation: SupplyOperation? = null,
+    val orders: List<SupplierOrder> = emptyList(), val ordersLoaded: Boolean = false, val ordersLoading: Boolean = false,
+    val ordersError: String? = null, val ordersPage: Int = -1, val ordersLast: Boolean = false)
+
+// An untouched initial state is not evidence of an empty server catalogue.
+internal val SupplierUiState.catalogueVisible: Boolean get() = catalogueLoaded || listings.isNotEmpty()
+internal val SupplierUiState.catalogueWaiting: Boolean get() = loading || (!catalogueVisible && error == null)
 
 internal class SupplierStateHolder(private val repository: SupplierRepository, private val sessions: SessionStore,
     private val operations: SupplierOperationStore, private val scope: CoroutineScope) {
@@ -28,10 +34,11 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
     private val refreshGate = AtomicBoolean(false)
     private var detailJob: Job? = null
     private var writeJob: Job? = null
+    private var ordersJob: Job? = null
     private val sessionGuard = scope.launch {
         sessions.session.collect { snapshot ->
             if (snapshot.generation != state.value.generation || snapshot.loggingOut || snapshot.isDemo || snapshot.auth?.role != "SUPPLIER") {
-                state.value = SupplierUiState(); detailJob?.cancel(); writeJob?.cancel()
+                state.value = SupplierUiState(); detailJob?.cancel(); writeJob?.cancel(); ordersJob?.cancel()
             }
         }
     }
@@ -57,8 +64,9 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
                     return@collectLatest
                 }
                 try { coroutineScope {
+                    val batch = repository.readBatch(expected, this)
                     launch {
-                        try { val listings = repository.listings(expected); publish(expected) { it.copy(listings = listings, loading = false, catalogueLoaded = true, error = null) } }
+                        try { val listings = batch.listings(); publish(expected) { it.copy(listings = listings, loading = false, catalogueLoaded = true, error = null) } }
                         catch (e: CancellationException) { throw e }
                         catch (e: Exception) { publish(expected) { it.copy(loading = false, error = message(e)) } }
                     }
@@ -68,12 +76,12 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
                         catch (e: Exception) { publish(expected) { it.copy(categoriesLoading = false, categoryError = message(e)) } }
                     }
                     launch {
-                        try { val profile = repository.profile(expected); publish(expected) { it.copy(profile = profile, profileLoading = false, profileError = null) } }
+                        try { val profile = batch.profile(); publish(expected) { it.copy(profile = profile, profileLoading = false, profileError = null) } }
                         catch (e: CancellationException) { throw e }
                         catch (e: Exception) { publish(expected) { it.copy(profileLoading = false, profileError = message(e)) } }
                     }
                     state.value.selectedId?.let { id -> launch {
-                        try { val detail = repository.listing(expected, id); publish(expected) {
+                        try { val detail = batch.listing(id); publish(expected) {
                             if (it.selectedId == id) it.copy(detail = detail, detailLoading = false, detailError = null) else it
                         } }
                         catch (e: CancellationException) { throw e }
@@ -94,6 +102,30 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
     fun refresh() {
         if (!gate.get() && !state.value.loading && refreshGate.compareAndSet(false, true)) refreshes.value++
     }
+    fun loadOrders(reset: Boolean) {
+        if (ordersJob?.isActive == true || (!reset && (state.value.ordersLast || !state.value.ordersLoaded))) return
+        val expected = sessions.session.value
+        try { repository.owner(expected) } catch (_: SupplierFailure) { return }
+        val page = if (reset) 0 else state.value.ordersPage + 1
+        state.update { it.copy(ordersLoading = true, ordersError = null) }
+        ordersJob = scope.launch {
+            try {
+                val result = repository.orders(expected, page)
+                publish(expected) { current -> current.copy(
+                    orders = if (reset) result.orders else (current.orders + result.orders).distinctBy { it.id },
+                    ordersLoaded = true, ordersLoading = false, ordersPage = result.number, ordersLast = result.last, ordersError = null) }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                publish(expected) { current ->
+                    val denied = e is SupplierFailure && e.rejected
+                    current.copy(orders = if (denied) emptyList() else current.orders,
+                        ordersLoaded = if (denied) false else current.ordersLoaded,
+                        ordersLoading = false, ordersError = if (e is SupplierFailure) e.message
+                            else "Couldn't load orders. Check your connection and try again.")
+                }
+            }
+        }
+    }
     fun open(id: Long) {
         if (gate.get() || state.value.listings.none { it.id == id }) return
         detailJob?.cancel()
@@ -112,6 +144,7 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
     }
     fun update(id: Long, draft: SupplyDraft) = mutate(PendingSupplyOperation(SupplyOperation.UPDATE, id)) { repository.update(it, id, draft) }
     fun upload(id: Long, photo: SupplierPhoto) = mutate(PendingSupplyOperation(SupplyOperation.UPLOAD, id)) { repository.upload(it, id, photo) }
+    fun gallery(id: Long, action: GalleryAction) = mutate(PendingSupplyOperation(SupplyOperation.GALLERY, id)) { repository.gallery(it, id, action) }
     private fun mutate(pending: PendingSupplyOperation, action: suspend (SessionSnapshot) -> SupplyListing) {
         if (state.value.pending != null || refreshGate.get() || !gate.compareAndSet(false, true)) return
         val expected = sessions.session.value
@@ -129,7 +162,7 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
                 confirmed = result
                 withContext(Dispatchers.IO) { operations.write(key, null) }
                 publish(expected) { it.copy(listings = (it.listings.filterNot { old -> old.id == result.id } + result).sortedByDescending { product -> product.id },
-                    selectedId = result.id, detail = result, detailLoading = false, pending = null, catalogueLoaded = true,
+                    selectedId = result.id, detail = result, detailLoading = false, pending = null, catalogueLoaded = true, completedOperation = pending.kind,
                     notice = if (pending.kind == SupplyOperation.CREATE) "Supply #${result.id} created. It awaits administrator approval. Add product photos below."
                         else "Server response received for supply #${result.id}.") }
             } catch (e: CancellationException) { throw e }
@@ -168,7 +201,7 @@ internal class SupplierStateHolder(private val repository: SupplierRepository, p
             finally { gate.set(false); publish(expected) { it.copy(submitting = false) } }
         }
     }
-    fun close() { observer.cancel(); sessionGuard.cancel(); detailJob?.cancel(); writeJob?.cancel(); state.value = SupplierUiState() }
+    fun close() { observer.cancel(); sessionGuard.cancel(); detailJob?.cancel(); writeJob?.cancel(); ordersJob?.cancel(); state.value = SupplierUiState() }
     private fun message(e: Exception) = if (e is SupplierFailure) e.message ?: "Supplier data unavailable." else "Unable to load Supplier data. Check your connection and try again."
 }
 
@@ -176,11 +209,13 @@ class SupplierViewModel internal constructor(private val holderFactory: (Corouti
     private val holder = holderFactory(viewModelScope)
     val uiState = holder.uiState
     fun refresh() = holder.refresh()
+    fun loadOrders(reset: Boolean) = holder.loadOrders(reset)
     fun open(id: Long) = holder.open(id)
     fun closeDetail() = holder.closeDetail()
     fun create(draft: SupplyDraft) = holder.create(draft)
     fun update(id: Long, draft: SupplyDraft) = holder.update(id, draft)
     fun upload(id: Long, photo: SupplierPhoto) = holder.upload(id, photo)
+    fun gallery(id: Long, action: GalleryAction) = holder.gallery(id, action)
     fun acknowledgePending() = holder.acknowledgePending()
     override fun onCleared() { holder.close() }
     companion object {
@@ -189,7 +224,7 @@ class SupplierViewModel internal constructor(private val holderFactory: (Corouti
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass.isAssignableFrom(SupplierViewModel::class.java))
                 @Suppress("UNCHECKED_CAST") return SupplierViewModel { scope -> SupplierStateHolder(
-                    SupplierRepository(ApiClient.supplierApi, TokenManager, BuildConfig.API_BASE_URL), TokenManager, SupplierPreferences(app), scope) } as T
+                    SupplierRepository(ApiClient.supplierApi, TokenManager, BuildConfig.API_BASE_URL, ApiClient.supplierGalleryApi), TokenManager, SupplierPreferences(app), scope) } as T
             }
         }
     }

@@ -31,9 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.farmapp.network.AuthValidation
 import com.example.farmapp.viewmodel.AuthViewModel
-import com.example.farmapp.ui.components.ProfileModal
 import com.example.farmapp.ui.screens.auth.AwaitingVerificationScreen
-import com.example.farmapp.ui.screens.BuyerScreen
 import com.example.farmapp.ui.screens.FarmerShell
 import androidx.compose.runtime.key
 import com.example.farmapp.ui.screens.LoginScreen
@@ -92,6 +90,10 @@ fun AppNavigation(
                 com.example.farmapp.inspector.InspectorShell(session, logout, isDarkTheme,
                     { isDarkTheme = !isDarkTheme }, authState.isLoading, modifier)
             }
+        } else if (authDestination(currentUserAuth) == AuthDestination.DRIVER) {
+            key(session.generation) { com.example.farmapp.tracking.DriverShell(session, logout, modifier) }
+        } else if (authDestination(currentUserAuth) == AuthDestination.BUYER) {
+            key(session.generation) { com.example.farmapp.buyers.BrianBuyerApp(modifier,onLogout=logout) }
         } else if (authDestination(currentUserAuth) == AuthDestination.SUPPLIER) {
             key(session.generation) {
                 com.example.farmapp.supplier.SupplierShell(session, logout, isDarkTheme,
@@ -150,7 +152,7 @@ fun AppNavigation(
             ) { innerPadding ->
                 val screenModifier = Modifier.padding(innerPadding)
                 when (authDestination(currentUserAuth)) {
-                    AuthDestination.BUYER -> BuyerScreen(modifier = screenModifier)
+                    AuthDestination.BUYER -> Unit // BrianBuyerApp is routed above the generic role scaffold.
                     AuthDestination.AWAITING_VERIFICATION -> AwaitingVerificationScreen(logout, authState.isLoading, screenModifier)
                     else -> Box(screenModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -162,13 +164,7 @@ fun AppNavigation(
             }
 
             if (showProfileModal && currentRole in AuthValidation.supportedRoles) {
-                ProfileModal(
-                    userRole = currentUserAuth.role,
-                    userName = currentUserAuth.fullName,
-                    // Older encrypted sessions may lack a phone until the next successful refresh.
-                    userPhone = currentUserAuth.phoneNumber ?: "Not provided",
-                    onDismiss = { showProfileModal = false }
-                )
+                com.example.farmapp.profile.AccountProfilePage { showProfileModal = false }
             }
         }
     }

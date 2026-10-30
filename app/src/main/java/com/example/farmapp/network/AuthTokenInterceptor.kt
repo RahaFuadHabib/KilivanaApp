@@ -71,6 +71,9 @@ class RefreshCoordinator(
     }
 }
 
+/** Opt-in single read: surface authentication errors without refresh, token rotation or logout. */
+class PreserveSessionOnReadFailure
+
 class AuthTokenInterceptor(
     private val baseUrl: HttpUrl,
     private val sessions: SessionStore,
@@ -85,6 +88,7 @@ class AuthTokenInterceptor(
         if (!belongsToApi || (url.encodedPath.startsWith(baseUrl.encodedPath + "auth/") && url.encodedPath != baseUrl.encodedPath + "auth/me")) {
             return chain.proceed(request)
         }
+        val preserveSession = request.tag(PreserveSessionOnReadFailure::class.java) != null
         var snapshot = sessions.session.value
         val expected = request.tag(SessionSnapshot::class.java)
         fun checkSession(current: SessionSnapshot) {
@@ -97,7 +101,7 @@ class AuthTokenInterceptor(
         checkSession(snapshot)
         // Public catalogue routes can silently mask expired tokens as anonymous. Only Supplier-tagged
         // reads opt into proactive refresh; writes remain single-attempt and other modules are unchanged.
-        if (expected?.auth?.role == "SUPPLIER" && expected.auth.backendContract == "canonical" &&
+        if (!preserveSession && expected?.auth?.role == "SUPPLIER" && expected.auth.backendContract == "canonical" &&
             request.method in setOf("GET", "HEAD")) {
             val expiry = snapshot.auth?.accessTokenExpiresAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
             if (expiry == null || !expiry.isAfter(Instant.now().plusSeconds(30))) {
@@ -112,7 +116,7 @@ class AuthTokenInterceptor(
         val auth = snapshot.auth ?: return chain.proceed(request)
         val authenticated = request.newBuilder().header("Authorization", "Bearer ${auth.accessToken}").build()
         val response = chain.proceed(authenticated)
-        if ((auth.backendContract == "canonical" && request.method !in setOf("GET", "HEAD")) ||
+        if (preserveSession || (auth.backendContract == "canonical" && request.method !in setOf("GET", "HEAD")) ||
             response.code != 401 || request.body?.isOneShot() == true ||
             request.body?.isDuplex() == true || chain.call().isCanceled()) return response
 

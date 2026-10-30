@@ -3,7 +3,7 @@ package com.example.farmapp.supplier
 import android.content.Context
 import java.security.MessageDigest
 
-enum class SupplyOperation { CREATE, UPDATE, UPLOAD }
+enum class SupplyOperation { CREATE, UPDATE, UPLOAD, GALLERY }
 data class PendingSupplyOperation(val kind: SupplyOperation, val listingId: Long? = null)
 interface SupplierOperationStore {
     fun read(accountKey: String): PendingSupplyOperation?

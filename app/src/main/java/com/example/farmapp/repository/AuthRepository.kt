@@ -14,18 +14,24 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import com.example.farmapp.network.canonical.CanonicalAuthService
 import com.example.farmapp.network.canonical.SupplierSignupRecoveryRequired
+import com.example.farmapp.network.canonical.SupplierProfileSetupRequired
+import com.example.farmapp.network.canonical.CanonicalAuthErrors
 
-open class AuthFailure(message: String) : IOException(message)
+open class AuthFailure(message: String, val diagnostic: com.example.farmapp.network.canonical.AuthDiagnostic? = null) : IOException(message)
 
 class AuthRepository(
     private val service: ApiService,
     private val sessions: SessionStore = TokenManager,
-    val demoMode: Boolean = false
+    val demoMode: Boolean = false,
+    private val signupClock: java.time.Clock = java.time.Clock.systemUTC()
 ) {
     val canonicalMode = service is com.example.farmapp.network.canonical.CanonicalAuthService
     val session = sessions.session
     private val signupGate = AtomicBoolean(false)
+    private var buyerSignupRetryAt: java.time.Instant? = null
     private val supplierRecovery = AtomicBoolean(false)
+    private var registrationAwaitingVerification: com.example.farmapp.network.canonical.EmailVerificationPending? = null
+    private var pendingProfileSetup: SignupRequest? = null
     val supplierRegistrationNeedsRecovery get() = supplierRecovery.get()
 
     suspend fun restore(persistence: SessionPersistence) = withContext(Dispatchers.IO) {
@@ -46,8 +52,12 @@ class AuthRepository(
     suspend fun login(identifier: String, password: String) = withContext(Dispatchers.IO) {
         if (identifier.isBlank() || password.isBlank()) throw AuthFailure("Please enter your email or phone number and password.")
         val before = sessions.session.value
-        val response = service.login(LoginRequest(identifier.trim(), password))
+        val response = try { service.login(LoginRequest(identifier.trim(), password)) }
+            catch (e: CancellationException) { throw e }
+            catch (e: AuthFailure) { throw e }
+            catch (e: Exception) { throw CanonicalAuthErrors.exception(e) }
         if (!response.isSuccessful) {
+            if (canonicalMode) throw CanonicalAuthErrors.login(response)
             response.errorBody()?.close()
             throw AuthFailure(when (response.code()) {
                 400, 401 -> "Invalid email or phone number, or password."
@@ -56,10 +66,34 @@ class AuthRepository(
                 else -> "Sign-in is unavailable. Please try again."
             })
         }
-        val auth = AuthValidation.validateBackend(response.body())
+        val auth = try { AuthValidation.validateBackend(response.body()) }
+            catch (e: InvalidAuthResponse) { throw CanonicalAuthErrors.exception(e) }
         if (!AuthValidation.canRefresh(auth)) throw AuthFailure("The server returned an expired session. Please sign in again.")
+        val pending = pendingProfileSetup
+        if (service is CanonicalAuthService && pending != null && registrationAwaitingVerification?.registeredUserId?.toString() == auth.userId) {
+            service.finishRegisteredProfile(pending, auth) { checkSignupSession(before) }
+        }
+        if (service is CanonicalAuthService && auth.role == "SUPPLIER") {
+            val ensureCurrent: () -> Unit = {
+                if (sessions.session.value !== before || before.loggingOut)
+                    throw AuthFailure("The session changed. Sign in again to continue Supplier setup.")
+            }
+            if (!service.supplierProfileExists(auth, ensureCurrent)) {
+                currentCoroutineContext().ensureActive()
+                ensureCurrent()
+                // Authentication succeeded; this is setup guidance, not a new registration attempt.
+                supplierRecovery.set(true)
+                throw SupplierProfileSetupRequired()
+            }
+        }
         currentCoroutineContext().ensureActive()
-        if (!sessions.establish(before, auth, demoMode)) throw AuthFailure("The session changed. Please try signing in again.")
+        try {
+            if (!sessions.establish(before, auth, demoMode)) throw AuthFailure("The session changed. Please try signing in again.", com.example.farmapp.network.canonical.AuthDiagnostic(com.example.farmapp.network.canonical.AuthStage.SESSION_CHANGED, com.example.farmapp.network.canonical.AuthFailureKind.CONTRACT))
+        } catch (e: AuthFailure) { throw e }
+        catch (_: Exception) { throw AuthFailure("Sign-in succeeded, but the secure session could not be saved. Please try again.", com.example.farmapp.network.canonical.AuthDiagnostic(com.example.farmapp.network.canonical.AuthStage.SESSION_SAVE, com.example.farmapp.network.canonical.AuthFailureKind.STORAGE)) }
+        if (pending != null && registrationAwaitingVerification?.registeredUserId?.toString() == auth.userId) supplierRecovery.set(false)
+        registrationAwaitingVerification = null
+        pendingProfileSetup = null
     }
 
     suspend fun signup(input: SignupRequest) = withContext(Dispatchers.IO) {
@@ -67,6 +101,12 @@ class AuthRepository(
         try {
             if (demoMode) throw AuthFailure("Account creation is unavailable in offline demo mode.")
             val request = SignupValidation.prepare(input)
+            val canonicalBuyer = request.role == "BUYER" && service is CanonicalAuthService
+            if (canonicalBuyer) buyerSignupRetryAt?.takeIf { it.isAfter(signupClock.instant()) }?.let {
+                throw com.example.farmapp.network.canonical.BuyerSignupRejection(
+                    com.example.farmapp.network.canonical.signupWaitMessage(it, signupClock.instant()), 429, it)
+            }
+            if (registrationAwaitingVerification != null) throw AuthFailure("Your account was already created. Sign in to continue email verification; do not register again.")
             val before = sessions.session.value
             val supplier = request.role == "SUPPLIER" && service is CanonicalAuthService
             val response = if (supplier) {
@@ -75,9 +115,29 @@ class AuthRepository(
                 // Remains set on cancellation, lost responses and partial success. No automatic registration retry.
                 supplierRecovery.set(true)
                 (service as CanonicalAuthService).signupSupplier(request) { checkSignupSession(before) }
-            } else service.signup(request)
+            } else try { service.signup(request) }
+            catch (e: CancellationException) { throw e }
+            catch (e: AuthFailure) { throw e }
+            catch (e: Exception) {
+                if (canonicalBuyer) throw AuthFailure("Registration could not be confirmed. It may have reached the service. Try signing in before submitting signup again.",
+                    com.example.farmapp.network.canonical.AuthDiagnostic(
+                        com.example.farmapp.network.canonical.AuthStage.REGISTRATION_REQUEST,
+                        when (e) {
+                            is com.google.gson.JsonParseException, is com.google.gson.stream.MalformedJsonException,
+                            is com.example.farmapp.network.canonical.CanonicalContractException, is InvalidAuthResponse -> com.example.farmapp.network.canonical.AuthFailureKind.CONTRACT
+                            is java.io.InterruptedIOException -> com.example.farmapp.network.canonical.AuthFailureKind.TIMEOUT
+                            else -> com.example.farmapp.network.canonical.AuthFailureKind.NETWORK
+                        }))
+                else throw e
+            }
             if (!response.isSuccessful) {
                 if (supplier) supplierRecovery.set(false) // Supplier service returns only definite pre-creation rejections here.
+                if (supplier) throw AuthFailure(CanonicalAuthErrors.registration(response))
+                if (canonicalBuyer) {
+                    val failure = com.example.farmapp.network.canonical.buyerSignupRejection(response, signupClock.instant())
+                    if (failure.retryAt != null) buyerSignupRetryAt = failure.retryAt
+                    throw failure
+                }
                 response.errorBody()?.close()
                 throw AuthFailure(when (response.code()) {
                     400 -> "Please check your signup details and try again."
@@ -92,6 +152,12 @@ class AuthRepository(
             currentCoroutineContext().ensureActive()
             if (!sessions.establish(before, auth, false)) throw AuthFailure("The session changed. Please try again.")
             if (supplier) supplierRecovery.set(false)
+        } catch (e: com.example.farmapp.network.canonical.EmailVerificationRequired) {
+            if (e.pending.registeredUserId != null) {
+                registrationAwaitingVerification = e.pending
+                pendingProfileSetup = SignupValidation.prepare(input).copy(password = "")
+            }
+            throw e
         } finally { signupGate.set(false) }
     }
 
@@ -109,6 +175,22 @@ class AuthRepository(
             currentCoroutineContext().ensureActive()
             if (!sessions.establish(before, auth, false)) throw AuthFailure("The session changed. Sign in again to continue.")
             supplierRecovery.set(false)
+        } finally { signupGate.set(false) }
+    }
+
+    suspend fun completeVerifiedSignup(input: SignupRequest, registeredId: Long) = withContext(Dispatchers.IO) {
+        if (!signupGate.compareAndSet(false, true)) throw AuthFailure("Account setup is already in progress.")
+        try {
+            if (service !is CanonicalAuthService) throw AuthFailure("Email verification requires the shared backend.")
+            val before = sessions.session.value
+            val response = service.finishVerifiedSignup(SignupValidation.prepare(input), registeredId) { checkSignupSession(before) }
+            checkSignupSession(before)
+            val auth = AuthValidation.validateBackend(response.body())
+            currentCoroutineContext().ensureActive()
+            if (!sessions.establish(before, auth, false)) throw AuthFailure("The session changed. Sign in to continue.")
+            supplierRecovery.set(false)
+            registrationAwaitingVerification = null
+            pendingProfileSetup = null
         } finally { signupGate.set(false) }
     }
 

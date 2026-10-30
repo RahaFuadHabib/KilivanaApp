@@ -10,6 +10,9 @@ import retrofit2.http.*
 
 /** No administrator, buyer-order, driver or payment initiation routes. */
 interface SupplierApi {
+    @GET("suppliers/{supplierId}/orders") suspend fun orders(@Path("supplierId") supplierId: Long,
+        @Query("page") page: Int, @Query("size") size: Int,
+        @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierOrderPageDto>>
     @GET("auth/me") suspend fun me(@Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalUserDto>>
     @GET("profiles/suppliers/{id}") suspend fun profile(@Path("id") id: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierProfileDto>>
     @GET("categories/type/SUPPLIER") suspend fun categories(@Tag session: SessionSnapshot): Response<CanonicalApiResponse<List<CanonicalCategoryDto>>>

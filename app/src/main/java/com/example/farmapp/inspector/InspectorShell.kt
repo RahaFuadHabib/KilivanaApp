@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -49,6 +50,7 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
     onOpen: (Long) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier,
     onChangeStatus: (InspectionStatus) -> Unit = {}, onSubmitFinding: (InspectionFinding, String) -> Unit = { _, _ -> }) {
     var tab by rememberSaveable { mutableStateOf(InspectorTab.DASHBOARD) }
+    var profileEditor by remember { mutableStateOf(false) }
     BackHandler(state.selectedId != null) { if (!state.submitting) onBack() }
     Scaffold(modifier.fillMaxSize(), topBar = {
         TopAppBar(title = { Column {
@@ -57,9 +59,6 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
         } }, navigationIcon = { if (state.selectedId != null) IconButton(onClick = onBack, enabled = !state.submitting) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to inspections")
         } }, actions = {
-            IconButton(onClick = onRefresh, enabled = !state.loadingJobs && !state.loadingProfile && !signingOut && !state.submitting) {
-                Icon(Icons.Default.Refresh, "Refresh Inspector data")
-            }
             IconButton(onClick = onToggleTheme) { Icon(if (isDarkTheme) Icons.Default.WbSunny else Icons.Default.Bedtime, "Toggle color theme") }
             IconButton(onClick = onLogout, enabled = !signingOut) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Sign out") }
         })
@@ -71,7 +70,12 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
                     InspectorTab.PROFILE -> Icons.Default.Person }, destination.title)
             }) }
     } }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(KilivanaSpacing.content),
+        PullToRefreshBox(isRefreshing = state.loadingJobs || state.loadingProfile, onRefresh = {
+            if (!state.submitting && !signingOut) {
+                if (state.selectedId != null) onOpen(state.selectedId) else onRefresh()
+            }
+        }, modifier = Modifier.fillMaxSize().padding(padding)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(KilivanaSpacing.content),
             verticalArrangement = Arrangement.spacedBy(KilivanaSpacing.medium)) {
             if (state.selectedId != null) {
                 item { Text("Inspection #${state.selectedId}", style = MaterialTheme.typography.headlineSmall) }
@@ -114,8 +118,8 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
                         }
                     } }
                     if (state.loadingJobs) item { Loading("Loading your assignments") }
-                    else if (state.jobsError != null) item { Notice(state.jobsError, onRefresh) }
-                    else {
+                    if (state.jobsError != null) item { Notice(state.jobsError, onRefresh) }
+                    if (state.jobs.isNotEmpty() || !state.loadingJobs && state.jobsError == null) {
                         item { val counts = inspectionCounts(state.jobs)
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -139,12 +143,13 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
                     item { Text("My inspections", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
                     item { Text("Only inspections assigned to your account.") }
                     if (state.loadingJobs) item { Loading("Loading your assignments") }
-                    else if (state.jobsError != null) item { Notice(state.jobsError, onRefresh) }
-                    else if (state.jobs.isEmpty()) item { EmptyAssignments() }
-                    else items(state.jobs, key = { it.id }) { job -> InspectionCard(job) { onOpen(job.id) } }
+                    if (state.jobsError != null) item { Notice(state.jobsError, onRefresh) }
+                    if (!state.loadingJobs && state.jobsError == null && state.jobs.isEmpty()) item { EmptyAssignments() }
+                    items(state.jobs, key = { it.id }) { job -> InspectionCard(job) { onOpen(job.id) } }
                 }
                 InspectorTab.PROFILE -> {
                     item { Text("Inspector profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+                    item { TextButton(onClick = { profileEditor = true }) { Text("Edit account profile") } }
                     if (state.loadingProfile) item { Loading("Loading your profile") }
                     else if (state.profileError != null) item { Notice(state.profileError, onRefresh) }
                     state.profile?.let { profile ->
@@ -172,10 +177,13 @@ internal fun InspectorContent(state: InspectorUiState, name: String, onLogout: (
                             }
                         } }
                     }
+                    item { com.example.farmapp.profile.AboutKilivana() }
                 }
             }
         }
+        }
     }
+    if (profileEditor) com.example.farmapp.profile.ProfileEditor { profileEditor = false; onRefresh() }
 }
 
 @Composable

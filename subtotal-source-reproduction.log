@@ -1,0 +1,5 @@
+PASS current product price 1.00 * quantity 1 = 1.00, even with stale snapshot 0.07
+PASS selecting another processing cart reproduces Android 1.00 vs quote 0.07
+PASS different input product/quantity 0.01 * 7 also reproduces 0.07
+PASS duplicated 1.00 lines yield 2.00, not 0.07
+PASS delivery 1.00 changes total to 1.07 while subtotal remains 0.07

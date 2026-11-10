@@ -53,6 +53,7 @@ internal data class BuyerPickupState(val busy: Boolean = false, val loaded: Bool
 internal fun pickupSelectionValid(state: BuyerPickupState) = state.loaded && !state.busy && state.error == null && state.available && state.selected?.isAvailable == true
 internal class BuyerPickupController(private val api: BuyerPickupApi, private val sessions: SessionStore,
     private val expected: SessionSnapshot, private val store: BuyerPickupStore, private val scope: CoroutineScope) {
+    private val repository: com.example.farmapp.checkout.PickupStationRepository<BuyerPickupStation, BuyerSavedPickup, BuyerSavePickupRequest> = com.example.farmapp.buyers.BuyerPickupRepository(api, sessions, expected)
     private val mutable = MutableStateFlow(BuyerPickupState())
     val state = mutable.asStateFlow()
     private fun current(): SessionSnapshot {
@@ -72,7 +73,7 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
         }
         return response.body()?.requireData() ?: error("Incomplete response")
     }
-    private suspend fun ownSaved() = checkedSavedPickups(read(api.saved(current())), current().auth!!.userId.toLong())
+    private suspend fun ownSaved() = checkedSavedPickups(read(repository.saved()), current().auth!!.userId.toLong())
     private fun stations(rows: List<BuyerPickupStation>): List<BuyerPickupStation> {
         rows.forEach(::checkedPickup); check(rows.map { it.id }.distinct().size == rows.size)
         return rows.filter { it.isAvailable == true }
@@ -84,10 +85,10 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
         else -> false
     }
     private suspend fun load(region: String?) {
-        val available = read(api.availability(current()))
-        val all = if (available) stations(read(api.available(current()))) else emptyList()
+        val available = read(repository.availability())
+        val all = if (available) stations(read(repository.available())) else emptyList()
         val saved = ownSaved()
-        val filtered = if (available && region != null) stations(read(api.region(region, current()))).also { rows ->
+        val filtered = if (available && region != null) stations(read(repository.region(region))).also { rows ->
             check(rows.all { it.region.equals(region, ignoreCase = true) })
         } else all
         val pending = store.pendingPickup()
@@ -97,7 +98,7 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
             else if (confirmed && pending?.kind == "REMOVE" && pending.platformId == mutable.value.selected?.id) null
             else mutable.value.selected?.id ?: store.selectedPickup() ?: saved.firstOrNull { it.isDefault == true }?.pickupStationId
         val selected = desired?.takeIf { id -> available && all.any { it.id == id } }?.let { id ->
-            checkedPickup(read(api.detail(id, current()))).also { check(it.id == id && it.isAvailable == true) }
+            checkedPickup(read(repository.detail(id))).also { check(it.id == id && it.isAvailable == true) }
         }
         current(); store.selectPickup(selected?.id)
         mutable.value = BuyerPickupState(busy = true, loaded = true, available = available, stations = filtered, allStations = all,
@@ -120,7 +121,7 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
         mutable.update { it.copy(busy = true) }
         scope.launch {
             try {
-                val row = checkedPickup(read(api.detail(id, current()))); check(row.id == id && row.isAvailable == true)
+                val row = checkedPickup(read(repository.detail(id))); check(row.id == id && row.isAvailable == true)
                 current(); store.selectPickup(id); mutable.update { it.copy(selected = row, notice = null) }
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { if (runCatching { current() }.isSuccess) mutable.update { it.copy(selected = null, error = "This station couldn't be verified. Refresh and choose again.") } }
@@ -147,15 +148,15 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
             try {
                 check(store.pendingPickup() == null)
                 if (pending.kind != "REMOVE") {
-                    val station = checkedPickup(read(api.detail(pending.platformId, current())))
+                    val station = checkedPickup(read(repository.detail(pending.platformId)))
                     check(station.id == pending.platformId && station.isAvailable == true)
                 }
                 current(); store.pendingPickup(pending); sent = true
                 when (pending.kind) {
-                    "SAVE" -> checkedSavedPickups(listOf(read(api.save(BuyerSavePickupRequest(pending.platformId, pending.label, pending.isDefault), current()))), current().auth!!.userId.toLong()).also { check(it.single().pickupStationId == pending.platformId) }
-                    "DEFAULT" -> checkedSavedPickups(listOf(read(api.setDefault(pending.userStationId!!, current()))), current().auth!!.userId.toLong()).also { check(it.single().id == pending.userStationId && it.single().isDefault == true) }
+                    "SAVE" -> checkedSavedPickups(listOf(read(repository.save(BuyerSavePickupRequest(pending.platformId, pending.label, pending.isDefault)))), current().auth!!.userId.toLong()).also { check(it.single().pickupStationId == pending.platformId) }
+                    "DEFAULT" -> checkedSavedPickups(listOf(read(repository.setDefault(pending.userStationId!!))), current().auth!!.userId.toLong()).also { check(it.single().id == pending.userStationId && it.single().isDefault == true) }
                     "REMOVE" -> {
-                        val response = api.remove(pending.userStationId!!, current())
+                        val response = repository.remove(pending.userStationId!!)
                         if (!response.isSuccessful) { response.errorBody()?.close(); throw PickupFailure("Station removal wasn't confirmed.", response.code() in setOf(400,401,403,404,422)) }
                         response.body()?.requireSuccess() ?: error("Missing response")
                     }
@@ -172,4 +173,14 @@ internal class BuyerPickupController(private val api: BuyerPickupApi, private va
         }
     }
     private class PickupFailure(message: String, val rejected: Boolean) : IllegalStateException(message)
+}
+
+internal data class BuyerNearestPickupStation(val id: Long? = null, val name: String? = null, val address: String? = null,
+    val latitude: Double? = null, val longitude: Double? = null, val region: String? = null, val isAvailable: Boolean? = null,
+    val openingHours: String? = null, val contactPhone: String? = null, val pickupInstructions: String? = null,
+    val distanceKm: Double? = null)
+internal interface BuyerPickupLocationApi {
+    @GET("pickup-stations/nearest") suspend fun nearest(@Query("lat") latitude: Double,
+        @Query("lng") longitude: Double, @Query("radiusKm") radiusKm: Double = 10.0,
+        @Query("limit") limit: Int = 20, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<List<BuyerNearestPickupStation>>>
 }

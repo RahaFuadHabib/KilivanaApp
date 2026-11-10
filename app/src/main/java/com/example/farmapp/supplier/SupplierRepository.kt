@@ -199,4 +199,63 @@ class SupplierRepository(private val api: SupplierApi, private val sessions: Ses
         }
         return response.body()?.requireData() ?: throw SupplierFailure("Incomplete Supplier response.")
     }
+    suspend fun warehouses(expected: SessionSnapshot): List<SupplierWarehouse> {
+        owner(expected)
+        val rows = read(api.warehouses(expected)).map(::checkedSupplierWarehouse)
+        owner(expected)
+        check(rows.map { it.id }.distinct().size == rows.size)
+        check(rows.count { it.defaultLocation == true && it.active == true } <= 1)
+        return rows.sortedWith(compareBy<SupplierWarehouse> { it.defaultLocation != true }.thenByDescending { it.id })
+    }
+    suspend fun warehouse(expected: SessionSnapshot, id: Long): SupplierWarehouse {
+        if(id <= 0) throw SupplierFailure("Invalid warehouse selection.", true)
+        owner(expected)
+        val row = checkedSupplierWarehouse(read(api.warehouse(id, expected)))
+        owner(expected)
+        check(row.id == id)
+        return row
+    }
+    suspend fun createWarehouse(expected: SessionSnapshot, request: SupplierWarehouseRequest): SupplierWarehouse {
+        validateWarehouseRequest(request)
+        owner(expected)
+        val row = checkedSupplierWarehouse(read(api.createWarehouse(request, expected)))
+        owner(expected)
+        return row
+    }
+    suspend fun updateWarehouse(expected: SessionSnapshot, id: Long, request: SupplierWarehouseRequest): SupplierWarehouse {
+        if(id <= 0) throw SupplierFailure("Invalid warehouse selection.", true)
+        validateWarehouseRequest(request)
+        owner(expected)
+        val row = checkedSupplierWarehouse(read(api.updateWarehouse(id, request, expected)))
+        owner(expected)
+        check(row.id == id)
+        return row
+    }
+    suspend fun setDefaultWarehouse(expected: SessionSnapshot, id: Long): SupplierWarehouse {
+        if(id <= 0) throw SupplierFailure("Invalid warehouse selection.", true)
+        owner(expected)
+        val row = checkedSupplierWarehouse(read(api.setDefaultWarehouse(id, expected)))
+        owner(expected)
+        check(row.id == id && row.defaultLocation == true)
+        return row
+    }
+    suspend fun deactivateWarehouse(expected: SessionSnapshot, id: Long) {
+        if(id <= 0) throw SupplierFailure("Invalid warehouse selection.", true)
+        owner(expected)
+        val response=api.deactivateWarehouse(id, expected)
+        owner(expected)
+        if(!response.isSuccessful){
+            response.errorBody()?.close()
+            throw SupplierFailure("Warehouse change was not confirmed. Refresh before trying again.", response.code() in setOf(400,401,403,404,422))
+        }
+        response.body()?.requireSuccess() ?: throw SupplierFailure("Incomplete warehouse response.")
+    }
+    private fun validateWarehouseRequest(request: SupplierWarehouseRequest){
+        if(request.name.trim().length !in 1..255 || request.address.trim().length !in 1..500 || request.county.trim().length !in 1..100)
+            throw SupplierFailure("Enter a name, address and county for the warehouse.", true)
+        if(!request.latitude.isFinite() || request.latitude !in -90.0..90.0 || !request.longitude.isFinite() || request.longitude !in -180.0..180.0)
+            throw SupplierFailure("Enter valid warehouse coordinates.", true)
+        if(request.contactPhone?.length?.let{it>32}==true || request.operatingHours?.length?.let{it>255}==true || request.contactName?.length?.let{it>255}==true)
+            throw SupplierFailure("Warehouse details exceed the supported length.", true)
+    }
 }

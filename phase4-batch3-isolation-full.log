@@ -1,0 +1,148 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:processDebugAndroidTestManifest UP-TO-DATE
+> Task :app:generateDebugAndroidTestBuildConfig UP-TO-DATE
+> Task :app:checkDebugAndroidTestAarMetadata UP-TO-DATE
+> Task :app:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :app:mapDebugAndroidTestSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugAndroidTestResources UP-TO-DATE
+> Task :app:mergeDebugAndroidTestResources UP-TO-DATE
+> Task :app:processDebugAndroidTestResources UP-TO-DATE
+> Task :app:compileDebugAndroidTestKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebugAndroidTest UP-TO-DATE
+> Task :app:compileDebugAndroidTestJavaWithJavac UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:dexBuilderDebug UP-TO-DATE
+> Task :app:mergeProjectDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:packageDebug UP-TO-DATE
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:mergeDebugAndroidTestShaders UP-TO-DATE
+> Task :app:compileDebugAndroidTestShaders NO-SOURCE
+> Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+> Task :app:mergeDebugAndroidTestAssets UP-TO-DATE
+> Task :app:compressDebugAndroidTestAssets UP-TO-DATE
+> Task :app:processDebugAndroidTestJavaRes UP-TO-DATE
+> Task :app:mergeDebugAndroidTestJavaResource UP-TO-DATE
+> Task :app:checkDebugAndroidTestDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugAndroidTestFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebugAndroidTest UP-TO-DATE
+> Task :app:mergeLibDexDebugAndroidTest UP-TO-DATE
+> Task :app:dexBuilderDebugAndroidTest UP-TO-DATE
+> Task :app:mergeProjectDexDebugAndroidTest UP-TO-DATE
+> Task :app:mergeDebugAndroidTestJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+> Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebugAndroidTest UP-TO-DATE
+> Task :app:writeDebugAndroidTestSigningConfigVersions UP-TO-DATE
+> Task :app:packageDebugAndroidTest UP-TO-DATE
+> Task :app:createDebugAndroidTestApkListingFileRedirect UP-TO-DATE
+> Task :app:connectedDebugAndroidTest
+Starting 165 tests on SM-A155F - 16
+
+SM-A155F - 16 Tests 3/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 6/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 12/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 19/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 27/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 35/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 43/165 completed. (0 skipped) (0 failed)
+SM-A155F - 16 Tests 55/165 completed. (0 skipped) (0 failed)
+
+> Task :app:connectedDebugAndroidTest
+
+com.example.farmapp.buyers.InstalledBuyerHomeSmokeTest > retainedBuyerSessionOpensActualBrianHome[SM-A155F - 16] [31mFAILED [0m
+	java.lang.AssertionError: The retained session did not open Brian's Buyer Home; no credential or purchase action was performed.
+	at org.junit.Assert.fail(Assert.java:89)
+
+SM-A155F - 16 Tests 58/165 completed. (0 skipped) (1 failed)
+SM-A155F - 16 Tests 68/165 completed. (0 skipped) (1 failed)
+SM-A155F - 16 Tests 74/165 completed. (0 skipped) (1 failed)
+SM-A155F - 16 Tests 84/165 completed. (0 skipped) (1 failed)
+SM-A155F - 16 Tests 93/165 completed. (0 skipped) (1 failed)
+
+> Task :app:connectedDebugAndroidTest
+
+com.example.farmapp.supplier.AuthAndProfileRefinementUiTest > returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend[SM-A155F - 16] [31mFAILED [0m
+	androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	Root{application-window-token=android.view.ViewRootImpl$W@3fb9a72, window-token=android.view.ViewRootImpl$W@3fb9a72, has-window-focus=false, layout-params-type=1, layout-params-string={(0,0)(fillxfill) sim={forwardNavigation} ty=BASE_APPLICATION wanim=0x1030318
+
+SM-A155F - 16 Tests 98/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 103/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 109/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 111/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 114/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 116/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 119/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 121/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 125/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 130/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 136/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 143/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 145/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 153/165 completed. (0 skipped) (2 failed)
+SM-A155F - 16 Tests 161/165 completed. (0 skipped) (2 failed)
+
+> Task :app:connectedDebugAndroidTest
+
+com.example.farmapp.ui.screens.FarmerProfilePresentationTest > cancelDoesNotSaveAndAboutAndLogoutRemainReachableInDarkMode[SM-A155F - 16] [31mFAILED [0m
+	androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	Root{application-window-token=android.view.ViewRootImpl$W@b6b2aea, window-token=android.view.ViewRootImpl$W@b6b2aea, has-window-focus=false, layout-params-type=1, layout-params-string={(0,0)(fillxfill) sim={forwardNavigation} ty=BASE_APPLICATION wanim=0x1030318
+
+SM-A155F - 16 Tests 162/165 completed. (0 skipped) (3 failed)
+Finished 165 tests on SM-A155F - 16
+
+> Task :app:connectedDebugAndroidTest
+Tests on SM-A155F - 16 failed: There was 3 failure(s).
+
+> Task :app:connectedDebugAndroidTest FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:connectedDebugAndroidTest'.
+> There were failing tests. See the report at: file:///C:/Users/AppleFi/AndroidStudioProjects/FarmApp/app/build/reports/androidTests/connected/debug/index.html
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5m 58s
+65 actionable tasks: 1 executed, 64 up-to-date

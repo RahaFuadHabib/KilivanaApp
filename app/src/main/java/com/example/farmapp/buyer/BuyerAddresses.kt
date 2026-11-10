@@ -53,6 +53,7 @@ internal data class BuyerAddressState(val rows: List<BuyerAddressDto> = emptyLis
     val saving: Boolean = false, val saveUncertain: Boolean = false, val saveError: String? = null, val createdId: Long? = null)
 internal class BuyerAddressController(private val api: BuyerAddressApi, private val sessions: SessionStore,
     private val expected: SessionSnapshot, private val scope: CoroutineScope, private val deliveryStore: BuyerDeliveryStore? = null) {
+    private val repository: com.example.farmapp.checkout.DeliveryAddressRepository<BuyerAddressDto, BuyerAddressRequest> = com.example.farmapp.buyers.BuyerDeliveryAddressRepository(api, sessions, expected)
     private val mutable = MutableStateFlow(BuyerAddressState())
     val state = mutable.asStateFlow()
     private fun current(): SessionSnapshot {
@@ -67,7 +68,7 @@ internal class BuyerAddressController(private val api: BuyerAddressApi, private 
         mutable.update { it.copy(busy = true, error = null) }
         scope.launch {
             try {
-                val response = api.list(current())
+                val response = repository.list()
                 if (!response.isSuccessful) {
                     response.errorBody()?.close()
                     throw AddressReadFailure(when(response.code()) {
@@ -118,7 +119,7 @@ internal class BuyerAddressController(private val api: BuyerAddressApi, private 
                 check(deliveryStore?.addressSavePending() != true)
                 deliveryStore?.markAddressSave(true)
                 attempted = true
-                val response = api.create(request, current())
+                val response = repository.create(request)
                 if (!response.isSuccessful) {
                     response.errorBody()?.close()
                     if (response.code() in setOf(400, 401, 403, 404, 422)) {

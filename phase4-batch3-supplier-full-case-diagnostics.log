@@ -1,0 +1,7 @@
+11-08 21:38:16.162 25410 25410 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.missingCategoriesExplainWhySubmissionIsDisabled
+11-08 21:38:16.591 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:38:16.592 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:38:16.592 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:38:16.592 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:38:16.592 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:38:16.593 25410 25410 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled sessionPresent=false buyerRole=false demo=false loggingOut=false

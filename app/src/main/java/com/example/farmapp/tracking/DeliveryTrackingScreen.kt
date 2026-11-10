@@ -52,7 +52,16 @@ internal fun validateDeliveryLocation(location: DeliveryLocationDto, job: Delive
 }
 
 @Composable internal fun DeliveryTrackingScreen(order: BuyerOrderDto, modifier: Modifier = Modifier, onBack: () -> Unit) {
-    val expected = remember { TokenManager.session.value }
+    DeliveryTrackingContent(order, TokenManager, ApiClient.deliveryTrackingApi, modifier, onBack)
+}
+
+/** Same presentation and polling; explicit dependencies allow synthetic integration verification. */
+@Composable internal fun DeliveryTrackingContent(order: BuyerOrderDto, sessions: SessionStore, api: DeliveryTrackingApi,
+    modifier: Modifier = Modifier, onBack: () -> Unit) {
+    val expected = remember { sessions.session.value }
+    val repository = remember(expected, order.id, order.buyerId) {
+        com.example.farmapp.buyers.BuyerDeliveryTrackingRepository(api, sessions, expected, order.id ?: 0, order.buyerId ?: 0)
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var jobs by remember { mutableStateOf(emptyList<DeliveryJobDto>()) }
     var selectedId by remember { mutableStateOf(order.logisticsJobId) }
@@ -64,7 +73,7 @@ internal fun validateDeliveryLocation(location: DeliveryLocationDto, job: Delive
     var retry by remember { mutableIntStateOf(0) }
     BackHandler(onBack = onBack)
     fun current(): SessionSnapshot {
-        val now = TokenManager.session.value
+        val now = sessions.session.value
         check(now.generation == expected.generation && !now.loggingOut && !now.isDemo && now.auth?.role == "BUYER" &&
             now.auth.backendContract == "canonical" && now.auth.userId.toLongOrNull() == order.buyerId) { "Sign in as this order's buyer." }
         return now
@@ -79,18 +88,18 @@ internal fun validateDeliveryLocation(location: DeliveryLocationDto, job: Delive
             while (true) {
                 busy = true
                 try {
-                    val rows = read(ApiClient.deliveryTrackingApi.jobs(order.id!!, current()))
+                    val rows = read(repository.jobs(order.id!!.also { current() }))
                     rows.forEach { validateDeliveryJob(it, order.id) }
                     check(rows.map { it.id }.distinct().size == rows.size)
                     current(); jobs = rows
                     val job = rows.firstOrNull { it.id == selectedId } ?: rows.singleOrNull()
                     if (job != null) {
                         location = location?.takeIf { it.tripId == job.id && it.driverId == job.driverId }
-                        val history = read(ApiClient.deliveryTrackingApi.events(job.id!!, current()))
+                        val history = read(repository.events(job.also { current() }))
                         check(history.all { it.logisticsJobId == job.id && SupplierDeliveryStatus.parse(it.status) != null })
                         current(); events = history.sortedBy { it.recordedAt }
                         try {
-                            val response = ApiClient.deliveryTrackingApi.location(job.id, current())
+                            val response = repository.location(job.also { current() })
                             if (response.code() == 404) {
                                 response.errorBody()?.close(); location = null; locationError = "No driver location has been recorded yet."
                             } else {

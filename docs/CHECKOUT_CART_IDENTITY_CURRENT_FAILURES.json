@@ -1,0 +1,22 @@
+{
+  "com.kilivana.backend.security.AccountAccessValidatorTest.pendingVerificationFarmerRetainsAuthenticatedAccess": "failure",
+  "com.kilivana.backend.common.controller.EmailVerificationControllerTest.invalidCodeHasGenericErrorAndRateLimitHasRetryAfter": "failure",
+  "com.kilivana.backend.common.controller.EmailVerificationControllerTest.otpRoutesArePublicWithConsistentPayloads(String)[2]": "failure",
+  "com.kilivana.backend.security.AccountAccessValidatorTest.validAccountKeepsExistingTokenContract": "failure",
+  "com.kilivana.backend.config.DeliveryOpenApiTest.runtimeOpenApiDocumentsTheAddedDeliveryAndPickupRoutes": "error",
+  "com.kilivana.backend.security.JwtAccountEnforcementTest.activeFarmerRetainsNumericPrincipalAndRole": "error",
+  "com.kilivana.backend.common.service.AuthServiceEmailNormalizationTest.login_shouldMatchRegardlessOfCase": "error",
+  "com.kilivana.backend.common.controller.EmailVerificationControllerTest.allRegistrationAliasesRejectPublicInspectorAndAdmin(String)[2]": "failure",
+  "com.kilivana.backend.security.ServiceAuthorizationTest.addressAliasesCannotTrustPathUser(String)[2]": "failure",
+  "com.kilivana.backend.ecommerce.service.PaymentCallbackTest.onlyASuccessfulResultMarksTheOrderPaidAndStampsPaidAt": "failure",
+  "com.kilivana.backend.ecommerce.service.DisputeServiceTest.buyerFavourCancelsAndRefunds": "error",
+  "com.kilivana.backend.ecommerce.service.PaymentServiceTest.orderFollowsItsPayment": "failure",
+  "com.kilivana.backend.ecommerce.service.DisputeServiceTest.farmerFavourCompletesAndSettles": "error",
+  "com.kilivana.backend.security.EmailOtpAuthorizationTest.adminProvisioningCreatesUnverifiedInspectorWithChallenge": "failure",
+  "com.kilivana.backend.common.controller.AuthControllerTest.legacyAuthAlias_shouldSupportLogin": "failure",
+  "com.kilivana.backend.common.controller.EmailVerificationControllerTest.allRegistrationAliasesRejectPublicInspectorAndAdmin(String)[4]": "failure",
+  "com.kilivana.backend.common.controller.EmailVerificationControllerTest.otpRoutesArePublicWithConsistentPayloads(String)[1]": "failure",
+  "com.kilivana.backend.common.service.AuthServiceEmailNormalizationTest.pendingFarmerCanLoginAndRefreshWithoutChangingVerification": "error",
+  "com.kilivana.backend.common.controller.AuthControllerTest.anonymousPasswordReset_shouldForwardTokenRequest(String)[2]": "failure",
+  "com.kilivana.backend.common.controller.AuthControllerTest.invalidPasswordReset_shouldRetainValidation(String)[2]": "failure"
+}

@@ -26,7 +26,7 @@ class InspectorUiTest {
         compose.onNodeWithText("Welcome, Synthetic Inspector").assertExists()
         compose.onNodeWithText("My inspections").performClick()
         compose.onNodeWithText("PRODUCT #7").performClick()
-        compose.onNodeWithText("Synthetic note").assertExists()
+        compose.onNode(hasText("Synthetic note") and hasSetTextAction().not()).assertExists()
         compose.onNodeWithContentDescription("Back to inspections").performClick()
         compose.onNodeWithText("Only inspections assigned to your account.").assertExists()
     }
@@ -69,6 +69,7 @@ class InspectorUiTest {
         compose.runOnIdle { org.junit.Assert.assertEquals(0, submissions) }
         compose.onNodeWithText("Confirm submission").performClick()
         compose.runOnIdle { org.junit.Assert.assertEquals(1, submissions) }
-        compose.onNodeWithText("Upload evidence unavailable").performScrollTo().assertIsNotEnabled()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Upload evidence unavailable"))
+        compose.onNodeWithText("Upload evidence unavailable").assertIsNotEnabled()
     }
 }

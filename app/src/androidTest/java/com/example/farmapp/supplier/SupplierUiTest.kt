@@ -22,6 +22,7 @@ import java.math.BigDecimal
 /** Synthetic screen callbacks only; no sessions, ApiClient or remote writes. */
 @RunWith(AndroidJUnit4::class)
 class SupplierUiTest {
+    @get:org.junit.Rule val diagnostics = com.example.farmapp.RedactedDeviceDiagnostics()
     @get:Rule val compose = createComposeRule()
     private val listing = SupplyListing(7, "Synthetic seed listing", "Synthetic description", "bag", BigDecimal("100.25"), 10, 2, 1, 2,
         CanonicalProductStatus.PENDING_APPROVAL, emptyList())

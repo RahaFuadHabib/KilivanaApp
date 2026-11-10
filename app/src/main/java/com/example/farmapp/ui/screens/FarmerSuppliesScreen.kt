@@ -10,5 +10,5 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun FarmerSuppliesScreen(modifier: Modifier, onTracking: () -> Unit) {
-    com.example.farmapp.marketplace.MarketplaceScreen(modifier)
+    com.example.farmapp.farmerpurchases.FarmerPurchasesScreen(modifier)
 }

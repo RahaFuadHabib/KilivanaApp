@@ -11,6 +11,7 @@ import java.math.BigDecimal
 
 /** Pure presentation tests. No login/session store, image request or live API is constructed. */
 class BuyerShoppingPresentationTest {
+    @get:org.junit.Rule val diagnostics = com.example.farmapp.RedactedDeviceDiagnostics()
     @get:Rule val compose = createComposeRule()
     private fun product() = CanonicalFarmerProduct("7", "99", "FARM_PRODUCE", "2", "Synthetic beans", "Synthetic description", "kg",
         BigDecimal("125.57"), BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.TEN, BigDecimal.ZERO, BigDecimal("2"),

@@ -1,0 +1,219 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.example.farmapp.ExampleInstrumentedTest" tests="165" failures="4" errors="0" skipped="0" time="342.271" timestamp="2026-11-08T16:40:56" hostname="localhost">
+  <properties>
+    <property name="device" value="SM-A155F - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="useAppContext" classname="com.example.farmapp.ExampleInstrumentedTest" time="0.032" />
+  <testcase name="cleanWelcomeSignInSignupAndRecoveryUseNormalDesign" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="4.511" />
+  <testcase name="sharedBuyerLoginUsesSameOtpAndSessionBoundary" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="4.748" />
+  <testcase name="loginVerificationGateContinuesWithoutRegisteringAnotherAccount" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="2.158" />
+  <testcase name="sharedBuyerRoleSignupContinuesWithoutDuplicateRegistration" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="3.321">
+    <failure>java.lang.AssertionError: Failed to inject touch input.
+Reason: Expected exactly '1' node but could not find any node that satisfies: (Text + EditableText contains 'Buyer' (ignoreCase: false))
+
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:178)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performTouchInput(Actions.kt:394)
+at androidx.compose.ui.test.Actions_androidKt.performClickImpl(Actions.android.kt:20)
+at androidx.compose.ui.test.ActionsKt.performClick(Actions.kt:54)
+at com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest.sharedBuyerRoleSignupContinuesWithoutDuplicateRegistration(BuyerAuthenticationPhaseOnePresentationTest.kt:128)
+</failure>
+  </testcase>
+  <testcase name="registrationUsesIssuedOtpAndOnlySignsInAfterVerification" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="2.617" />
+  <testcase name="smallDeviceEmptyStateAndAddButtonRemainScrollable" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="1.375" />
+  <testcase name="checkoutNavigatesToDeliveryAndBackWithoutChangingCart" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="1.678" />
+  <testcase name="selectingExistingAddressSurvivesMethodSwitchAndReviewShowsNoInventedFee" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="1.422">
+    <failure>java.lang.AssertionError: Action performScrollTo() failed.
+Reason: Expected exactly '1' node but could not find any node that satisfies: (TestTag = 'delivery-review')
+
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:178)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerDeliveryPresentationTest.selectingExistingAddressSurvivesMethodSwitchAndReviewShowsNoInventedFee(BuyerDeliveryPresentationTest.kt:76)
+</failure>
+  </testcase>
+  <testcase name="pickupEmptyStateSwitchesToUnavailableInsteadOfFakeStation" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="1.527" />
+  <testcase name="verifiedQuoteTotalsKeepDecimals" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="0.981" />
+  <testcase name="addAndSelectConfirmedLocationThenBackPreservesSelection" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.412" />
+  <testcase name="browseRegionSaveDefaultAndSelectUsesPlatformIdentity" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="3.692" />
+  <testcase name="pickupReviewPreservesCartAndNeverInitiatesPayment" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="0.981" />
+  <testcase name="defaultAndRemovalUseSavedRecordIdAndRequireExplicitRemoval" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="1.767" />
+  <testcase name="dashboardNavigationUsesRealCallbacks" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.195" />
+  <testcase name="detailQuantityHonorsMinimumAndStockBeforeAdd" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="2.139" />
+  <testcase name="downwardGestureTriggersMarketplaceRefresh" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.602" />
+  <testcase name="allChipClearsCategoryAndRetainsSearch" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.278" />
+  <testcase name="catalogLoadingAndFailureHaveRetryWithoutInventedProducts" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.353" />
+  <testcase name="addressFailureDoesNotShowFakeAddressesOrEnableEditing" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.144" />
+  <testcase name="quantityButtonsUpdateTotalsAndHonorOneAndStockLimits" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.275" />
+  <testcase name="savedEmptyStateHasShoppingAction" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.582">
+    <failure>java.lang.NullPointerException: Cannot run onActivity since Activity has been destroyed already
+at androidx.test.internal.util.Checks.checkNotNull(Checks.java:45)
+at androidx.test.core.app.ActivityScenario.lambda$onActivity$2$androidx-test-core-app-ActivityScenario(ActivityScenario.java:787)
+at androidx.test.core.app.ActivityScenario$$ExternalSyntheticLambda2.run(D8$$SyntheticClass:4)
+at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:520)
+at java.util.concurrent.FutureTask.run(FutureTask.java:328)
+at android.app.Instrumentation$SyncRunnable.run(Instrumentation.java:2703)
+at android.os.Handler.handleCallback(Handler.java:1070)
+at android.os.Handler.dispatchMessage(Handler.java:125)
+at android.os.Looper.dispatchMessage(Looper.java:358)
+at android.os.Looper.loopOnce(Looper.java:288)
+at android.os.Looper.loop(Looper.java:392)
+at android.app.ActivityThread.main(ActivityThread.java:10346)
+at java.lang.reflect.Method.invoke(Native Method)
+at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:638)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+</failure>
+  </testcase>
+  <testcase name="homeHasNoShoppingManagementShortcuts" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="0.999" />
+  <testcase name="cartPreservesCentsAndOffersCheckoutReview" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.194" />
+  <testcase name="heartChangesSavedStateWithoutAddingToCart" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.33" />
+  <testcase name="cornerAddCallsCartWithoutOpeningDetail" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.411" />
+  <testcase name="trashRemovesLocallyAndPricingShowsExplicitEstimate" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.123" />
+  <testcase name="sameFrameDoubleSubmitAndRecompositionInvokeOneIntentionalCallback" classname="com.example.farmapp.buyer.BuyerSignupPresentationTest" time="6.022" />
+  <testcase name="pendingSignupDisablesSubmitAndFieldsWithoutAnotherRequest" classname="com.example.farmapp.buyer.BuyerSignupPresentationTest" time="1.394" />
+  <testcase name="busyStateAndCloseNeverSubmit" classname="com.example.farmapp.buyer.DebugCartStructurePresentationTest" time="1.132" />
+  <testcase name="neverRunsOnCompositionAndRequiresExplicitClick" classname="com.example.farmapp.buyer.DebugCartStructurePresentationTest" time="1.406" />
+  <testcase name="deliveryReservationsRemainIsolatedByAccountAndBackendOrigin" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.043" />
+  <testcase name="oldPickupReservationsRetainPlatformAndAssociationIdsAndJsonFields" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.046" />
+  <testcase name="existingSelectedAddressStationAndUncertainAddressSaveSurviveRecreation" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.006" />
+  <testcase name="checkoutCannotPlaceOrderWithoutVerifiedQuote" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.105" />
+  <testcase name="paymentRequiresExplicitConfirmationAndCancelNeverSends" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="2.009" />
+  <testcase name="quoteShowsServerTotalAndDoesNotAutomaticallyPlaceOrderOrPay" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.08" />
+  <testcase name="brianHomeUsesOriginalShoppingSections" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.259" />
+  <testcase name="uncertainSubmittedPaymentStaysOnStatusScreenAndCannotSendAgain" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.004" />
+  <testcase name="backendConfirmedPaymentUsesOriginalStatusLayout" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.275" />
+  <testcase name="originalBuyerAuthFormHonorsExternalBusyGuard" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.803" />
+  <testcase name="expiredQuoteCannotCreateOrder" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.393" />
+  <testcase name="pendingDoesNotClaimSuccessfulPayment" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.949" />
+  <testcase name="unknownAndCancelledStatusesNeverClaimSuccess" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.126" />
+  <testcase name="unknownPaymentEnvironmentDisablesSubmissionButKeepsReview" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.12" />
+  <testcase name="cartChangesImmediatelyWithoutDialogAndPersistsThroughDelegate" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.291" />
+  <testcase name="ordersDetailsTrackingAndBackResolveProductionRoutes" classname="com.example.farmapp.buyers.BuyerOrderNavigationTest" time="2.446" />
+  <testcase name="verifiedOrderPaymentRouteOpensReviewWithoutEnablingSubmission" classname="com.example.farmapp.buyers.BuyerOrderNavigationTest" time="1.596" />
+  <testcase name="invalidWriteDoesNotEraseTheLastSavedJournalOrIncrementItsVersion" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.043" />
+  <testcase name="corruptSavedRecordsStayUnresolvedWithoutDeletingTheOriginalOrPaymentMarker" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.042" />
+  <testcase name="twoPreferencesInstancesKeepTheExistingAtomicVersionCheck" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.017" />
+  <testcase name="oldPaymentReservationStillPreventsAnotherSubmissionAfterRecreation" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.016" />
+  <testcase name="extractedPreferencesDoNotReadAnotherAccountJournal" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.01" />
+  <testcase name="oldSavedStationJournalLoadsAndKeepsItsVersionAndOrderReservation" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.035" />
+  <testcase name="retainedBuyerSessionOpensActualBrianHome" classname="com.example.farmapp.buyers.InstalledBuyerHomeSmokeTest" time="15.097">
+    <failure>java.lang.AssertionError: The retained session did not open Brian's Buyer Home; no credential or purchase action was performed.
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.assertTrue(Assert.java:42)
+at com.example.farmapp.buyers.InstalledBuyerHomeSmokeTest.retainedBuyerSessionOpensActualBrianHome(InstalledBuyerHomeSmokeTest.kt:37)
+</failure>
+  </testcase>
+  <testcase name="trackingRejectsForeignJobsAndInvalidFixesWithoutInventingLocationData" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="1.455" />
+  <testcase name="fullBuyerJourneyKeepsUnconfirmedEnvironmentDisabledAndPreservesRecords" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="4.157" />
+  <testcase name="fullBuyerJourneyUsesExplicitSyntheticPaymentAndRecoversWithoutDuplicateWrites" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="4.417" />
+  <testcase name="malformedLocalBasketFailsWithoutErasingStoredSelection" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.046" />
+  <testcase name="corruptedJournalAndUnknownOutcomeAreNotDeletedOrRetried" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.007" />
+  <testcase name="atomicJournalVersionsStillRejectStaleWriters" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.035" />
+  <testcase name="basketJournalAndPaymentReservationsSurviveRestartWithoutCrossingBuyerNamespaces" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.045" />
+  <testcase name="catalogueLocalBasketDeliveryAndDisabledCheckoutRemainReadOnly" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="2.08" />
+  <testcase name="purchaserHistoryDetailsPaymentReviewAndTrackingDoNotUseSellerWorkflows" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="1.179" />
+  <testcase name="sessionChangePreventsBasketWrites" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="1.169" />
+  <testcase name="errorRetryCanShowEmptyAssignmentsWithoutInventedMetrics" classname="com.example.farmapp.inspector.InspectorUiTest" time="1.352" />
+  <testcase name="dashboardOpensOwnInspectionAndBackReturnsToList" classname="com.example.farmapp.inspector.InspectorUiTest" time="1.666" />
+  <testcase name="profileShowsAdminAssignmentsWithoutEditingControls" classname="com.example.farmapp.inspector.InspectorUiTest" time="1.486" />
+  <testcase name="statusSubmissionRequiresConfirmationAndUploadStaysDisabled" classname="com.example.farmapp.inspector.InspectorUiTest" time="1.914" />
+  <testcase name="realModeLoginUsesServerRoleAndUnsupportedRoleCanLogout" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="3.026" />
+  <testcase name="phoneLoginUsesIdentifierAndPreservesPasswordWhitespace" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="2.647" />
+  <testcase name="invalidCredentialsKeepTheFormAndDisplayError" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="2.115" />
+  <testcase name="signupIgnoresDuplicateSubmissionsWhileLoading" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="1.117" />
+  <testcase name="inspectorSelfRegistrationRemainsDisabled" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="1.958" />
+  <testcase name="recreationRestoresAllFieldsFromCiphertextWithANonExportableKey" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.194" />
+  <testcase name="legacyEncryptedSessionRemainsReadableAndRefreshReplacesProfile" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.619" />
+  <testcase name="lostKeystoreKeyDoesNotRestoreOldSession" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.174" />
+  <testcase name="tamperedCiphertextFailsClosed" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.154" />
+  <testcase name="logoutDeletesTheFileAndKey" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.102" />
+  <testcase name="developerRecorderRemainsExplicitAndProviderReadsOnlyMetadata" classname="com.example.farmapp.network.canonical.AuthDiagnosticPresentationTest" time="0.006" />
+  <testcase name="orderCardHidesInternalIdAndRawTimestamp" classname="com.example.farmapp.orders.BuyerOrderFormattingPresentationTest" time="0.937" />
+  <testcase name="fourReferenceScreensRenderAndPaymentRemainsExplicit" classname="com.example.farmapp.orders.BuyerOrdersReferencePresentationTest" time="4.162" />
+  <testcase name="smallScreenScrollsAndMissingBackendFeesAreNotInvented" classname="com.example.farmapp.orders.BuyerOrdersReferencePresentationTest" time="1.238" />
+  <testcase name="failedAndUnknownResultsNeverClaimConfirmationAndSuccessRequiresConfirmedState" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="1.168" />
+  <testcase name="cancellingConfirmationSendsNothingAndConfirmIsExplicit" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="3.189" />
+  <testcase name="pendingAndFailedDoNotOfferAnotherInitiationOrShowPaid" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="1.054" />
+  <testcase name="paymentReservationsRemainIsolatedByBackendAndAccount" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.075" />
+  <testcase name="twoCompatibilityAdaptersShareOneAtomicReservationAndKeepTheExistingKeyFormat" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.01" />
+  <testcase name="existingBooleanReservationsStillBlockAfterRecreationWithoutRewritingRecords" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.023" />
+  <testcase name="malformedLoginDisplaysDecodeStageWithoutPrivateContent" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.524" />
+  <testcase name="imagePlusLaunchesPhotoPickerShowsThumbnailAndAllowsReplacementBeforeSave" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.049" />
+  <testcase name="unverifiedFarmerAutomaticallyEntersOtpThenResumesOnlyAfterVerifiedResponse" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="3.141" />
+  <testcase name="returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="3.801" />
+  <testcase name="editProfileContainsOnlyEditingActionsAndNoAbout" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="1.228" />
+  <testcase name="mainSupplierProfileHasStandaloneAboutAtBottom" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="1.646" />
+  <testcase name="registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="1.714" />
+  <testcase name="verifiedFarmerSignsInWithoutOtpOrResend" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.61" />
+  <testcase name="previewDecodeRunsOffMainAndKeepsUploadBytes" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="2.027" />
+  <testcase name="sharedGalleryLoadsTwoUniqueImagesOnceAndSurvivesRecomposition" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="0.87" />
+  <testcase name="heroAndTwoThumbnailsBaselineLoadBudget" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="1.074" />
+  <testcase name="malformedLoginResponseIsNotPresentedAsAConnectionFailure" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="2.458" />
+  <testcase name="deniedProfileReadDoesNotOpenSetupOrSaveAPartialSession" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="3.287" />
+  <testcase name="missingProfileAutomaticallyOpensExistingRecoveryFormAndOnlyExplicitSubmitCreatesProfile" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="7.035" />
+  <testcase name="openingOrdersLoadsOnceAndShowsLoadingWithoutFakeEmptyResult" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.216" />
+  <testcase name="paginationOnlyRunsFromExplicitLoadMore" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.327" />
+  <testcase name="offlineErrorOffersExplicitRetryWithoutClaimingNoOrders" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.356" />
+  <testcase name="confirmedEmptyStateCanRefresh" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.313" />
+  <testcase name="ownedItemsDisplayExactPricesReadableDateAndNoTransactionActions" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.513" />
+  <testcase name="supplierFieldsRemainSeparateAndDoubleTapSubmitsOnce" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="7.622" />
+  <testcase name="missingConfirmationBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.928" />
+  <testcase name="passwordVisibilityTogglesAreIndependent" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="4.124" />
+  <testcase name="recoveryUsesExistingCredentialsAndNeverSubmitsRegistration" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.913" />
+  <testcase name="inspectorSignupIsDisabled" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="1.74" />
+  <testcase name="countyAloneIsNotAcceptedAsDetailedAddress" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.893" />
+  <testcase name="existingSupplierCanExplicitlyChooseRecoveryAfterRestart" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.545" />
+  <testcase name="missingPhysicalLocationIsRejectedBeforeSubmission" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.189" />
+  <testcase name="partialFailureSwitchesActionToRecovery" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.806" />
+  <testcase name="allSupplierFieldsAreOnOneScrollableForm" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="2.215" />
+  <testcase name="missingTownBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="7.142" />
+  <testcase name="farmerUsesSinglePageAndKeepsOriginalRegistrationPayload" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="4.157" />
+  <testcase name="passwordMismatchPreservesFieldsAndCanBeCorrected" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="7.645" />
+  <testcase name="missingCountyBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.696" />
+  <testcase name="profileIsReadOnlyAndShowsProvisionedBusiness" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.167" />
+  <testcase name="loadingAndErrorsDoNotDisplayInventedZeroStatistics" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.16" />
+  <testcase name="missingCategoriesExplainWhySubmissionIsDisabled" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.629" />
+  <testcase name="selectingSupplyRecomposesIntoDetailWithoutResettingSessionState" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.774" />
+  <testcase name="initialCatalogueWaitsInsteadOfClaimingNoSupplies" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.086" />
+  <testcase name="imageGallerySupportsSelectionAndSafeUnavailableImageFallback" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.475" />
+  <testcase name="creatingSupplyRequiresValidFormAndExplicitConfirmation" classname="com.example.farmapp.supplier.SupplierUiTest" time="4.307" />
+  <testcase name="createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.532" />
+  <testcase name="refreshingAndFailedRefreshKeepVisibleListings" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.384" />
+  <testcase name="photoUploadCompletionKeepsUnsavedEditDraft" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.771" />
+  <testcase name="editDraftSurvivesDetailRefreshAndRestoration" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.231" />
+  <testcase name="confirmationDoubleTapSubmitsOnlyOnce" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.4" />
+  <testcase name="pullGestureRefreshesWithoutToolbarReload" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.33" />
+  <testcase name="dashboardUsesListingsAndOrdersRemainReadOnly" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.295" />
+  <testcase name="creationAndEditingExposeProductPhotoSelection" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.159" />
+  <testcase name="publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.106" />
+  <testcase name="localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords" classname="com.example.farmapp.supplier.SupplierUiTest" time="3.047" />
+  <testcase name="confirmedEmptyInventoryHasHelpfulEmptyState" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.303" />
+  <testcase name="dirtyFormRequiresConfirmationBeforeLogout" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.674" />
+  <testcase name="invalidFieldsHaveSpecificMessages" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.508" />
+  <testcase name="captureSupplierScreensAndDarkSmallLargeTypeStates" classname="com.example.farmapp.supplier.SupplierVisualReviewTest" time="8.354" />
+  <testcase name="allFourAuthenticatedRolesRetainTheirDestinations" classname="com.example.farmapp.ui.navigation.RoleNavigationRecoveryTest" time="0.795" />
+  <testcase name="originalEntryOffersNormalAuthenticationWithoutOfflineDemo" classname="com.example.farmapp.ui.navigation.RoleNavigationRecoveryTest" time="1.832" />
+  <testcase name="activeProductCannotDeleteBeforeArchiving" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.894" />
+  <testcase name="activeOffersUnlistAndArchiveWithConfirmationAndCancel" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="2.244" />
+  <testcase name="archivedWithReservationsOffersReviewButNoDeletion" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.142" />
+  <testcase name="wrongOwnerHasNoLifecycleActions" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.15" />
+  <testcase name="confirmDoubleTapEmitsOneAction" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.547" />
+  <testcase name="primaryTilesStayInOneEvenRowOnNarrowScreensAndKeepCallbacks" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.483" />
+  <testcase name="detailsShowReadableStatusAndSingleActionRowAndManagementDialog" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.539" />
+  <testcase name="changedStateInvalidatesOpenDeletionConfirmation" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.411" />
+  <testcase name="busyDisablesAllLifecycleActions" classname="com.example.farmapp.ui.screens.CropLifecyclePresentationTest" time="1.049" />
+  <testcase name="failedImportRemovesItsTemporaryFile" classname="com.example.farmapp.ui.screens.CropPhotoStorageTest" time="0.005" />
+  <testcase name="fileAccessRejectsTraversalAndUnrelatedCacheNames" classname="com.example.farmapp.ui.screens.CropPhotoStorageTest" time="0.004" />
+  <testcase name="providerUsesContentUriAndImportCreatesAnIndependentPreviewableCopy" classname="com.example.farmapp.ui.screens.CropPhotoStorageTest" time="0.08" />
+  <testcase name="confirmedRefreshExitsEditAndShowsSuccess" classname="com.example.farmapp.ui.screens.CropSavePresentationTest" time="1.335" />
+  <testcase name="saveErrorStaysVisibleBesideSaveEvenWhenFormIsScrolled" classname="com.example.farmapp.ui.screens.CropSavePresentationTest" time="1.449" />
+  <testcase name="phoneEditUsesSaveActionAndEmailHasNoSaveAction" classname="com.example.farmapp.ui.screens.FarmerProfilePresentationTest" time="2.352" />
+  <testcase name="cancelDoesNotSaveAndAboutAndLogoutRemainReachableInDarkMode" classname="com.example.farmapp.ui.screens.FarmerProfilePresentationTest" time="2.166" />
+  <testcase name="fiveDestinationsFitNarrowPhoneAndProfileReusesActions" classname="com.example.farmapp.ui.screens.FarmerShellPresentationTest" time="3.11" />
+  <testcase name="headerThemeIconHasAccessibleActionsWithoutDayNightLabels" classname="com.example.farmapp.ui.screens.FarmerShellPresentationTest" time="1.144" />
+  <testcase name="largeTextKeepsLastDestinationReachableAndToolbarSearchWorks" classname="com.example.farmapp.ui.screens.FarmerShellPresentationTest" time="3.063" />
+</testsuite>

@@ -25,6 +25,7 @@ internal class BrianAddressRepository(context:Context,private val sessions:Sessi
     private val api:BrianAddressApi=ApiClient.authenticatedService(BrianAddressApi::class.java)) {
     private val prefs=context.applicationContext.getSharedPreferences("brian-address-"+buyerScope(BuildConfig.API_BASE_URL,expected.auth!!.userId),Context.MODE_PRIVATE)
     private val legacy=BuyerPreferences(context,BuildConfig.API_BASE_URL,expected.auth!!.userId)
+    private val repository: com.example.farmapp.checkout.ManagedDeliveryAddressRepository<BuyerAddressDto, BuyerAddressRequest> = BuyerManagedAddressRepository(api,sessions,expected)
     private val mutex=Mutex()
     private fun current():SessionSnapshot = sessions.session.value.also {
         check(it.generation==expected.generation && !it.loggingOut && it.auth?.role=="BUYER" && it.auth.userId==expected.auth?.userId && it.auth.sessionOrigin==expected.auth?.sessionOrigin)
@@ -38,7 +39,7 @@ internal class BrianAddressRepository(context:Context,private val sessions:Sessi
         return r.body()?.requireData() ?: error("Address response could not be verified.")
     }
     private suspend fun verified():List<BuyerAddressDto> {
-        val rows=validateBuyerAddresses(read(api.list(current())),current().auth!!.userId.toLong())
+        val rows=validateBuyerAddresses(read(repository.list()),current().auth!!.userId.toLong())
         val p=pending()
         if(p!=null && when(p.kind){"REMOVE"->rows.none{it.id==p.id};"UPDATE"->rows.any{it.id==p.id && fingerprint(it)==p.fingerprint};else->rows.count{it.id !in p.beforeIds && fingerprint(it)==p.fingerprint}==1}) pending(null)
         return rows
@@ -50,7 +51,7 @@ internal class BrianAddressRepository(context:Context,private val sessions:Sessi
             val rows=verified();check(pending()==null){"An earlier address change is unresolved. Refresh; do not submit it again."}
             if(id!=null)check(rows.any{it.id==id}){"This address is no longer available."}
             pending(BrianAddressPending(if(id==null)"CREATE" else "UPDATE",id,fingerprint(input),rows.mapNotNull{it.id}))
-            val row=read(if(id==null)api.create(input,current()) else api.update(id,input,current()),true)
+            val row=read(if(id==null)repository.create(input) else repository.update(id,input),true)
             validateBuyerAddresses(listOf(row),current().auth!!.userId.toLong());if(id!=null)check(row.id==id)
             verified();check(pending()==null){"Saved address could not be confirmed. Refresh instead of saving again."};null
         }catch(e:CancellationException){throw e}catch(_:Exception){"Address change could not be confirmed. Refresh addresses before trying again."}
@@ -59,7 +60,7 @@ internal class BrianAddressRepository(context:Context,private val sessions:Sessi
         try {
             check(verified().any{it.id==id});check(pending()==null)
             pending(BrianAddressPending("REMOVE",id,null))
-            val r=api.remove(id,current())
+            val r=repository.remove(id)
             if(!r.isSuccessful){r.errorBody()?.close();if(r.code() in setOf(400,401,403,404,422))pending(null);error("Not confirmed")}
             r.body()?.requireSuccess() ?: error("Not confirmed")
             verified();check(pending()==null);null

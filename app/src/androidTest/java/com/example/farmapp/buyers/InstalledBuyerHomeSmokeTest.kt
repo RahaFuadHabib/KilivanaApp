@@ -7,16 +7,37 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.flow.first
 
 /** Actual installed app/session. Only launches MainActivity and activates the Home navigation item.
  * Never reads credentials, dumps the UI tree, logs account fields, or calls any transaction action.
  */
+@com.example.farmapp.RequiresAuthenticatedBuyer
 class InstalledBuyerHomeSmokeTest {
+    @get:org.junit.Rule val diagnostics = com.example.farmapp.RedactedDeviceDiagnostics()
+    private var scenario: androidx.test.core.app.ActivityScenario<com.example.farmapp.MainActivity>? = null
+    @org.junit.After fun closeHost() { scenario?.close() }
     @Test fun retainedBuyerSessionOpensActualBrianHome() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
-        context.startActivity(Intent().setClassName(context.packageName,"com.example.farmapp.MainActivity")
+        val persistedFilePresent = java.io.File(context.noBackupFilesDir, "kilivana-session.enc").exists()
+        android.util.Log.i("Batch3Diagnostics", "retainedSessionBeforeLaunch filePresent=$persistedFilePresent backupPresent=${java.io.File(context.noBackupFilesDir, "kilivana-session.enc.bak").exists()}")
+        scenario = androidx.test.core.app.ActivityScenario.launch<com.example.farmapp.MainActivity>(Intent().setClassName(context.packageName,"com.example.farmapp.MainActivity")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        lateinit var startup: com.example.farmapp.viewmodel.AuthViewModel
+        scenario!!.onActivity { activity ->
+            startup = androidx.lifecycle.ViewModelProvider(activity)[com.example.farmapp.viewmodel.AuthViewModel::class.java]
+        }
+        kotlinx.coroutines.runBlocking {
+            kotlinx.coroutines.withTimeout(15_000) {
+                startup.uiState.first { !it.isInitializing }
+            }
+        }
+        val restored = com.example.farmapp.network.TokenManager.session.value
+        android.util.Log.i("Batch3Diagnostics", "retainedSessionAfterStartup filePresent=${java.io.File(context.noBackupFilesDir, "kilivana-session.enc").exists()} sessionPresent=${restored.auth != null} buyerRole=${restored.auth?.role == "BUYER"}")
+        assertTrue("This installed-session smoke requires a previously authenticated Buyer in the active target app. Startup completed without a retained Buyer session.",
+            restored.auth?.role == "BUYER" && !restored.isDemo && !restored.loggingOut)
+        scenario!!.recreate()
         val deadline=SystemClock.uptimeMillis()+15_000
         var activated=false
         while(SystemClock.uptimeMillis()<deadline) {

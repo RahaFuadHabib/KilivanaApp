@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.example.farmapp.supplier.SupplierVisualReviewTest" tests="2" failures="0" errors="0" skipped="0" time="24.2" timestamp="2026-11-09T08:23:15" hostname="localhost">
+  <properties>
+    <property name="device" value="SM-A155F - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="captureSupplierScreensAndDarkSmallLargeTypeStates" classname="com.example.farmapp.supplier.SupplierVisualReviewTest" time="17.908" />
+  <testcase name="imageGallerySupportsSelectionAndSafeUnavailableImageFallback" classname="com.example.farmapp.supplier.SupplierUiTest" time="3.274" />
+</testsuite>

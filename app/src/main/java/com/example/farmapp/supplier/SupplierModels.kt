@@ -76,3 +76,18 @@ fun validateSupplierPhoto(photo: SupplierPhoto) {
     }
     if (!signatureMatches) throw SupplierFailure("The selected file does not match its image format.", true)
 }
+
+data class SupplierWarehouseRequest(val name: String, val address: String, val county: String,
+    val latitude: Double, val longitude: Double, val contactName: String? = null,
+    val contactPhone: String? = null, val operatingHours: String? = null)
+data class SupplierWarehouse(val id: Long? = null, val name: String? = null, val address: String? = null,
+    val county: String? = null, val latitude: Double? = null, val longitude: Double? = null,
+    val contactName: String? = null, val contactPhone: String? = null, val operatingHours: String? = null,
+    val active: Boolean? = null, val defaultLocation: Boolean? = null, val createdAt: String? = null, val updatedAt: String? = null)
+fun checkedSupplierWarehouse(row: SupplierWarehouse): SupplierWarehouse {
+    check(row.id != null && row.id > 0 && !row.name.isNullOrBlank() && !row.address.isNullOrBlank() && !row.county.isNullOrBlank())
+    check(row.latitude != null && row.latitude.isFinite() && row.latitude in -90.0..90.0)
+    check(row.longitude != null && row.longitude.isFinite() && row.longitude in -180.0..180.0)
+    check(row.active != null && row.defaultLocation != null)
+    return row
+}

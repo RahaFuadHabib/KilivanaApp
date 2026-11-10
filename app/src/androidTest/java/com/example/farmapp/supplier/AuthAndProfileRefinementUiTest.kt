@@ -37,6 +37,7 @@ import java.util.UUID
 
 /** Only synthetic APIs and a private SessionState. Never signs into a live account. */
 class AuthAndProfileRefinementUiTest {
+    @get:org.junit.Rule val diagnostics = com.example.farmapp.RedactedDeviceDiagnostics()
     @get:Rule val compose = createComposeRule()
     private val models = ViewModelStore()
     private val sessions = SessionState()

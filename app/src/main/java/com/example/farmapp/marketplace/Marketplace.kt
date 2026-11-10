@@ -146,7 +146,9 @@ internal class MarketplaceModel : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MarketplaceScreen(modifier: Modifier = Modifier) {
+internal fun MarketplaceScreen(modifier: Modifier = Modifier,
+    cardActions: (@Composable (CanonicalFarmerProduct) -> Unit)? = null,
+    productActions: (@Composable (CanonicalFarmerProduct) -> Unit)? = null) {
     val session by TokenManager.session.collectAsStateWithLifecycle()
     val model: MarketplaceModel = viewModel(key = "marketplace-${session.generation}")
     val state by model.state.collectAsStateWithLifecycle()
@@ -164,7 +166,8 @@ internal fun MarketplaceScreen(modifier: Modifier = Modifier) {
                     Text(row.description.orEmpty(), Modifier.padding(vertical = 12.dp))
                     row.images.sortedBy { it.sortOrder ?: 0 }.forEach { ProductImage(it.url, row.name) }
                     Text("Minimum order: ${row.minimumOrderQuantity.toPlainString()} ${row.unit}")
-                    Text("Purchasing is unavailable for this account until the order API authorization is confirmed.", Modifier.padding(top = 12.dp))
+                    if (productActions != null) productActions(row)
+                    else Text("Purchasing is unavailable for this account until the order API authorization is confirmed.", Modifier.padding(top = 12.dp))
                 } }
             } else {
                 item { Text(if (session.auth?.role == "FARMER") "Supplies marketplace" else "Farmer marketplace", style = MaterialTheme.typography.headlineSmall) }
@@ -183,20 +186,27 @@ internal fun MarketplaceScreen(modifier: Modifier = Modifier) {
                 state.categoryError?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                 state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = { model.refresh() }, enabled = !state.busy) { Text("Retry marketplace") } } }
                 if (state.loaded && !state.busy && state.error == null && state.products.isEmpty()) item { Text("No available published products match your search. Pending listings appear after backend approval.") }
-                items(state.products, key = { it.productId }) { row -> Card(onClick = { model.open(row.productId.toLong()) }) { MarketplaceProduct(row) } }
+                items(state.products, key = { it.productId }) { row -> Card(onClick = { model.open(row.productId.toLong()) }) { MarketplaceProduct(row, cardActions?.let { actions -> { actions(row) } }) } }
                 if (!state.last) item { OutlinedButton(onClick = { model.refresh(more = true) }, enabled = !state.busy) { Text("Load more") } }
             }
         }
     }
 }
 
-@Composable private fun MarketplaceProduct(row: CanonicalFarmerProduct) {
+@Composable internal fun MarketplaceProduct(row: CanonicalFarmerProduct, cartAction: (@Composable () -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val image = row.images.firstOrNull { it.isPrimary == true } ?: row.images.firstOrNull()
         if (image != null) ProductImage(image.url, row.name)
-        Text(row.name, style = MaterialTheme.typography.titleLarge)
-        Text("KES ${row.unitPrice.toPlainString()} / ${row.unit}")
-        Text("${row.availableQuantity.toPlainString()} ${row.unit} available")
-        Text("Seller #${row.sellerId}", style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(row.name, style = MaterialTheme.typography.titleLarge)
+                if (cartAction != null && !row.description.isNullOrBlank()) Text(row.description, maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text("KES ${row.unitPrice.toPlainString()} / ${row.unit}")
+                Text("${row.availableQuantity.toPlainString()} ${row.unit} available")
+                Text("Seller #${row.sellerId}", style = MaterialTheme.typography.bodySmall)
+            }
+            cartAction?.invoke()
+        }
     }
 }

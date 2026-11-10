@@ -1,0 +1,5 @@
+--------- beginning of main
+11-08 20:27:46.760  5755  5791 I Batch3Diagnostics: retainedSessionBeforeLaunch filePresent=false backupPresent=false
+11-08 20:27:47.844  5755  5791 I Batch3Diagnostics: retainedSessionAfterStartup filePresent=false sessionPresent=false buyerRole=false
+11-08 20:27:49.841  5755  5755 I Batch3Diagnostics: retainedBuyerSessionOpensActualBrianHome failed MainActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:27:49.842  5755  5755 I Batch3Diagnostics: retainedBuyerSessionOpensActualBrianHome sessionPresent=false buyerRole=false demo=false loggingOut=false

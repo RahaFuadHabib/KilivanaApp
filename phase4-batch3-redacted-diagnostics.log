@@ -1,0 +1,90 @@
+--------- beginning of main
+11-08 19:59:36.425 18519 18519 I Batch3Diagnostics: dashboardNavigationUsesRealCallbacks passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:36.425 18519 18519 I Batch3Diagnostics: dashboardNavigationUsesRealCallbacks sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:40.717 18519 18519 I Batch3Diagnostics: detailQuantityHonorsMinimumAndStockBeforeAdd passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:40.718 18519 18519 I Batch3Diagnostics: detailQuantityHonorsMinimumAndStockBeforeAdd passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:40.718 18519 18519 I Batch3Diagnostics: detailQuantityHonorsMinimumAndStockBeforeAdd sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:43.584 18519 18519 I Batch3Diagnostics: downwardGestureTriggersMarketplaceRefresh passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:43.584 18519 18519 I Batch3Diagnostics: downwardGestureTriggersMarketplaceRefresh passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:43.584 18519 18519 I Batch3Diagnostics: downwardGestureTriggersMarketplaceRefresh passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:43.585 18519 18519 I Batch3Diagnostics: downwardGestureTriggersMarketplaceRefresh sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:45.379 18519 18519 I Batch3Diagnostics: allChipClearsCategoryAndRetainsSearch passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:45.379 18519 18519 I Batch3Diagnostics: allChipClearsCategoryAndRetainsSearch passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:45.380 18519 18519 I Batch3Diagnostics: allChipClearsCategoryAndRetainsSearch sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:47.532 18519 18519 I Batch3Diagnostics: catalogLoadingAndFailureHaveRetryWithoutInventedProducts passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:47.532 18519 18519 I Batch3Diagnostics: catalogLoadingAndFailureHaveRetryWithoutInventedProducts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:47.532 18519 18519 I Batch3Diagnostics: catalogLoadingAndFailureHaveRetryWithoutInventedProducts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:47.532 18519 18519 I Batch3Diagnostics: catalogLoadingAndFailureHaveRetryWithoutInventedProducts sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:48.865 18519 18519 I Batch3Diagnostics: addressFailureDoesNotShowFakeAddressesOrEnableEditing passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:48.865 18519 18519 I Batch3Diagnostics: addressFailureDoesNotShowFakeAddressesOrEnableEditing passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:48.865 18519 18519 I Batch3Diagnostics: addressFailureDoesNotShowFakeAddressesOrEnableEditing passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:48.865 18519 18519 I Batch3Diagnostics: addressFailureDoesNotShowFakeAddressesOrEnableEditing passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:48.865 18519 18519 I Batch3Diagnostics: addressFailureDoesNotShowFakeAddressesOrEnableEditing sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:50.506 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:50.507 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:50.507 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:50.507 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:50.507 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:50.508 18519 18519 I Batch3Diagnostics: quantityButtonsUpdateTotalsAndHonorOneAndStockLimits sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:51.732 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:51.732 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:51.733 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:51.733 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:51.733 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:51.733 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:51.733 18519 18519 I Batch3Diagnostics: savedEmptyStateHasShoppingAction sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.121 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:53.122 18519 18519 I Batch3Diagnostics: homeHasNoShoppingManagementShortcuts sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:54.606 18519 18519 I Batch3Diagnostics: cartPreservesCentsAndOffersCheckoutReview passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:54.606 18519 18519 I Batch3Diagnostics: cartPreservesCentsAndOffersCheckoutReview passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:54.607 18519 18519 I Batch3Diagnostics: cartPreservesCentsAndOffersCheckoutReview sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:56.970 18519 18519 I Batch3Diagnostics: heartChangesSavedStateWithoutAddingToCart passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:56.971 18519 18519 I Batch3Diagnostics: heartChangesSavedStateWithoutAddingToCart passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:56.971 18519 18519 I Batch3Diagnostics: heartChangesSavedStateWithoutAddingToCart passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:56.971 18519 18519 I Batch3Diagnostics: heartChangesSavedStateWithoutAddingToCart sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 19:59:58.730 18519 18519 I Batch3Diagnostics: cornerAddCallsCartWithoutOpeningDetail passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 19:59:58.731 18519 18519 I Batch3Diagnostics: cornerAddCallsCartWithoutOpeningDetail passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:58.731 18519 18519 I Batch3Diagnostics: cornerAddCallsCartWithoutOpeningDetail passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:58.731 18519 18519 I Batch3Diagnostics: cornerAddCallsCartWithoutOpeningDetail passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 19:59:58.731 18519 18519 I Batch3Diagnostics: cornerAddCallsCartWithoutOpeningDetail sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:00.235 18519 18519 I Batch3Diagnostics: trashRemovesLocallyAndPricingShowsExplicitEstimate sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:03.548 18519 18519 I Batch3Diagnostics: malformedLoginDisplaysDecodeStageWithoutPrivateContent passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:03.548 18519 18519 I Batch3Diagnostics: malformedLoginDisplaysDecodeStageWithoutPrivateContent passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:03.548 18519 18519 I Batch3Diagnostics: malformedLoginDisplaysDecodeStageWithoutPrivateContent sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:06.858 18519 18519 I Batch3Diagnostics: imagePlusLaunchesPhotoPickerShowsThumbnailAndAllowsReplacementBeforeSave passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:06.858 18519 18519 I Batch3Diagnostics: imagePlusLaunchesPhotoPickerShowsThumbnailAndAllowsReplacementBeforeSave passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:06.858 18519 18519 I Batch3Diagnostics: imagePlusLaunchesPhotoPickerShowsThumbnailAndAllowsReplacementBeforeSave sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:11.244 18519 18519 I Batch3Diagnostics: unverifiedFarmerAutomaticallyEntersOtpThenResumesOnlyAfterVerifiedResponse passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:11.244 18519 18519 I Batch3Diagnostics: unverifiedFarmerAutomaticallyEntersOtpThenResumesOnlyAfterVerifiedResponse passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:11.244 18519 18519 I Batch3Diagnostics: unverifiedFarmerAutomaticallyEntersOtpThenResumesOnlyAfterVerifiedResponse sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:15.623 18519 18519 I Batch3Diagnostics: returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:15.624 18519 18519 I Batch3Diagnostics: returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:15.624 18519 18519 I Batch3Diagnostics: returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:17.865 18519 18519 I Batch3Diagnostics: editProfileContainsOnlyEditingActionsAndNoAbout passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=false
+11-08 20:00:17.865 18519 18519 I Batch3Diagnostics: editProfileContainsOnlyEditingActionsAndNoAbout passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:17.865 18519 18519 I Batch3Diagnostics: editProfileContainsOnlyEditingActionsAndNoAbout passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:17.865 18519 18519 I Batch3Diagnostics: editProfileContainsOnlyEditingActionsAndNoAbout sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:20.372 18519 18519 I Batch3Diagnostics: mainSupplierProfileHasStandaloneAboutAtBottom passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=false
+11-08 20:00:20.372 18519 18519 I Batch3Diagnostics: mainSupplierProfileHasStandaloneAboutAtBottom passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:20.372 18519 18519 I Batch3Diagnostics: mainSupplierProfileHasStandaloneAboutAtBottom sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:23.485 18519 18519 I Batch3Diagnostics: registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:23.486 18519 18519 I Batch3Diagnostics: registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:23.486 18519 18519 I Batch3Diagnostics: registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:23.486 18519 18519 I Batch3Diagnostics: registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:27.459 18519 18519 I Batch3Diagnostics: verifiedFarmerSignsInWithoutOtpOrResend passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 20:00:27.459 18519 18519 I Batch3Diagnostics: verifiedFarmerSignsInWithoutOtpOrResend passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:27.459 18519 18519 I Batch3Diagnostics: verifiedFarmerSignsInWithoutOtpOrResend sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 20:00:44.249 18519 18519 I Batch3Diagnostics: retainedBuyerSessionOpensActualBrianHome failed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:44.250 18519 18519 I Batch3Diagnostics: retainedBuyerSessionOpensActualBrianHome failed MainActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 20:00:44.250 18519 18519 I Batch3Diagnostics: retainedBuyerSessionOpensActualBrianHome sessionPresent=false buyerRole=false demo=false loggingOut=false

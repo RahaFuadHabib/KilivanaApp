@@ -1,6 +1,8 @@
 package com.example.farmapp.buyers
 
 import com.example.farmapp.buyers.data.*
+import com.example.farmapp.checkout.MemoryCheckoutJournalStorage
+import com.example.farmapp.checkout.VersionedCheckoutJournalStore
 import com.example.farmapp.network.*
 import com.example.farmapp.network.canonical.*
 import com.example.farmapp.orders.*
@@ -18,15 +20,23 @@ import java.lang.reflect.Proxy
 class BrianCheckoutControllerTest {
     private class Disk(var value:CheckoutJournal=CheckoutJournal()):CheckoutJournalStore {
         var fail=false
-        override fun read()=value
-        override fun write(value:CheckoutJournal){check(!fail);this.value=value}
+        var raw:String?=null
+        override fun read()=raw?.let(CheckoutJournalJson::decode) ?: value
+        override fun write(value:CheckoutJournal){
+            check(!fail)
+            val encoded=if(raw!=null)CheckoutJournalJson.encode(value) else null
+            this.value=value
+            if(raw!=null)raw=encoded
+        }
     }
     private class Api:BrianCheckoutApi {
+        var activeAfterCheckout = false
         var adds=0;var updates=0;var starts=0;var quotes=0;var creates=0;var processing=false
         var conflict=false;var uploadTimeout=false;var orderTimeout=false;var readTimeout=false;var reject=0
+        var cartId=10L;var conflictBody="""{"message":"Product already in cart"}""";var orderReject=0
         var hold:CompletableDeferred<Unit>?=null
-        var quote=DeliveryQuote("synthetic-quote",8,BigDecimal("3.21"),BigDecimal("150"),BigDecimal("153.21"),"KES","2026-10-29T12:15:00Z","DOOR_DELIVERY")
-        fun metadata()=JsonParser.parseString("""{"id":10,"buyerId":42,"status":"${if(processing)"CHECKOUT_PROCESSING" else "ACTIVE"}"}""").asJsonObject
+        var quote=DeliveryQuote("synthetic-quote",8,BigDecimal("3.21"),BigDecimal("150"),BigDecimal("153.21"),"KES","2026-10-29T12:15:00Z","DOOR_DELIVERY",cartId=10,items=listOf(com.example.farmapp.checkout.CheckoutQuoteItem(7,3,BigDecimal("1.07"),BigDecimal("3.21"))))
+        fun metadata()=JsonParser.parseString("""{"id":$cartId,"buyerId":42,"status":"${if(processing && !activeAfterCheckout)"CHECKOUT_PROCESSING" else "ACTIVE"}"}""").asJsonObject
         override suspend fun cart(buyerId:Long,session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>> {
             assertEquals(42,buyerId);if(readTimeout)throw java.net.SocketTimeoutException()
             return Response.success(CanonicalApiResponse(true,data=metadata()))
@@ -34,7 +44,7 @@ class BrianCheckoutControllerTest {
         override suspend fun add(item:CartUpload,session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>> {
             adds++;assertEquals(CartUpload(7,3),item);hold?.await()
             if(uploadTimeout)throw java.net.SocketTimeoutException()
-            if(conflict || reject!=0)return Response.error(if(conflict)409 else reject,"synthetic rejection".toResponseBody())
+            if(conflict || reject!=0)return Response.error(if(conflict)409 else reject,conflictBody.toResponseBody())
             return Response.success(CanonicalApiResponse(true,data=metadata()))
         }
         override suspend fun quantity(cartId:Long,productId:Long,quantity:Int,session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>> {
@@ -51,6 +61,7 @@ class BrianCheckoutControllerTest {
         override suspend fun order(request:QuoteOrderRequest,session:SessionSnapshot):Response<CanonicalApiResponse<JsonElement>> {
             creates++;assertEquals(QuoteOrderRequest("synthetic-quote","254712345678"),request)
             if(orderTimeout)throw java.net.SocketTimeoutException()
+            if(orderReject!=0)return Response.error(orderReject,"synthetic order rejection".toResponseBody())
             return Response.success(CanonicalApiResponse(true,data=JsonPrimitive(105)))
         }
     }
@@ -66,7 +77,7 @@ class BrianCheckoutControllerTest {
             "initiateBuyerStk"->{paymentWrites++;error("Checkout must never call STK")}
             else->error("Unexpected API: ${m.name}")
         }} as BuyerOrdersApi
-        fun controller()=BrianCheckoutController(api,orders,sessions,sessions.session.value,disk,scope){now}
+        fun controller(store:CheckoutJournalStore=disk)=BrianCheckoutController(api,orders,sessions,sessions.session.value,store,scope){now}
         val controller=controller()
         fun prepare()=controller.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
         fun create()=controller.create(mapOf(7L to 3),"synthetic-quote","0712345678")
@@ -159,4 +170,212 @@ class BrianCheckoutControllerTest {
         assertThrows(IllegalStateException::class.java){verifiedCheckoutOrderId(JsonParser.parseString("""{"id":105}"""))}
         assertThrows(ArithmeticException::class.java){verifiedCheckoutOrderId(JsonPrimitive(BigDecimal("105.5")))}
     }
+    @Test fun uncertainUploadCannotBePromotedByProcessingCartMetadata()=scenario {
+        disk.value=CheckoutJournal("UPLOAD_PENDING",mapOf(7L to 3),BigDecimal("3.21"),10L,request=DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        val saved=disk.value
+        api.processing=true
+        val restarted=controller()
+        restarted.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        restarted.recover()
+        assertEquals(0,api.quotes)
+        assertEquals(0,api.adds)
+        assertEquals(0,api.starts)
+        assertEquals(saved,disk.value)
+        assertTrue(restarted.state.value.uncertain)
+    }
+    @Test fun preparePreservesEveryUncertainOrSubmittedPhaseEvenForDifferentBasket() {
+        for(phase in listOf("UPLOAD_PENDING","QUANTITY_PENDING","UPLOAD_ACKNOWLEDGED","CHECKOUT_PENDING","ORDER_PENDING","ORDER_RETURNED","ORDER_VERIFIED","UNRESOLVED")) scenario {
+            disk.value=CheckoutJournal(phase,mapOf(7L to 3),BigDecimal("3.21"),10L,api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8),
+                orderId=105L.takeIf{phase in setOf("ORDER_RETURNED","ORDER_VERIFIED")},beforeOrderIds=setOf(90L))
+            val saved=disk.value;api.processing=true
+            val restarted=controller()
+            restarted.prepare(mapOf(8L to 1),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",9))
+            assertEquals(phase,saved.phase);assertEquals(saved,disk.value)
+            assertEquals(0,api.quotes);assertEquals(0,api.adds);assertEquals(0,api.starts);assertEquals(0,api.creates)
+        }
+    }
+    @Test fun differentCurrentBasketReplacesAcknowledgedCheckoutAndUsesFreshActiveCart()=scenario {
+        disk.value=CheckoutJournal("CHECKOUT_ACKNOWLEDGED",mapOf(8L to 1),BigDecimal("3.21"),99L,
+            request=DeliveryQuoteRequest("DOOR_DELIVERY",9))
+        api.processing=true
+        api.activeAfterCheckout=true
+
+        controller.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+
+        assertEquals("QUOTE_READY",disk.value.phase)
+        assertEquals(mapOf(7L to 3),disk.value.items)
+        assertEquals(10L,disk.value.cartId)
+        assertEquals(1,api.adds);assertEquals(1,api.updates);assertEquals(1,api.starts);assertEquals(1,api.quotes)
+    }
+    @Test fun acknowledgedCheckoutRecoveryUsesOriginalSnapshotWithoutRepeatingWrites() {
+        for(phase in listOf("CHECKOUT_PENDING","CHECKOUT_ACKNOWLEDGED")) scenario {
+            disk.value=CheckoutJournal(phase,mapOf(7L to 3),BigDecimal("3.21"),10L,request=DeliveryQuoteRequest("DOOR_DELIVERY",8))
+            api.processing=true
+            val restarted=controller();restarted.recover()
+            assertEquals("QUOTE_READY",disk.value.phase);assertEquals(mapOf(7L to 3),disk.value.items)
+            assertEquals(10L,disk.value.cartId);assertEquals(1,api.quotes)
+            assertEquals(0,api.adds);assertEquals(0,api.starts);assertEquals(0,api.creates)
+        }
+    }
+    @Test fun recoveryRejectsDifferentCartOrIncompleteOriginalEvidence() {
+        for(kind in listOf("differentCart","missingCart","missingRequest","missingItems","missingSubtotal")) scenario {
+            val original=CheckoutJournal("CHECKOUT_PENDING",mapOf(7L to 3),BigDecimal("3.21"),10L,request=DeliveryQuoteRequest("DOOR_DELIVERY",8))
+            disk.value=when(kind){
+                "missingCart"->original.copy(cartId=null)
+                "missingRequest"->original.copy(request=null)
+                "missingItems"->original.copy(items=emptyMap())
+                "missingSubtotal"->original.copy(expectedSubtotal=null)
+                else->original
+            }
+            val saved=disk.value;api.processing=true;if(kind=="differentCart")api.cartId=99
+            val restarted=controller();restarted.recover()
+            assertEquals(saved,disk.value);assertEquals(0,api.quotes);assertTrue(restarted.state.value.uncertain)
+        }
+    }
+    @Test fun unknownConflictDoesNotAutomaticallySetQuantityOrStartCheckout()=scenario {
+        api.conflict=true;api.conflictBody="""{"message":"Cart locked by another operation"}"""
+        prepare()
+        assertEquals(1,api.adds);assertEquals(0,api.updates);assertEquals(0,api.starts);assertEquals(0,api.quotes)
+    }
+    @Test fun malformedConflictDoesNotAutomaticallySetQuantity()=scenario {
+        api.conflict=true;api.conflictBody="not JSON"
+        prepare();assertEquals(0,api.updates);assertEquals(0,api.starts)
+    }
+    @Test fun orderErrorNeverReleasesTheOrderReservationForAnotherSubmission()=scenario {
+        prepare();api.orderReject=400;create()
+        val saved=disk.value
+        assertEquals("ORDER_PENDING",saved.phase)
+        val restarted=controller();restarted.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        restarted.create(mapOf(7L to 3),"synthetic-quote","0712345678")
+        assertEquals(saved,disk.value);assertEquals(1,api.creates);assertEquals(1,api.quotes)
+    }
+    @Test fun stationOrderRequiresExactStationIdIncludingAfterRestart()=scenario {
+        val stationQuote=api.quote.copy(addressId=null,deliveryMethod="PICKUP_STATION",pickupStationId=3)
+        val correct=order.copy(addressId=null,pickupStationId=3)
+        assertEquals(correct,verifyPurchasedOrder(correct,42,mapOf(7L to 3),stationQuote))
+        for(station in listOf<Long?>(null,4)) {
+            order=correct.copy(pickupStationId=station)
+            assertThrows(IllegalStateException::class.java){verifyPurchasedOrder(order,42,mapOf(7L to 3),stationQuote)}
+            disk.value=CheckoutJournal("ORDER_RETURNED",mapOf(7L to 3),BigDecimal("3.21"),10L,stationQuote,
+                DeliveryQuoteRequest("PICKUP_STATION",pickupStationId=3),105L)
+            val saved=disk.value;val restarted=controller();restarted.recover()
+            assertNull(restarted.state.value.order);assertEquals(saved,disk.value);assertEquals(0,paymentWrites)
+        }
+        order=correct;val restarted=controller();restarted.recover()
+        assertEquals(correct,restarted.state.value.order);assertEquals("ORDER_VERIFIED",disk.value.phase)
+    }
+    @Test fun doorAndTypedPickupRejectConflictingStationIds()=scenario {
+        assertThrows(IllegalStateException::class.java){verifyPurchasedOrder(order.copy(pickupStationId=3),42,mapOf(7L to 3),api.quote)}
+        val typedQuote=api.quote.copy(addressId=null,deliveryMethod="PICKUP_STATION",pickupLocation="Synthetic pickup")
+        val typedOrder=order.copy(addressId=null,pickupLocation="Synthetic pickup")
+        assertEquals(typedOrder,verifyPurchasedOrder(typedOrder,42,mapOf(7L to 3),typedQuote))
+        assertThrows(IllegalStateException::class.java){verifyPurchasedOrder(typedOrder.copy(pickupLocation="Wrong location"),42,mapOf(7L to 3),typedQuote)}
+        assertThrows(IllegalStateException::class.java){verifyPurchasedOrder(typedOrder.copy(pickupStationId=3),42,mapOf(7L to 3),typedQuote)}
+    }
+    @Test fun stationIdIsReadFromActualOrderJson() {
+        val parsed=CanonicalJson.gson.fromJson("""{"id":105,"pickupStationId":3}""",BuyerOrderDto::class.java)
+        assertEquals(3L,parsed.pickupStationId)
+    }
+    @Test fun serializedReturnedOrderSurvivesRestartAndNeverCreatesAnotherOrder()=scenario {
+        disk.raw=CheckoutJournalJson.encode(CheckoutJournal())
+        prepare();failOrderRead=true;create()
+        assertEquals("ORDER_RETURNED",CheckoutJournalJson.decode(disk.raw!!).phase)
+        failOrderRead=false
+        val restarted=controller();restarted.recover()
+        assertEquals(105L,restarted.state.value.order?.id)
+        restarted.create(mapOf(7L to 3),"synthetic-quote","0712345678")
+        assertEquals(1,api.creates);assertEquals(0,paymentWrites)
+        assertEquals("ORDER_VERIFIED",CheckoutJournalJson.decode(disk.raw!!).phase)
+    }
+    @Test fun serializedUnknownOrderAndUploadOutcomesRemainBlockedAfterRestart() {
+        for(upload in listOf(true,false))scenario {
+            disk.raw=CheckoutJournalJson.encode(CheckoutJournal())
+            if(upload)api.uploadTimeout=true
+            prepare()
+            if(!upload){api.orderTimeout=true;create()}
+            val saved=disk.raw
+            val restarted=controller()
+            restarted.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+            restarted.recover()
+            assertTrue(restarted.state.value.uncertain);assertEquals(saved,disk.raw)
+            assertEquals(1,api.adds);assertEquals(if(upload)0 else 1,api.creates);assertEquals(0,paymentWrites)
+        }
+    }
+    @Test fun corruptSerializedJournalCannotTriggerAnyCheckoutWrite()=scenario {
+        disk.raw="""{"phase":"NONE","items":{"7":3,"7":4}}"""
+        val saved=disk.raw;val restarted=controller()
+        restarted.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        assertTrue(restarted.state.value.uncertain);assertEquals(saved,disk.raw)
+        assertEquals(0,api.adds);assertEquals(0,api.starts);assertEquals(0,api.creates);assertEquals(0,paymentWrites)
+    }
+    @Test fun extractedVersionedStoreAndBuyerAdapterRecoverTheSameOrderAfterRestart()=scenario {
+        val storage=MemoryCheckoutJournalStorage()
+        val original=controller(VersionedCheckoutJournalStore(storage))
+        original.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        failOrderRead=true
+        original.create(mapOf(7L to 3),"synthetic-quote","0712345678")
+        assertEquals("ORDER_RETURNED",CheckoutJournalJson.decode(storage.record.json!!).phase)
+        failOrderRead=false
+        val restarted=controller(VersionedCheckoutJournalStore(storage));restarted.recover()
+        assertEquals(105L,restarted.state.value.order?.id)
+        val saved=storage.record
+        restarted.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        restarted.create(mapOf(7L to 3),"synthetic-quote","0712345678")
+        assertEquals(saved,storage.record);assertEquals(1,api.adds);assertEquals(1,api.creates);assertEquals(0,paymentWrites)
+    }
+    @Test fun activeCartReadAfterCheckoutDoesNotSuppressValidServerQuote()=scenario {
+        api.activeAfterCheckout = true
+        prepare()
+        assertNotNull(controller.state.value.quote)
+        assertFalse(controller.state.value.uncertain)
+        assertEquals(1, api.starts)
+        assertEquals(1, api.quotes)
+        assertEquals(0, api.creates)
+    }
+    @Test fun acknowledgedPreparationResumesQuoteWithoutUploadingOrPreparingAgain()=scenario {
+        disk.value=CheckoutJournal("CHECKOUT_ACKNOWLEDGED",items=mapOf(7L to 3),expectedSubtotal=BigDecimal("3.21"),
+            cartId=10,request=DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        val resumed=controller()
+        resumed.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        assertNotNull(resumed.state.value.quote)
+        assertEquals(0,api.adds)
+        assertEquals(0,api.updates)
+        assertEquals(0,api.starts)
+        assertEquals(0,api.creates)
+        assertEquals(1,api.quotes)
+    }
+    @Test fun equalSubtotalFromDifferentCartCannotReachOrderCreation()=scenario {
+        api.quote=api.quote.copy(cartId=99)
+        prepare();assertNull(controller.state.value.quote);create()
+        assertEquals(0,api.creates);assertEquals(0,paymentWrites)
+    }
+    @Test fun equalSubtotalFromDifferentProductsOrQuantitiesIsBlocked() {
+        for(line in listOf(
+            com.example.farmapp.checkout.CheckoutQuoteItem(99,3,BigDecimal("1.07"),BigDecimal("3.21")),
+            com.example.farmapp.checkout.CheckoutQuoteItem(7,1,BigDecimal("3.21"),BigDecimal("3.21"))
+        ))scenario {
+            api.quote=api.quote.copy(items=listOf(line))
+            prepare();assertNull(controller.state.value.quote);create();assertEquals(0,api.creates)
+        }
+    }
+    @Test fun missingCartOrLineEvidenceFromOldBackendIsBlocked() {
+        for(missingCart in listOf(true,false))scenario {
+            api.quote=if(missingCart)api.quote.copy(cartId=null) else api.quote.copy(items=null)
+            prepare()
+            assertNull(controller.state.value.quote)
+            assertTrue(controller.state.value.notice!!.contains("backend must return cartId and items"))
+            assertEquals("CHECKOUT_ACKNOWLEDGED",disk.value.phase)
+            create();assertEquals(0,api.creates)
+        }
+    }
+    @Test fun legacySavedQuoteCannotCreateUntilRequotedWithCartEvidence()=scenario {
+        disk.value=CheckoutJournal("QUOTE_READY",mapOf(7L to 3),BigDecimal("3.21"),10,
+            api.quote.copy(cartId=null,items=null),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        val resumed=controller();resumed.create(mapOf(7L to 3),"synthetic-quote","0712345678")
+        assertEquals(0,api.creates)
+        resumed.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        assertEquals(10L,resumed.state.value.quote?.cartId)
+        assertEquals(0,api.starts);assertEquals(0,api.adds)
+    }
+
 }

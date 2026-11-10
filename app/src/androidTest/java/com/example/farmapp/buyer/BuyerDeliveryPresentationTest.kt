@@ -16,6 +16,7 @@ import java.math.BigDecimal
 /** Synthetic screens only; no session, API, map, payment or order controller is constructed. */
 class BuyerDeliveryPresentationTest {
     @get:Rule val compose = createComposeRule()
+    private var saves = 0
     private val row = CanonicalFarmerProduct("7", "99", "FARM_PRODUCE", "2", "Synthetic", "", "kg",
         BigDecimal("125.57"), BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ONE,
         CanonicalProductStatus.ACTIVE, emptyList(), null, null)
@@ -27,7 +28,7 @@ class BuyerDeliveryPresentationTest {
             var addresses by remember { mutableStateOf(initial) }
             BuyerDeliveryFlow(cart, addresses, BuyerCheckoutReview(), method, { method = it },
                 { addresses = addresses.copy(selectedId = it) },
-                { request -> addresses = addresses.copy(rows = listOf(BuyerAddressDto(9, 42, request.label, request.addressText)), selectedId = 9, createdId = 9) },
+                { request -> saves++; addresses = addresses.copy(rows = listOf(BuyerAddressDto(9, 42, request.label, request.addressText)), selectedId = 9, createdId = 9) },
                 {}, {}, {}, if (small) Modifier.width(280.dp).height(420.dp) else Modifier)
         } }
     }
@@ -40,6 +41,7 @@ class BuyerDeliveryPresentationTest {
         compose.onNodeWithText("Choose Door Delivery").performClick()
         compose.onNodeWithText("Door Delivery").assertIsSelected()
         compose.onNodeWithText("No saved delivery address yet!").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-review"))
         compose.onNodeWithTag("delivery-review").performScrollTo().assertIsNotEnabled()
     }
     @Test fun addAndSelectConfirmedLocationThenBackPreservesSelection() {
@@ -47,12 +49,18 @@ class BuyerDeliveryPresentationTest {
         compose.onNodeWithText("Add New Address").performScrollTo().performClick()
         compose.onNodeWithText("Save address").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Full delivery address").performScrollTo().performTextInput("Synthetic county, town and landmark")
+        // The IME can move this lazy-list child outside the composed viewport.
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasText("Save address"))
         compose.onNodeWithText("Save address").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("Save must reach the fixture exactly once", 1, saves) }
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-address-9"))
         compose.onNodeWithTag("delivery-address-9").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-review"))
         compose.onNodeWithTag("delivery-review").performScrollTo().performClick()
         compose.onNodeWithText("Review Order").assertIsDisplayed()
         compose.onNodeWithTag("delivery-place-order").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Change delivery location").performScrollTo().performClick()
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-address-9"))
         compose.onNodeWithTag("delivery-address-9").performScrollTo().assertIsSelected()
     }
     @Test fun checkoutNavigatesToDeliveryAndBackWithoutChangingCart() {
@@ -71,11 +79,13 @@ class BuyerDeliveryPresentationTest {
     }
     @Test fun selectingExistingAddressSurvivesMethodSwitchAndReviewShowsNoInventedFee() {
         show(BuyerAddressState(rows = listOf(BuyerAddressDto(4, 42, "Home", "Synthetic address")), loaded = true), BuyerDeliveryMethod.DOOR)
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-review"))
         compose.onNodeWithTag("delivery-review").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("delivery-address-4").performScrollTo().performClick()
         compose.onNodeWithText("Pickup Stations").performScrollTo().performClick()
         compose.onNodeWithText("Door Delivery").performClick()
         compose.onNodeWithTag("delivery-address-4").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("delivery-list").performScrollToNode(hasTestTag("delivery-review"))
         compose.onNodeWithTag("delivery-review").performScrollTo().performClick()
         compose.onNodeWithTag("delivery-list").performScrollToNode(hasText("Items subtotal: KSh 251.14"))
         compose.onNodeWithText("Items subtotal: KSh 251.14").assertIsDisplayed()

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.farmapp.buyers.ui.theme.*
@@ -55,7 +56,7 @@ import kotlinx.coroutines.flow.first
     val items=state.selection.cart.mapNotNull{(id,q)->known[id]?.let{CartItem(it,q)}}
     val orders=ordersState.rows.map{brianOrder(it)}
     var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf<String?>(null)}
-    var deliveryMethod by rememberSaveable{mutableStateOf("DOOR_DELIVERY")};var pickupText by rememberSaveable{mutableStateOf("")}
+    var deliveryMethod by rememberSaveable{mutableStateOf("DOOR_DELIVERY")};var pickupText by rememberSaveable{mutableStateOf("")};var pickupStationId by rememberSaveable{mutableStateOf<Long?>(null)}
     val cart=CartViewModel(buyerCartSubtotal(state),{id->state.selection.cart[id.toLong()]?.let{model.shopping.setQuantity(id.toLong(),it+1)}},
         {id->state.selection.cart[id.toLong()]?.takeIf{it>1}?.let{model.shopping.setQuantity(id.toLong(),it-1)}},{id->model.shopping.remove(id.toLong())})
     fun add(product:Product):Boolean { val id=product.id.toLongOrNull() ?: return false; val before=model.shopping.state.value.selection.cart[id] ?: 0; state.known[id]?.let{model.shopping.add(it,1)}; return (model.shopping.state.value.selection.cart[id] ?: 0)>before }
@@ -112,14 +113,20 @@ import kotlinx.coroutines.flow.first
                             delete={id->addressRepo.remove(id).also{model.addresses.refresh()}},back={nav.popBackStack()})}
                 }
                 composable("checkout") {
+                    var deliverySelectionError by remember { mutableStateOf<String?>(null) }
                     var prepareRequest by remember { mutableStateOf<com.example.farmapp.buyers.data.DeliveryQuoteRequest?>(null) }
                     var confirmOrder by remember { mutableStateOf<Pair<String,String>?>(null) }
-                    val quote=checkoutState.quote?.takeIf{checkoutModel.controller.matchesCart(state.selection.cart) && it.deliveryMethod==deliveryMethod && if(deliveryMethod=="DOOR_DELIVERY")it.addressId==addresses.selectedId else it.pickupLocation==pickupText.trim()}
+                    val quote=checkoutState.quote?.takeIf{checkoutModel.controller.matchesCart(state.selection.cart) && it.deliveryMethod==deliveryMethod && if(deliveryMethod=="DOOR_DELIVERY")it.addressId==addresses.selectedId else it.pickupStationId==pickupStationId && it.pickupLocation==pickupText.trim().takeIf{pickupStationId==null}}
                     fun requestPreparation(addressId:Long?=addresses.selectedId) {
+                        deliverySelectionError=null
                         if(state.selection.cart.isEmpty() || buyerCartSubtotal(state)==null || items.size!=state.selection.cart.size)return
                         if(deliveryMethod=="DOOR_DELIVERY") {
                             if(addresses.busy || addresses.error!=null || addresses.rows.none{it.id==addressId})return
+                            deliverySelectionError=buyerDoorDeliveryIssue(addresses.rows.firstOrNull { it.id==addressId })
+                            if(deliverySelectionError!=null)return
                             prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("DOOR_DELIVERY",addressId=addressId)
+                        } else if(pickupStationId!=null) {
+                            prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("PICKUP_STATION",pickupStationId=pickupStationId)
                         } else if(pickupText.trim().length in 1..500)prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("PICKUP_STATION",pickupLocation=pickupText.trim())
                     }
                     Column {
@@ -133,7 +140,7 @@ import kotlinx.coroutines.flow.first
                         } else CheckoutScreen(items,addresses.rows.map(::brianAddress),addresses.busy,addresses.error,quote,{},
                             requestQuote={requestPreparation(it)},manageAddresses={go("addresses")},
                             place={id,_,phone->confirmOrder=id to phone},back={nav.popBackStack()},submitting=checkoutState.busy,
-                            initialAddressId=addresses.selectedId,onAddressSelected=model.addresses::select,feedback=checkoutState.notice,
+                            initialAddressId=addresses.selectedId,onAddressSelected=model.addresses::select,feedback=deliverySelectionError ?: checkoutState.notice,
                             deliveryMethodContent={Column{
                                 TabRow(selectedTabIndex=if(deliveryMethod=="DOOR_DELIVERY")0 else 1){
                                     Tab(deliveryMethod=="DOOR_DELIVERY",{deliveryMethod="DOOR_DELIVERY"},text={Text("Door Delivery")})
@@ -167,50 +174,81 @@ import kotlinx.coroutines.flow.first
                         pickupFeedback(pickups,actions);pickupRegionChips(pickups,actions)
                         items(pickups.saved,key={"saved-${it.id}"}){BuyerSavedPickupCard(it,pickups,actions)}
                         items(pickups.stations,key={"station-${it.id}"}){BuyerAvailablePickupCard(it,pickups,actions)}
-                        item{Button(onClick={pickups.selected?.let{pickupText=listOfNotNull(it.name,it.address).joinToString(", ");deliveryMethod="PICKUP_STATION";nav.popBackStack()}},enabled=pickupSelectionValid(pickups)){Text("Use selected station location")}}
+                        item {
+                            Button(
+                                onClick = {
+                                    pickups.selected?.let { station ->
+                                        pickupStationId = station.id
+                                        pickupText = listOfNotNull(station.name, station.address).joinToString(", ")
+                                        deliveryMethod = "PICKUP_STATION"
+                                        nav.popBackStack()
+                                    }
+                                },
+                                enabled = pickupSelectionValid(pickups)
+                            ) { Text("Use selected station location") }
+                        }
                     }
                 }
-                composable("orders") {
-                    OrdersScreen(orders, { go("order/${it.id}") }, { go("products") }, ordersState.busy, ordersState.error,
-                        extraAction = { displayOrder ->
-                            val original = ordersState.rows.firstOrNull { it.id?.toString() == displayOrder.id }
-                            if (original != null) {
-                                BuyerPaymentSession(original) { payment, _, _ ->
-                                    if (payment.canInitiate && !payment.busy) {
-                                        Button(onClick = { go("payment/${displayOrder.id}") }, modifier = Modifier.fillMaxWidth()) {
-                                            Text("Pay with M-Pesa")
-                                        }
+                buyerOrderDestinations(
+                    ordersContent = {
+                        OrdersScreen(orders, { go("order/${it.id}") }, { go("products") }, ordersState.busy, ordersState.error,
+                            extraAction = { displayOrder ->
+                                ordersState.rows.firstOrNull { it.id?.toString() == displayOrder.id }?.let { original ->
+                                    BuyerPaymentSession(original) { payment, _, _ ->
+                                        if (payment.canInitiate && !payment.busy) Button(onClick = { go("payment/${displayOrder.id}") }) { Text("Pay with M-Pesa") }
                                     }
                                 }
+                            })
+                    },
+                    orderContent = { id ->
+                        val original=ordersState.rows.firstOrNull{it.id==id}
+                        LaunchedEffect(id,original){original?.let(ordersModel::open)}
+                        val row=ordersState.selected?.takeIf{it.id==id} ?: original
+                        if(row==null)Text(ordersState.error ?: "Order unavailable. Refresh Orders.",Modifier.padding(24.dp))
+                        else OrderDetailScreen(brianOrder(row,ordersState.events),reorder={row.items.orEmpty().forEach{item->state.known[item.productId]?.let{model.shopping.add(it,item.quantity!!)}};go("cart")},back={nav.popBackStack()},payment={
+                            BuyerPaymentSession(row){payment,refresh,_->
+                                payment.notice?.let{Text(it,color=TextSecondary)}
+                                if(orderPaymentConfirmed(row,payment))Text(if(row.paymentMethod.equals("mpesa",true) || payment.payments.any{it.method.equals("mpesa",true)})"Payment completed via M-Pesa" else "Payment confirmed",color=Green600)
+                                if(payment.canInitiate)Button(onClick={go("payment/$id")}){Text("Pay with M-Pesa")}
+                                OutlinedButton(onClick={refresh();ordersModel.open(row)}){Text("Refresh payment status")}
+                                OutlinedButton(onClick={go("tracking/$id")}){Text("Track delivery")}
                             }
                         })
-                }
-                composable("order/{id}",arguments=listOf(navArgument("id"){type=NavType.LongType})){e->
-                    val id=e.arguments!!.getLong("id");val original=ordersState.rows.firstOrNull{it.id==id}
-                    LaunchedEffect(id){original?.let(ordersModel::open)}
-                    val row=ordersState.selected?.takeIf{it.id==id} ?: original
-                    if(row==null)Text(ordersState.error ?: "Order unavailable. Refresh Orders.",Modifier.padding(24.dp))
-                    else OrderDetailScreen(brianOrder(row,ordersState.events),reorder={row.items.orEmpty().forEach{item->state.known[item.productId]?.let{model.shopping.add(it,item.quantity!!)}};go("cart")},back={nav.popBackStack()},payment={
-                        BuyerPaymentSession(row){payment,refresh,_->
-                            payment.notice?.let{Text(it,color=TextSecondary)}
-                            if(orderPaymentConfirmed(row,payment))Text(if(row.paymentMethod.equals("mpesa",true) || payment.payments.any{it.method.equals("mpesa",true)})"Payment completed via M-Pesa" else "Payment confirmed",color=Green600)
-                            if(payment.canInitiate)Button(onClick={go("payment/$id")},modifier=Modifier.fillMaxWidth()){Text("Pay with M-Pesa")}
-                            OutlinedButton(onClick={refresh();ordersModel.open(row)}){Text("Refresh payment status")}
-                            OutlinedButton(onClick={go("tracking/$id")}){Text("Track delivery")}
-                        }
-                    })
-                }
-                composable("tracking/{id}",arguments=listOf(navArgument("id"){type=NavType.LongType})){e->ordersState.rows.firstOrNull{it.id==e.arguments!!.getLong("id")}?.let{com.example.farmapp.tracking.DeliveryTrackingScreen(it){nav.popBackStack()}}}
-                composable("payment/{id}",arguments=listOf(navArgument("id"){type=NavType.LongType})){e->
-                    val id=e.arguments!!.getLong("id");val row=checkoutState.order?.takeIf{it.id==id} ?: ordersState.rows.firstOrNull{it.id==id}
-                    if(row==null)Text("Refresh Orders to verify this order.")
-                    else BuyerPaymentSession(row){payment,refresh,send->BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty())}
-                }
+                    },
+                    trackingContent = { id ->
+                        val row=ordersState.rows.firstOrNull{it.id==id}
+                        if(row==null)Text("Refresh Orders to verify this delivery.")
+                        else com.example.farmapp.tracking.DeliveryTrackingScreen(row){nav.popBackStack()}
+                    },
+                    paymentContent = { id ->
+                        val row=checkoutState.order?.takeIf{it.id==id} ?: ordersState.rows.firstOrNull{it.id==id}
+                        if(row==null)Text("Refresh Orders to verify this order.")
+                        else BuyerPaymentSession(row){payment,refresh,send->BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty())}
+                    }
+                )
             }
         }
     }
 }
 
+/** Shared registration lets navigation regression tests exercise the production routes without HTTP. */
+internal fun NavGraphBuilder.buyerOrderDestinations(
+    ordersContent: @Composable () -> Unit,
+    orderContent: @Composable (Long) -> Unit,
+    trackingContent: @Composable (Long) -> Unit,
+    paymentContent: @Composable (Long) -> Unit
+) {
+    composable("orders") { ordersContent() }
+    composable("order/{id}", arguments=listOf(navArgument("id"){type=NavType.LongType})) { entry ->
+        orderContent(entry.arguments!!.getLong("id"))
+    }
+    composable("tracking/{id}", arguments=listOf(navArgument("id"){type=NavType.LongType})) { entry ->
+        trackingContent(entry.arguments!!.getLong("id"))
+    }
+    composable("payment/{id}", arguments=listOf(navArgument("id"){type=NavType.LongType})) { entry ->
+        paymentContent(entry.arguments!!.getLong("id"))
+    }
+}
 
 
 

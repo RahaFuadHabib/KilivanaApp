@@ -24,4 +24,10 @@ interface SupplierApi {
     @Multipart @POST("products/{id}/images") suspend fun upload(@Path("id") id: Long, @Part image: MultipartBody.Part,
         @Query("sortOrder") sortOrder: Int, @Query("isPrimary") primary: Boolean,
         @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalProductImageDto>>
+    @GET("suppliers/me/warehouses") suspend fun warehouses(@Tag session: SessionSnapshot): Response<CanonicalApiResponse<List<SupplierWarehouse>>> = throw UnsupportedOperationException("Warehouse API implemented in backend integration; supply test doubles may not override it")
+    @GET("suppliers/me/warehouses/{id}") suspend fun warehouse(@Path("id") id: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierWarehouse>> = throw UnsupportedOperationException("Warehouse API not overridden")
+    @POST("suppliers/me/warehouses") suspend fun createWarehouse(@Body request: SupplierWarehouseRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierWarehouse>> = throw UnsupportedOperationException("Warehouse API not overridden")
+    @PUT("suppliers/me/warehouses/{id}") suspend fun updateWarehouse(@Path("id") id: Long, @Body request: SupplierWarehouseRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierWarehouse>> = throw UnsupportedOperationException("Warehouse API not overridden")
+    @PUT("suppliers/me/warehouses/{id}/default") suspend fun setDefaultWarehouse(@Path("id") id: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<SupplierWarehouse>> = throw UnsupportedOperationException("Warehouse API not overridden")
+    @DELETE("suppliers/me/warehouses/{id}") suspend fun deactivateWarehouse(@Path("id") id: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>> = throw UnsupportedOperationException("Warehouse API not overridden")
 }

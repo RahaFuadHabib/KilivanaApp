@@ -37,10 +37,7 @@ internal class ExistingBuyerCatalog(private val repository: MarketplaceRepositor
     override suspend fun detail(session: SessionSnapshot, id: Long) = repository.detail(session, id)
 }
 internal fun buyerQuantity(product: CanonicalFarmerProduct, quantity: Int): Int {
-    check(product.sector == "FARM_PRODUCE" && product.status == CanonicalProductStatus.ACTIVE) { "Only available Farmer produce can be added." }
-    check(quantity > 0 && BigDecimal.valueOf(quantity.toLong()) >= product.minimumOrderQuantity &&
-        BigDecimal.valueOf(quantity.toLong()) <= product.availableQuantity) { "Quantity must meet the minimum order and available stock." }
-    return quantity
+    return com.example.farmapp.checkout.BuyerPurchaserPolicy.validateQuantity(product, quantity)
 }
 internal fun buyerLineTotal(product: CanonicalFarmerProduct, quantity: Int): BigDecimal =
     product.unitPrice.multiply(BigDecimal.valueOf(buyerQuantity(product, quantity).toLong()))

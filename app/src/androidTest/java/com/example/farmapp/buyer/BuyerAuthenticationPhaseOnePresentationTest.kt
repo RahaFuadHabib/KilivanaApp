@@ -125,7 +125,8 @@ class BuyerAuthenticationPhaseOnePresentationTest {
         screen()
         compose.onNodeWithText("New to Kilivana? Sign Up").performScrollTo().performClick()
         compose.onNodeWithText("Account type").performScrollTo().performClick()
-        compose.onNodeWithText("Buyer").performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Buyer").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithText("Buyer").assertIsDisplayed().performClick()
         assertNoExtraEntries()
         compose.onNodeWithText("Join Kilivana").assertDoesNotExist()
         compose.onNodeWithText("Full name").performScrollTo().performTextInput("Synthetic Buyer")

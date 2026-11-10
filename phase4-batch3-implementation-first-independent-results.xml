@@ -1,0 +1,373 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.example.farmapp.ExampleInstrumentedTest" tests="132" failures="15" errors="0" skipped="0" time="407.0" timestamp="2026-11-09T07:57:00" hostname="localhost">
+  <properties>
+    <property name="device" value="SM-A155F - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="useAppContext" classname="com.example.farmapp.ExampleInstrumentedTest" time="0.069" />
+  <testcase name="cleanWelcomeSignInSignupAndRecoveryUseNormalDesign" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="5.435" />
+  <testcase name="sharedBuyerLoginUsesSameOtpAndSessionBoundary" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="4.485" />
+  <testcase name="loginVerificationGateContinuesWithoutRegisteringAnotherAccount" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="2.982" />
+  <testcase name="sharedBuyerRoleSignupContinuesWithoutDuplicateRegistration" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="7.697" />
+  <testcase name="registrationUsesIssuedOtpAndOnlySignsInAfterVerification" classname="com.example.farmapp.buyer.BuyerAuthenticationPhaseOnePresentationTest" time="2.301" />
+  <testcase name="smallDeviceEmptyStateAndAddButtonRemainScrollable" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.006" />
+  <testcase name="checkoutNavigatesToDeliveryAndBackWithoutChangingCart" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.12" />
+  <testcase name="selectingExistingAddressSurvivesMethodSwitchAndReviewShowsNoInventedFee" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.31" />
+  <testcase name="pickupEmptyStateSwitchesToUnavailableInsteadOfFakeStation" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="4.26" />
+  <testcase name="verifiedQuoteTotalsKeepDecimals" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.252" />
+  <testcase name="addAndSelectConfirmedLocationThenBackPreservesSelection" classname="com.example.farmapp.buyer.BuyerDeliveryPresentationTest" time="2.591" />
+  <testcase name="browseRegionSaveDefaultAndSelectUsesPlatformIdentity" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="3.367" />
+  <testcase name="pickupReviewPreservesCartAndNeverInitiatesPayment" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="1.868" />
+  <testcase name="defaultAndRemovalUseSavedRecordIdAndRequireExplicitRemoval" classname="com.example.farmapp.buyer.BuyerPickupPresentationTest" time="2.333" />
+  <testcase name="dashboardNavigationUsesRealCallbacks" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.997" />
+  <testcase name="detailQuantityHonorsMinimumAndStockBeforeAdd" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="3.379" />
+  <testcase name="downwardGestureTriggersMarketplaceRefresh" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="2.562" />
+  <testcase name="allChipClearsCategoryAndRetainsSearch" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.949" />
+  <testcase name="catalogLoadingAndFailureHaveRetryWithoutInventedProducts" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.636" />
+  <testcase name="addressFailureDoesNotShowFakeAddressesOrEnableEditing" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.73" />
+  <testcase name="quantityButtonsUpdateTotalsAndHonorOneAndStockLimits" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="1.997" />
+  <testcase name="savedEmptyStateHasShoppingAction" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="2.66" />
+  <testcase name="homeHasNoShoppingManagementShortcuts" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="4.377" />
+  <testcase name="cartPreservesCentsAndOffersCheckoutReview" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="4.527">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerShoppingPresentationTest.cartPreservesCentsAndOffersCheckoutReview(BuyerShoppingPresentationTest.kt:58)
+</failure>
+  </testcase>
+  <testcase name="heartChangesSavedStateWithoutAddingToCart" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="4.581">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerShoppingPresentationTest.heartChangesSavedStateWithoutAddingToCart(BuyerShoppingPresentationTest.kt:88)
+</failure>
+  </testcase>
+  <testcase name="cornerAddCallsCartWithoutOpeningDetail" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="4.576">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerShoppingPresentationTest.cornerAddCallsCartWithoutOpeningDetail(BuyerShoppingPresentationTest.kt:34)
+</failure>
+  </testcase>
+  <testcase name="trashRemovesLocallyAndPricingShowsExplicitEstimate" classname="com.example.farmapp.buyer.BuyerShoppingPresentationTest" time="4.421">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.scrollToMatchingDescendantOrReturnScrollable(Actions.kt:285)
+at androidx.compose.ui.test.ActionsKt.performScrollToNode(Actions.kt:243)
+at com.example.farmapp.buyer.BuyerShoppingPresentationTest.trashRemovesLocallyAndPricingShowsExplicitEstimate(BuyerShoppingPresentationTest.kt:98)
+</failure>
+  </testcase>
+  <testcase name="sameFrameDoubleSubmitAndRecompositionInvokeOneIntentionalCallback" classname="com.example.farmapp.buyer.BuyerSignupPresentationTest" time="4.5">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerSignupPresentationTest.sameFrameDoubleSubmitAndRecompositionInvokeOneIntentionalCallback(BuyerSignupPresentationTest.kt:21)
+</failure>
+  </testcase>
+  <testcase name="pendingSignupDisablesSubmitAndFieldsWithoutAnotherRequest" classname="com.example.farmapp.buyer.BuyerSignupPresentationTest" time="4.526">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyer.BuyerSignupPresentationTest.pendingSignupDisablesSubmitAndFieldsWithoutAnotherRequest(BuyerSignupPresentationTest.kt:39)
+</failure>
+  </testcase>
+  <testcase name="busyStateAndCloseNeverSubmit" classname="com.example.farmapp.buyer.DebugCartStructurePresentationTest" time="4.59">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.AssertionsKt.assert(Assertions.kt:263)
+at androidx.compose.ui.test.AssertionsKt.assert$default(Assertions.kt:255)
+at androidx.compose.ui.test.AssertionsKt.assertIsNotEnabled(Assertions.kt:63)
+at com.example.farmapp.buyer.DebugCartStructurePresentationTest.busyStateAndCloseNeverSubmit(DebugCartStructurePresentationTest.kt:29)
+</failure>
+  </testcase>
+  <testcase name="neverRunsOnCompositionAndRequiresExplicitClick" classname="com.example.farmapp.buyer.DebugCartStructurePresentationTest" time="6.516">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performTouchInput(Actions.kt:394)
+at androidx.compose.ui.test.Actions_androidKt.performClickImpl(Actions.android.kt:20)
+at androidx.compose.ui.test.ActionsKt.performClick(Actions.kt:54)
+at com.example.farmapp.buyer.DebugCartStructurePresentationTest.neverRunsOnCompositionAndRequiresExplicitClick(DebugCartStructurePresentationTest.kt:21)
+</failure>
+  </testcase>
+  <testcase name="deliveryReservationsRemainIsolatedByAccountAndBackendOrigin" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.09" />
+  <testcase name="oldPickupReservationsRetainPlatformAndAssociationIdsAndJsonFields" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.068" />
+  <testcase name="existingSelectedAddressStationAndUncertainAddressSaveSurviveRecreation" classname="com.example.farmapp.buyer.DeliveryRecordCompatibilityTest" time="0.039" />
+  <testcase name="checkoutCannotPlaceOrderWithoutVerifiedQuote" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="3.046" />
+  <testcase name="paymentRequiresExplicitConfirmationAndCancelNeverSends" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.62">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.TextActionsKt.getNodeAndFocus(TextActions.kt:114)
+at androidx.compose.ui.test.TextActionsKt.getNodeAndFocus$default(TextActions.kt:108)
+at androidx.compose.ui.test.TextActionsKt.performTextInput(TextActions.kt:44)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.paymentRequiresExplicitConfirmationAndCancelNeverSends(BrianBuyerPresentationTest.kt:46)
+</failure>
+  </testcase>
+  <testcase name="quoteShowsServerTotalAndDoesNotAutomaticallyPlaceOrderOrPay" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.389">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.ActionsKt.performScrollTo(Actions.kt:76)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.quoteShowsServerTotalAndDoesNotAutomaticallyPlaceOrderOrPay(BrianBuyerPresentationTest.kt:85)
+</failure>
+  </testcase>
+  <testcase name="brianHomeUsesOriginalShoppingSections" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.557">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release$default(SemanticsNodeInteraction.kt:56)
+at androidx.compose.ui.test.AndroidAssertions_androidKt.checkIsDisplayed(AndroidAssertions.android.kt:29)
+at androidx.compose.ui.test.AssertionsKt.isDisplayed(Assertions.kt:359)
+at androidx.compose.ui.test.AssertionsKt.assertIsDisplayed(Assertions.kt:33)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.brianHomeUsesOriginalShoppingSections(BrianBuyerPresentationTest.kt:27)
+</failure>
+  </testcase>
+  <testcase name="uncertainSubmittedPaymentStaysOnStatusScreenAndCannotSendAgain" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.42">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release$default(SemanticsNodeInteraction.kt:56)
+at androidx.compose.ui.test.AndroidAssertions_androidKt.checkIsDisplayed(AndroidAssertions.android.kt:29)
+at androidx.compose.ui.test.AssertionsKt.isDisplayed(Assertions.kt:359)
+at androidx.compose.ui.test.AssertionsKt.assertIsDisplayed(Assertions.kt:33)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.uncertainSubmittedPaymentStaysOnStatusScreenAndCannotSendAgain(BrianBuyerPresentationTest.kt:103)
+</failure>
+  </testcase>
+  <testcase name="backendConfirmedPaymentUsesOriginalStatusLayout" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.578">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release$default(SemanticsNodeInteraction.kt:56)
+at androidx.compose.ui.test.AndroidAssertions_androidKt.checkIsDisplayed(AndroidAssertions.android.kt:29)
+at androidx.compose.ui.test.AssertionsKt.isDisplayed(Assertions.kt:359)
+at androidx.compose.ui.test.AssertionsKt.assertIsDisplayed(Assertions.kt:33)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.backendConfirmedPaymentUsesOriginalStatusLayout(BrianBuyerPresentationTest.kt:59)
+</failure>
+  </testcase>
+  <testcase name="originalBuyerAuthFormHonorsExternalBusyGuard" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.367">
+    <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+at androidx.compose.ui.test.TestContext.getAllSemanticsNodes$ui_test_release(TestOwner.kt:87)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test_release(SemanticsNodeInteraction.kt:63)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNode(SemanticsNodeInteraction.kt:84)
+at androidx.compose.ui.test.TextActionsKt.getNodeAndFocus(TextActions.kt:114)
+at androidx.compose.ui.test.TextActionsKt.getNodeAndFocus$default(TextActions.kt:108)
+at androidx.compose.ui.test.TextActionsKt.performTextInput(TextActions.kt:44)
+at com.example.farmapp.buyers.BrianBuyerPresentationTest.originalBuyerAuthFormHonorsExternalBusyGuard(BrianBuyerPresentationTest.kt:69)
+</failure>
+  </testcase>
+  <testcase name="expiredQuoteCannotCreateOrder" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="4.667" />
+  <testcase name="pendingDoesNotClaimSuccessfulPayment" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.606" />
+  <testcase name="unknownAndCancelledStatusesNeverClaimSuccess" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.721" />
+  <testcase name="unknownPaymentEnvironmentDisablesSubmissionButKeepsReview" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.689" />
+  <testcase name="cartChangesImmediatelyWithoutDialogAndPersistsThroughDelegate" classname="com.example.farmapp.buyers.BrianBuyerPresentationTest" time="1.969" />
+  <testcase name="ordersDetailsTrackingAndBackResolveProductionRoutes" classname="com.example.farmapp.buyers.BuyerOrderNavigationTest" time="2.072" />
+  <testcase name="verifiedOrderPaymentRouteOpensReviewWithoutEnablingSubmission" classname="com.example.farmapp.buyers.BuyerOrderNavigationTest" time="2.295" />
+  <testcase name="invalidWriteDoesNotEraseTheLastSavedJournalOrIncrementItsVersion" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.144" />
+  <testcase name="corruptSavedRecordsStayUnresolvedWithoutDeletingTheOriginalOrPaymentMarker" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.036" />
+  <testcase name="twoPreferencesInstancesKeepTheExistingAtomicVersionCheck" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.038" />
+  <testcase name="oldPaymentReservationStillPreventsAnotherSubmissionAfterRecreation" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.014" />
+  <testcase name="extractedPreferencesDoNotReadAnotherAccountJournal" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.012" />
+  <testcase name="oldSavedStationJournalLoadsAndKeepsItsVersionAndOrderReservation" classname="com.example.farmapp.buyers.CheckoutRecordCompatibilityTest" time="0.002" />
+  <testcase name="trackingRejectsForeignJobsAndInvalidFixesWithoutInventingLocationData" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="1.636" />
+  <testcase name="fullBuyerJourneyKeepsUnconfirmedEnvironmentDisabledAndPreservesRecords" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="4.092" />
+  <testcase name="fullBuyerJourneyUsesExplicitSyntheticPaymentAndRecoversWithoutDuplicateWrites" classname="com.example.farmapp.buyers.SharedBuyerJourneyTest" time="5.267" />
+  <testcase name="malformedLocalBasketFailsWithoutErasingStoredSelection" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.114" />
+  <testcase name="corruptedJournalAndUnknownOutcomeAreNotDeletedOrRetried" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.018" />
+  <testcase name="atomicJournalVersionsStillRejectStaleWriters" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.015" />
+  <testcase name="basketJournalAndPaymentReservationsSurviveRestartWithoutCrossingBuyerNamespaces" classname="com.example.farmapp.farmerpurchases.FarmerPurchaseRecordCompatibilityTest" time="0.013" />
+  <testcase name="catalogueLocalBasketDeliveryAndDisabledCheckoutRemainReadOnly" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="2.027" />
+  <testcase name="purchaserHistoryDetailsPaymentReviewAndTrackingDoNotUseSellerWorkflows" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="2.814" />
+  <testcase name="sessionChangePreventsBasketWrites" classname="com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest" time="2.292" />
+  <testcase name="corruptRecordIsPreservedForRecovery" classname="com.example.farmapp.farmerpurchases.FarmerTransactionPersistenceTest" time="0.289" />
+  <testcase name="competingControllerCannotOverwriteAnotherSavedCheckout" classname="com.example.farmapp.farmerpurchases.FarmerTransactionPersistenceTest" time="0.036" />
+  <testcase name="controllerRestartRetainsExactIdsAndOriginalRequestKey" classname="com.example.farmapp.farmerpurchases.FarmerTransactionPersistenceTest" time="0.008" />
+  <testcase name="orderAndStkRequireSeparateConfirmationsAndPendingIsDisplayed" classname="com.example.farmapp.farmerpurchases.FarmerTransactionPresentationTest" time="2.579" />
+  <testcase name="errorRetryCanShowEmptyAssignmentsWithoutInventedMetrics" classname="com.example.farmapp.inspector.InspectorUiTest" time="2.0" />
+  <testcase name="dashboardOpensOwnInspectionAndBackReturnsToList" classname="com.example.farmapp.inspector.InspectorUiTest" time="2.136" />
+  <testcase name="profileShowsAdminAssignmentsWithoutEditingControls" classname="com.example.farmapp.inspector.InspectorUiTest" time="1.754" />
+  <testcase name="statusSubmissionRequiresConfirmationAndUploadStaysDisabled" classname="com.example.farmapp.inspector.InspectorUiTest" time="2.176" />
+  <testcase name="realModeLoginUsesServerRoleAndUnsupportedRoleCanLogout" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="3.33" />
+  <testcase name="phoneLoginUsesIdentifierAndPreservesPasswordWhitespace" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="3.48" />
+  <testcase name="invalidCredentialsKeepTheFormAndDisplayError" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="3.724" />
+  <testcase name="signupIgnoresDuplicateSubmissionsWhileLoading" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="2.152" />
+  <testcase name="inspectorSelfRegistrationRemainsDisabled" classname="com.example.farmapp.network.AuthFlowIntegrationTest" time="2.22" />
+  <testcase name="recreationRestoresAllFieldsFromCiphertextWithANonExportableKey" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.21" />
+  <testcase name="legacyEncryptedSessionRemainsReadableAndRefreshReplacesProfile" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.77" />
+  <testcase name="lostKeystoreKeyDoesNotRestoreOldSession" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.218" />
+  <testcase name="tamperedCiphertextFailsClosed" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.097" />
+  <testcase name="logoutDeletesTheFileAndKey" classname="com.example.farmapp.network.EncryptedSessionPersistenceTest" time="0.113" />
+  <testcase name="developerRecorderRemainsExplicitAndProviderReadsOnlyMetadata" classname="com.example.farmapp.network.canonical.AuthDiagnosticPresentationTest" time="0.01" />
+  <testcase name="orderCardHidesInternalIdAndRawTimestamp" classname="com.example.farmapp.orders.BuyerOrderFormattingPresentationTest" time="1.911" />
+  <testcase name="fourReferenceScreensRenderAndPaymentRemainsExplicit" classname="com.example.farmapp.orders.BuyerOrdersReferencePresentationTest" time="4.495" />
+  <testcase name="smallScreenScrollsAndMissingBackendFeesAreNotInvented" classname="com.example.farmapp.orders.BuyerOrdersReferencePresentationTest" time="1.718" />
+  <testcase name="failedAndUnknownResultsNeverClaimConfirmationAndSuccessRequiresConfirmedState" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="2.407" />
+  <testcase name="cancellingConfirmationSendsNothingAndConfirmIsExplicit" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="3.062" />
+  <testcase name="pendingAndFailedDoNotOfferAnotherInitiationOrShowPaid" classname="com.example.farmapp.orders.BuyerPaymentPresentationTest" time="1.529" />
+  <testcase name="paymentReservationsRemainIsolatedByBackendAndAccount" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.029" />
+  <testcase name="twoCompatibilityAdaptersShareOneAtomicReservationAndKeepTheExistingKeyFormat" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.134" />
+  <testcase name="existingBooleanReservationsStillBlockAfterRecreationWithoutRewritingRecords" classname="com.example.farmapp.orders.PaymentRecordCompatibilityTest" time="0.018" />
+  <testcase name="malformedLoginDisplaysDecodeStageWithoutPrivateContent" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.946" />
+  <testcase name="imagePlusLaunchesPhotoPickerShowsThumbnailAndAllowsReplacementBeforeSave" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.982" />
+  <testcase name="unverifiedFarmerAutomaticallyEntersOtpThenResumesOnlyAfterVerifiedResponse" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="3.762" />
+  <testcase name="returningToSignInAndRetryingReusesActiveChallengeWithoutAutomaticResend" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="6.016" />
+  <testcase name="editProfileContainsOnlyEditingActionsAndNoAbout" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="0.289" />
+  <testcase name="mainSupplierProfileHasStandaloneAboutAtBottom" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.808" />
+  <testcase name="registrationAutomaticallyOpensOtpAndCreatesOnlyOneAccountAndProfile" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="2.427" />
+  <testcase name="verifiedFarmerSignsInWithoutOtpOrResend" classname="com.example.farmapp.supplier.AuthAndProfileRefinementUiTest" time="3.005" />
+  <testcase name="previewDecodeRunsOffMainAndKeepsUploadBytes" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="2.545" />
+  <testcase name="sharedGalleryLoadsTwoUniqueImagesOnceAndSurvivesRecomposition" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="0.62" />
+  <testcase name="heroAndTwoThumbnailsBaselineLoadBudget" classname="com.example.farmapp.supplier.SupplierImagePerformanceTest" time="2.36" />
+  <testcase name="malformedLoginResponseIsNotPresentedAsAConnectionFailure" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="2.649" />
+  <testcase name="deniedProfileReadDoesNotOpenSetupOrSaveAPartialSession" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="3.607" />
+  <testcase name="missingProfileAutomaticallyOpensExistingRecoveryFormAndOnlyExplicitSubmitCreatesProfile" classname="com.example.farmapp.supplier.SupplierLoginRecoveryUiTest" time="6.763" />
+  <testcase name="openingOrdersLoadsOnceAndShowsLoadingWithoutFakeEmptyResult" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.643" />
+  <testcase name="paginationOnlyRunsFromExplicitLoadMore" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.888" />
+  <testcase name="offlineErrorOffersExplicitRetryWithoutClaimingNoOrders" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.961" />
+  <testcase name="confirmedEmptyStateCanRefresh" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="2.695" />
+  <testcase name="ownedItemsDisplayExactPricesReadableDateAndNoTransactionActions" classname="com.example.farmapp.supplier.SupplierOrdersUiTest" time="1.659" />
+  <testcase name="supplierFieldsRemainSeparateAndDoubleTapSubmitsOnce" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.942" />
+  <testcase name="missingConfirmationBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.762" />
+  <testcase name="passwordVisibilityTogglesAreIndependent" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="4.021" />
+  <testcase name="recoveryUsesExistingCredentialsAndNeverSubmitsRegistration" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.927" />
+  <testcase name="inspectorSignupIsDisabled" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="2.047" />
+  <testcase name="countyAloneIsNotAcceptedAsDetailedAddress" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="7.483" />
+  <testcase name="existingSupplierCanExplicitlyChooseRecoveryAfterRestart" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.836" />
+  <testcase name="missingPhysicalLocationIsRejectedBeforeSubmission" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.372" />
+  <testcase name="partialFailureSwitchesActionToRecovery" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="7.739" />
+  <testcase name="allSupplierFieldsAreOnOneScrollableForm" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="2.468" />
+  <testcase name="missingTownBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="6.765" />
+  <testcase name="farmerUsesSinglePageAndKeepsOriginalRegistrationPayload" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="4.724" />
+  <testcase name="passwordMismatchPreservesFieldsAndCanBeCorrected" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="8.059" />
+  <testcase name="missingCountyBlocksCallback" classname="com.example.farmapp.supplier.SupplierSignupUiTest" time="5.085" />
+  <testcase name="profileIsReadOnlyAndShowsProvisionedBusiness" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.726" />
+  <testcase name="loadingAndErrorsDoNotDisplayInventedZeroStatistics" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.347" />
+  <testcase name="missingCategoriesExplainWhySubmissionIsDisabled" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.789" />
+  <testcase name="selectingSupplyRecomposesIntoDetailWithoutResettingSessionState" classname="com.example.farmapp.supplier.SupplierUiTest" time="2.133" />
+  <testcase name="initialCatalogueWaitsInsteadOfClaimingNoSupplies" classname="com.example.farmapp.supplier.SupplierUiTest" time="1.647" />
+  <testcase name="imageGallerySupportsSelectionAndSafeUnavailableImageFallback" classname="com.example.farmapp.supplier.SupplierUiTest" time="27.666">
+    <failure>java.lang.ArrayIndexOutOfBoundsException: length=640; index=-156
+at androidx.compose.runtime.SlotTableKt.dataAnchor(SlotTable.kt:4003)
+at androidx.compose.runtime.SlotTableKt.access$dataAnchor(SlotTable.kt:1)
+at androidx.compose.runtime.SlotWriter.moveSlotGapTo(SlotTable.kt:2989)
+at androidx.compose.runtime.SlotWriter.removeSlots(SlotTable.kt:3198)
+at androidx.compose.runtime.SlotWriter.removeGroup(SlotTable.kt:2266)
+at androidx.compose.runtime.ComposerKt.removeCurrentGroup(Composer.kt:4182)
+at androidx.compose.runtime.CompositionImpl.dispose(Composition.kt:783)
+at androidx.compose.ui.platform.WrappedComposition.dispose(Wrapper.android.kt:169)
+at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:177)
+at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:320)
+at androidx.lifecycle.LifecycleRegistry.backwardPass(LifecycleRegistry.jvm.kt:272)
+at androidx.lifecycle.LifecycleRegistry.sync(LifecycleRegistry.jvm.kt:289)
+at androidx.lifecycle.LifecycleRegistry.moveToState(LifecycleRegistry.jvm.kt:142)
+at androidx.lifecycle.LifecycleRegistry.handleLifecycleEvent(LifecycleRegistry.jvm.kt:124)
+at androidx.lifecycle.ReportFragment$Companion.dispatch$lifecycle_runtime_release(ReportFragment.android.kt:190)
+at androidx.lifecycle.ReportFragment$LifecycleCallbacks.onActivityPreDestroyed(ReportFragment.android.kt:146)
+at android.app.Activity.dispatchActivityPreDestroyed(Activity.java:1821)
+at android.app.Activity.performDestroy(Activity.java:10101)
+at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1579)
+at androidx.test.runner.MonitoringInstrumentation.callActivityOnDestroy(MonitoringInstrumentation.java:766)
+at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:7354)
+at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:7399)
+at android.app.servertransaction.DestroyActivityItem.execute(DestroyActivityItem.java:52)
+at android.app.servertransaction.ActivityTransactionItem.execute(ActivityTransactionItem.java:63)
+at android.app.servertransaction.TransactionExecutor.executeLifecycleItem(TransactionExecutor.java:169)
+at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:101)
+at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:80)
+at android.app.ActivityThread$H.handleMessage(ActivityThread.java:3287)
+at android.os.Handler.dispatchMessage(Handler.java:132)
+at android.os.Looper.dispatchMessage(Looper.java:358)
+at android.os.Looper.loopOnce(Looper.java:288)
+at android.os.Looper.loop(Looper.java:392)
+at android.app.ActivityThread.main(ActivityThread.java:10346)
+at java.lang.reflect.Method.invoke(Native Method)
+at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:638)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+</failure>
+  </testcase>
+  <system-err>Test run failed to complete. Instrumentation run failed due to Process crashed.
+Logcat of last crash: 
+Process: com.example.farmapp.dev2231918adc4d4b9d, PID: 14024
+java.lang.RuntimeException: Unable to destroy activity {com.example.farmapp.dev2231918adc4d4b9d/androidx.activity.ComponentActivity}
+	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:7367)
+	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:7399)
+	at android.app.servertransaction.DestroyActivityItem.execute(DestroyActivityItem.java:52)
+	at android.app.servertransaction.ActivityTransactionItem.execute(ActivityTransactionItem.java:63)
+	at android.app.servertransaction.TransactionExecutor.executeLifecycleItem(TransactionExecutor.java:169)
+	at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:101)
+	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:80)
+	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:3287)
+	at android.os.Handler.dispatchMessage(Handler.java:132)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.app.ActivityThread.main(ActivityThread.java:10346)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:638)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: length=640; index=-156
+	at androidx.compose.runtime.SlotTableKt.dataAnchor(SlotTable.kt:4003)
+	at androidx.compose.runtime.SlotTableKt.access$dataAnchor(SlotTable.kt:1)
+	at androidx.compose.runtime.SlotWriter.moveSlotGapTo(SlotTable.kt:2989)
+	at androidx.compose.runtime.SlotWriter.removeSlots(SlotTable.kt:3198)
+	at androidx.compose.runtime.SlotWriter.removeGroup(SlotTable.kt:2266)
+	at androidx.compose.runtime.ComposerKt.removeCurrentGroup(Composer.kt:4182)
+	at androidx.compose.runtime.CompositionImpl.dispose(Composition.kt:783)
+	at androidx.compose.ui.platform.WrappedComposition.dispose(Wrapper.android.kt:169)
+	at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:177)
+	at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:320)
+	at androidx.lifecycle.LifecycleRegistry.backwardPass(LifecycleRegistry.jvm.kt:272)
+	at androidx.lifecycle.LifecycleRegistry.sync(LifecycleRegistry.jvm.kt:289)
+	at androidx.lifecycle.LifecycleRegistry.moveToState(LifecycleRegistry.jvm.kt:142)
+	at androidx.lifecycle.LifecycleRegistry.handleLifecycleEvent(LifecycleRegistry.jvm.kt:124)
+	at androidx.lifecycle.ReportFragment$Companion.dispatch$lifecycle_runtime_release(ReportFragment.android.kt:190)
+	at androidx.lifecycle.ReportFragment$LifecycleCallbacks.onActivityPreDestroyed(ReportFragment.android.kt:146)
+	at android.app.Activity.dispatchActivityPreDestroyed(Activity.java:1821)
+	at android.app.Activity.performDestroy(Activity.java:10101)
+	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1579)
+	at androidx.test.runner.MonitoringInstrumentation.callActivityOnDestroy(MonitoringInstrumentation.java:766)
+	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:7354)
+	... 15 more
+
+</system-err>
+</testsuite>

@@ -28,7 +28,7 @@ data class BuyerOrderDto(val id: Long? = null, val buyerId: Long? = null, val st
     val logisticsJobId: Long? = null, val driverId: Long? = null, val items: List<BuyerOrderItemDto>? = null,
     val subtotal: BigDecimal? = null, val deliveryFee: BigDecimal? = null, val deliveryAddress: String? = null,
     val paymentMethod: String? = null, val paidAt: String? = null,
-    val addressId:Long?=null,val pickupLocation:String?=null)
+    val addressId:Long?=null,val pickupLocation:String?=null,val pickupStationId:Long?=null)
 data class BuyerOrderItemDto(val id: Long? = null, val productId: Long? = null, val sellerId: Long? = null,
     val productName: String? = null, val unit: String? = null, val quantity: Int? = null, val unitPrice: BigDecimal? = null,
     val subtotal: BigDecimal? = null)

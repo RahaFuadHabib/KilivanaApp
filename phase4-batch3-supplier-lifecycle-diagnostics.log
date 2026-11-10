@@ -1,0 +1,79 @@
+--------- beginning of main
+11-08 21:31:43.941 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.profileIsReadOnlyAndShowsProvisionedBusiness
+11-08 21:31:45.151 23719 23719 I Batch3Diagnostics: profileIsReadOnlyAndShowsProvisionedBusiness passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:45.153 23719 23719 I Batch3Diagnostics: profileIsReadOnlyAndShowsProvisionedBusiness sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:47.219 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.loadingAndErrorsDoNotDisplayInventedZeroStatistics
+11-08 21:31:47.615 23719 23719 I Batch3Diagnostics: loadingAndErrorsDoNotDisplayInventedZeroStatistics passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:47.615 23719 23719 I Batch3Diagnostics: loadingAndErrorsDoNotDisplayInventedZeroStatistics passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:47.616 23719 23719 I Batch3Diagnostics: loadingAndErrorsDoNotDisplayInventedZeroStatistics sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:49.443 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.missingCategoriesExplainWhySubmissionIsDisabled
+11-08 21:31:50.616 23719 23719 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:50.616 23719 23719 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:50.616 23719 23719 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:50.617 23719 23719 I Batch3Diagnostics: missingCategoriesExplainWhySubmissionIsDisabled sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:52.081 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.selectingSupplyRecomposesIntoDetailWithoutResettingSessionState
+11-08 21:31:53.528 23719 23719 I Batch3Diagnostics: selectingSupplyRecomposesIntoDetailWithoutResettingSessionState passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:53.528 23719 23719 I Batch3Diagnostics: selectingSupplyRecomposesIntoDetailWithoutResettingSessionState sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:55.507 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.initialCatalogueWaitsInsteadOfClaimingNoSupplies
+11-08 21:31:55.841 23719 23719 I Batch3Diagnostics: initialCatalogueWaitsInsteadOfClaimingNoSupplies passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:55.841 23719 23719 I Batch3Diagnostics: initialCatalogueWaitsInsteadOfClaimingNoSupplies passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:55.842 23719 23719 I Batch3Diagnostics: initialCatalogueWaitsInsteadOfClaimingNoSupplies sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:57.325 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.imageGallerySupportsSelectionAndSafeUnavailableImageFallback
+11-08 21:31:57.660 23719 23719 I Batch3Diagnostics: imageGallerySupportsSelectionAndSafeUnavailableImageFallback passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:31:57.660 23719 23719 I Batch3Diagnostics: imageGallerySupportsSelectionAndSafeUnavailableImageFallback passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:57.660 23719 23719 I Batch3Diagnostics: imageGallerySupportsSelectionAndSafeUnavailableImageFallback passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:31:57.661 23719 23719 I Batch3Diagnostics: imageGallerySupportsSelectionAndSafeUnavailableImageFallback sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:31:59.134 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.creatingSupplyRequiresValidFormAndExplicitConfirmation
+11-08 21:32:04.725 23719 23719 I Batch3Diagnostics: creatingSupplyRequiresValidFormAndExplicitConfirmation passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=false
+11-08 21:32:04.725 23719 23719 I Batch3Diagnostics: creatingSupplyRequiresValidFormAndExplicitConfirmation sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:06.313 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving
+11-08 21:32:08.594 23719 23719 I Batch3Diagnostics: createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:08.595 23719 23719 I Batch3Diagnostics: createDraftSurvivesSavedStateRestorationAndWarnsBeforeLeaving sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:09.961 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.refreshingAndFailedRefreshKeepVisibleListings
+11-08 21:32:10.498 23719 23719 I Batch3Diagnostics: refreshingAndFailedRefreshKeepVisibleListings passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:10.498 23719 23719 I Batch3Diagnostics: refreshingAndFailedRefreshKeepVisibleListings sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:11.939 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.photoUploadCompletionKeepsUnsavedEditDraft
+11-08 21:32:13.326 23719 23719 I Batch3Diagnostics: photoUploadCompletionKeepsUnsavedEditDraft passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:13.327 23719 23719 I Batch3Diagnostics: photoUploadCompletionKeepsUnsavedEditDraft passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:13.327 23719 23719 I Batch3Diagnostics: photoUploadCompletionKeepsUnsavedEditDraft sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:14.870 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.editDraftSurvivesDetailRefreshAndRestoration
+11-08 21:32:16.678 23719 23719 I Batch3Diagnostics: editDraftSurvivesDetailRefreshAndRestoration passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=false
+11-08 21:32:16.679 23719 23719 I Batch3Diagnostics: editDraftSurvivesDetailRefreshAndRestoration sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:18.150 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.confirmationDoubleTapSubmitsOnlyOnce
+11-08 21:32:18.777 23719 23719 I Batch3Diagnostics: confirmationDoubleTapSubmitsOnlyOnce passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=false
+11-08 21:32:18.777 23719 23719 I Batch3Diagnostics: confirmationDoubleTapSubmitsOnlyOnce sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:20.166 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.pullGestureRefreshesWithoutToolbarReload
+11-08 21:32:20.738 23719 23719 I Batch3Diagnostics: pullGestureRefreshesWithoutToolbarReload passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:20.738 23719 23719 I Batch3Diagnostics: pullGestureRefreshesWithoutToolbarReload passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:20.738 23719 23719 I Batch3Diagnostics: pullGestureRefreshesWithoutToolbarReload sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:22.271 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.dashboardUsesListingsAndOrdersRemainReadOnly
+11-08 21:32:22.714 23719 23719 I Batch3Diagnostics: dashboardUsesListingsAndOrdersRemainReadOnly passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:22.715 23719 23719 I Batch3Diagnostics: dashboardUsesListingsAndOrdersRemainReadOnly passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:22.715 23719 23719 I Batch3Diagnostics: dashboardUsesListingsAndOrdersRemainReadOnly passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:22.715 23719 23719 I Batch3Diagnostics: dashboardUsesListingsAndOrdersRemainReadOnly sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:24.119 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.creationAndEditingExposeProductPhotoSelection
+11-08 21:32:24.833 23719 23719 I Batch3Diagnostics: creationAndEditingExposeProductPhotoSelection passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:24.834 23719 23719 I Batch3Diagnostics: creationAndEditingExposeProductPhotoSelection passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:24.834 23719 23719 I Batch3Diagnostics: creationAndEditingExposeProductPhotoSelection sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:26.221 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities
+11-08 21:32:26.672 23719 23719 I Batch3Diagnostics: publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:26.673 23719 23719 I Batch3Diagnostics: publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:26.673 23719 23719 I Batch3Diagnostics: publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:26.673 23719 23719 I Batch3Diagnostics: publishedSupplyKeepsEditingDisabledAndDisplaysActualQuantities sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:28.048 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords
+11-08 21:32:30.457 23719 23719 I Batch3Diagnostics: localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:30.457 23719 23719 I Batch3Diagnostics: localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:30.458 23719 23719 I Batch3Diagnostics: localSearchAndCategoryStatusFiltersOnlyShowMatchingOwnedRecords sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:32.015 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.confirmedEmptyInventoryHasHelpfulEmptyState
+11-08 21:32:32.405 23719 23719 I Batch3Diagnostics: confirmedEmptyInventoryHasHelpfulEmptyState passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:32.405 23719 23719 I Batch3Diagnostics: confirmedEmptyInventoryHasHelpfulEmptyState passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:32.405 23719 23719 I Batch3Diagnostics: confirmedEmptyInventoryHasHelpfulEmptyState passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:32.405 23719 23719 I Batch3Diagnostics: confirmedEmptyInventoryHasHelpfulEmptyState sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:34.420 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.dirtyFormRequiresConfirmationBeforeLogout
+11-08 21:32:35.750 23719 23719 I Batch3Diagnostics: dirtyFormRequiresConfirmationBeforeLogout passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:35.750 23719 23719 I Batch3Diagnostics: dirtyFormRequiresConfirmationBeforeLogout passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:35.750 23719 23719 I Batch3Diagnostics: dirtyFormRequiresConfirmationBeforeLogout sessionPresent=false buyerRole=false demo=false loggingOut=false
+11-08 21:32:37.454 23719 23719 I Batch3Diagnostics: starting com.example.farmapp.supplier.SupplierUiTest.invalidFieldsHaveSpecificMessages
+11-08 21:32:38.431 23719 23719 I Batch3Diagnostics: invalidFieldsHaveSpecificMessages passed ComponentActivity stage=RESUMED finishing=false destroyed=false focus=true
+11-08 21:32:38.432 23719 23719 I Batch3Diagnostics: invalidFieldsHaveSpecificMessages passed ComponentActivity stage=DESTROYED finishing=true destroyed=true focus=false
+11-08 21:32:38.432 23719 23719 I Batch3Diagnostics: invalidFieldsHaveSpecificMessages sessionPresent=false buyerRole=false demo=false loggingOut=false

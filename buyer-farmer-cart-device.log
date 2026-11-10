@@ -1,0 +1,8 @@
+INSTRUMENTATION_STATUS: class=com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=46
+INSTRUMENTATION_STATUS: stream=
+com.example.farmapp.farmerpurchases.FarmerPurchasesPresentationTest:
+INSTRUMENTATION_STATUS: test=catalogueLocalBasketDeliveryAndDisabledCheckoutRemainReadOnly
+INSTRUMENTATION_STATUS_CODE: 1

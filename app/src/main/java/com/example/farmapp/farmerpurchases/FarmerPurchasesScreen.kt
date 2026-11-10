@@ -24,8 +24,7 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
     private val persistence = FarmerPurchasePersistence(application, expected.auth!!.userId)
     val transactions = FarmerTransactionController(ApiClient.authenticatedService(FarmerTransactionApi::class.java),
         ApiClient.buyerOrdersApi, TokenManager, expected, FarmerTransactionPreferences(application, expected.auth!!.userId), viewModelScope,
-        com.example.farmapp.BuildConfig.DEBUG && com.example.farmapp.BuildConfig.FARMER_TRANSACTIONS_ENABLED &&
-            com.example.farmapp.BuildConfig.BUYER_MPESA_ENVIRONMENT == "SANDBOX" && com.example.farmapp.orders.BuyerMpesaEnvironment.ready())
+        com.example.farmapp.BuildConfig.DEBUG && com.example.farmapp.BuildConfig.FARMER_TRANSACTIONS_ENABLED)
     private val orders = FarmerCheckoutRepository(ApiClient.buyerOrdersApi, TokenManager, expected)
     val controller = FarmerPurchaseController(MarketplaceRepository(ApiClient.marketplaceApi, TokenManager), orders,
         FarmerAddressRepository(ApiClient.buyerAddressApi, TokenManager, expected),
@@ -92,6 +91,11 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                     val product = state.products.firstOrNull { it.productId == id.toString() }
                     Text("${product?.name ?: state.labels[id] ?: "Product #$id"} — quantity $quantity")
                     if (controller.backendCartEnabled) Text("Added to cart", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                    Row {
+                        TextButton(onClick = { controller.quantity(id, state.items.getValue(id) - 1) }, enabled = !state.busy && state.items.getValue(id) > 1) { Text("?") }
+                        Text("Quantity ${state.items.getValue(id)}")
+                        TextButton(onClick = { controller.quantity(id, Math.addExact(state.items.getValue(id), 1)) }, enabled = !state.busy && state.items.getValue(id) < Int.MAX_VALUE) { Text("+") }
+                    }
                     TextButton(onClick = { controller.remove(id) }, enabled = !state.busy) { Text("Remove #$id") }
                 }
                 item {

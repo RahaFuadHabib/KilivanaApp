@@ -6,6 +6,7 @@ internal data class CheckoutCartMetadata(val id: Long, val status: String)
 /** Role-specific response validation stays separate from the reusable workflow. */
 internal interface CheckoutContract<CartData, CreatedOrderId, OrderData> {
     fun cartMetadata(value: CartData, purchaserId: Long): CheckoutCartMetadata
+    fun cartItems(value: CartData): Map<Long, Int>? = null
     fun createdOrderId(value: CreatedOrderId): Long
     fun validateOrder(order: OrderData, purchaserId: Long): OrderData
     fun verifyOrder(order: OrderData, purchaserId: Long, items: Map<Long, Int>, quote: CheckoutQuote): OrderData

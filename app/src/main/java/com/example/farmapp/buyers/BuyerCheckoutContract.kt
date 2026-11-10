@@ -14,6 +14,12 @@ internal object BuyerCheckoutContract : CheckoutContract<JsonObject, JsonElement
         val row = buyerCartEvidence(value, purchaserId).metadata
         return CheckoutCartMetadata(row.id!!, row.status!!)
     }
+    override fun cartItems(value: JsonObject): Map<Long, Int>? {
+        val rows = value.getAsJsonArray("items") ?: return null
+        val items = rows.map { it.asJsonObject.let { row -> row.get("productId").asLong to row.get("quantity").asInt } }
+        require(items.all { it.first > 0 && it.second > 0 } && items.map { it.first }.distinct().size == items.size)
+        return items.toMap()
+    }
     override fun createdOrderId(value: JsonElement) = verifiedCheckoutOrderId(value)
     override fun validateOrder(order: BuyerOrderDto, purchaserId: Long) = validateBuyerOrder(order, purchaserId)
     override fun verifyOrder(order: BuyerOrderDto, purchaserId: Long, items: Map<Long, Int>, quote: CheckoutQuote) =

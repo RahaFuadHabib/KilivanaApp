@@ -108,9 +108,15 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
 
         // GET item lines are optional here: upload acknowledgements + quote + exact order readback form the verification chain.
         val response=performRequest(CheckoutOperation.READ_CART){repository.readCart(current().auth!!.userId.toLong())}
-        val cart=if(response.code()==404){response.errorBody()?.close();null}else metadata(data(response,"Read cart"))
+        val cartData=if(response.code()==404){response.errorBody()?.close();null}else data(response,"Read cart")
+        val cart=cartData?.let(::metadata)
         check(cart==null || cart.status=="ACTIVE"){"An earlier checkout is unresolved. Check status instead of submitting again."}
         save(journal.copy(cartId=cart?.id))
+        // Only remove explicit server lines absent from the reviewed basket. Never clear blindly.
+        cartData?.let { value -> contract.cartItems(value)?.keys?.minus(items.keys)?.sorted()?.forEach { id ->
+            save(journal.copy(phase="QUANTITY_PENDING"))
+            envelope(performRequest(CheckoutOperation.SET_QUANTITY){repository.removeItem(checkNotNull(journal.cartId),id)},"Remove stale cart item")
+        } }
         items.toSortedMap().forEach{(id,q)->
             save(journal.copy(phase="UPLOAD_PENDING"))
             val upload=performRequest(CheckoutOperation.UPLOAD_CART){repository.addItem(id,q)}
@@ -138,15 +144,15 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             save(journal.copy(phase="UPLOAD_ACKNOWLEDGED",cartId=verified.id))
         }
         save(journal.copy(phase="CHECKOUT_PENDING",request=request))
-        envelope(performRequest(CheckoutOperation.START_CHECKOUT){repository.startCheckout()},"Start checkout")
+        envelope(performRequest(CheckoutOperation.START_CHECKOUT){repository.startCheckout(checkNotNull(journal.cartId))},"Start checkout")
         save(journal.copy(phase="CHECKOUT_ACKNOWLEDGED"))
         // Cart GET returns the ACTIVE basket, creating another one after checkout.
         // The quote endpoint validates the authenticated CHECKOUT_PROCESSING basket.
         refreshQuote(request)
     }
     private suspend fun refreshQuote(request:CheckoutQuoteRequest){
-        // Old saved Buyer journals may carry cartId, but the deployed quote request does not accept it.
-        val boundRequest = if (repository.requiresCartIdentity) request.copy(cartId=null) else request
+        // Bind preparation and quoting to the same acknowledged server cart.
+        val boundRequest = if (repository.requiresCartIdentity) request.copy(cartId=checkNotNull(journal.cartId)) else request
         val responseQuote=data(performRequest(CheckoutOperation.REQUEST_QUOTE){repository.deliveryQuote(boundRequest)},"Delivery quote")
         if(repository.requiresCartIdentity && (responseQuote.cartId==null || responseQuote.items==null)) {
             throw QuoteContractMismatch("The backend returned a delivery quote without the cart ID and item lines needed to verify your selected products. No order was created. The backend must return cartId and items (productId, quantity, unitPrice and lineSubtotal); retry after it is updated.")

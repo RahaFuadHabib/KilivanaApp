@@ -13,6 +13,7 @@ import retrofit2.http.*
 internal interface PurchaserCartApi {
     @GET("cart") suspend fun cart(@Tag session: SessionSnapshot): Response<CanonicalApiResponse<JsonObject>>
     @POST("cart/items") suspend fun add(@Body item: CartUpload, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<JsonObject>>
+    @PUT("carts/{cartId}/items/{productId}") suspend fun quantity(@Path("cartId") cartId: Long, @Path("productId") productId: Long, @Query("quantity") quantity: Int, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<JsonObject>>
     @DELETE("carts/{cartId}/items/{productId}") suspend fun remove(@Path("cartId") cartId: Long,
         @Path("productId") productId: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>>
 }
@@ -46,7 +47,24 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
         }
         return response.body()?.requireData() ?: error("Cart response is incomplete.")
     }
+    suspend fun readBasket(): Pair<Long, Map<Long, Int>> {
+        val value = accepted(requests.call(CheckoutOperation.READ_CART, api::cart))
+        val cart = metadata(value)
+        val items = com.example.farmapp.buyers.BuyerCheckoutContract.cartItems(value)
+            ?: error("Backend cart item readback is required before continuing.")
+        journal.pending(false)
+        return cart.id!! to items
+    }
     suspend fun read() = metadata(accepted(requests.call(CheckoutOperation.READ_CART, api::cart)))
+    suspend fun quantity(productId: Long, quantity: Int): Long {
+        require(productId > 0 && quantity > 0)
+        val before = read()
+        val result = metadata(write { requests.call(CheckoutOperation.SET_QUANTITY, { api.quantity(before.id!!, productId, quantity, it) }) })
+        check(result.id == before.id)
+        val after = readBasket()
+        check(after.first == before.id && after.second[productId] == quantity)
+        return after.first
+    }
     fun hasPendingWrite() = journal.pending()
     private suspend fun <T> write(action: suspend () -> Response<CanonicalApiResponse<T>>): T {
         check(!journal.pending()) { "A previous cart write is unresolved. The backend must verify its item quantities before another write." }

@@ -72,7 +72,7 @@ internal class FarmerPurchaseController(
                 val combined = Math.addExact(mutable.value.items[id] ?: 0, quantity)
                 eligible(product, combined)
                 val cartId = cart.add(id, quantity)
-                val items = mutable.value.items + (id to combined)
+                val items = cart.readBasket().second
                 val labels = mutable.value.labels + (id to product.name)
                 basket.saveLabels(labels)
                 basket.saveBasket(items)
@@ -95,7 +95,7 @@ internal class FarmerPurchaseController(
             read {
                 check(basketReadable)
                 val cartId = cart.remove(id)
-                val items = mutable.value.items - id
+                val items = cart.readBasket().second
                 basket.saveBasket(items)
                 val labels = mutable.value.labels - id
                 basket.saveLabels(labels)
@@ -108,6 +108,15 @@ internal class FarmerPurchaseController(
             requests.current(); check(basketReadable); val items = mutable.value.items - id; basket.saveBasket(items)
             mutable.update { it.copy(items = items, products = emptyList(), basketVerified = false, selection = null) }
         } catch (e: Exception) { mutable.update { it.copy(notice = e.message) } }
+    }
+    fun quantity(id: Long, quantity: Int) = read {
+        val backend = checkNotNull(cart)
+        val product = marketplace.detail(expected, id)
+        eligible(product, quantity)
+        val cartId = backend.quantity(id, quantity)
+        val items = backend.readBasket().second
+        basket.saveBasket(items)
+        mutable.update { it.copy(items = items, serverCartId = cartId, basketVerified = false, selection = null) }
     }
     private fun read(productId: Long? = null, action: suspend () -> Unit) {
         if (mutable.value.busy) return
@@ -124,9 +133,9 @@ internal class FarmerPurchaseController(
     }
     fun reviewBasket() = read {
         if (cart != null) {
-            val server = cart.read()
-            mutable.update { it.copy(serverCartId = server.id) }
-            check(!cart.hasPendingWrite()) { "A cart write is unresolved. Cart metadata cannot prove item quantities. Ask support to reconcile it before another write." }
+            val server = cart.readBasket()
+            basket.saveBasket(server.second)
+            mutable.update { it.copy(serverCartId = server.first, items = server.second, cartWriteBlocked = false) }
         }
         val items = mutable.value.items
         mutable.update { it.copy(basketVerified = false) }
@@ -148,7 +157,6 @@ internal class FarmerPurchaseController(
         try {
             requests.current()
             val address = mutable.value.addresses.single { it.id == id }
-            check(address.latitude != null && address.longitude != null) { "This address needs verified coordinates before delivery can be quoted." }
             mutable.update { it.copy(selection = DeliverySelection.Door(id), notice = null) }
         } catch (e: Exception) { mutable.update { it.copy(selection = null, notice = e.message) } }
     }

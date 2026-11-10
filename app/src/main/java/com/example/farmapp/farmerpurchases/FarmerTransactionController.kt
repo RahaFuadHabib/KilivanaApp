@@ -12,18 +12,18 @@ import retrofit2.http.*
 import java.time.Instant
 import java.util.UUID
 
-internal data class FarmerPreparation(val requestId: String,
-    @field:com.google.gson.annotations.JsonAdapter(JournalProductMapAdapter::class) val items: Map<Long, Int>)
 internal data class FarmerPreparedCart(val id: Long, val buyerId: Long, val status: String,
-    @field:com.google.gson.annotations.JsonAdapter(JournalProductMapAdapter::class) val items: Map<Long, Int>)
+    val items: List<FarmerPreparedItem> = emptyList())
+internal data class FarmerPreparedItem(val productId: Long, val quantity: Int)
 internal data class FarmerQuoteRequest(val deliveryMethod: String, val addressId: Long?, val pickupLocation: String?,
-    val pickupStationId: Long?, val requestId: String)
+    val pickupStationId: Long?, val cartId: Long? = null)
 internal data class FarmerQuoteOrder(val quoteId: String)
 internal data class FarmerIntentRequest(val orderId: Long, val phoneNumber: String, val requestId: String) {
     override fun toString() = "FarmerIntentRequest(redacted)"
 }
 internal interface FarmerTransactionApi {
-    @POST("checkout/validate") suspend fun prepare(@Body request: FarmerPreparation, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<FarmerPreparedCart>>
+    @POST("checkout/validate") suspend fun prepare( @Tag session: SessionSnapshot): Response<CanonicalApiResponse<FarmerPreparedCart>>
+    @POST("checkout") suspend fun start(@Query("cartId") cartId: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>>
     @POST("checkout/delivery-quote") suspend fun quote(@Body request: FarmerQuoteRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CheckoutQuote>>
     @POST("checkout/order") suspend fun order(@Body request: FarmerQuoteOrder, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Long>>
     @POST("payments/stk-push/buyer") suspend fun pay(@Body request: FarmerIntentRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>>
@@ -31,7 +31,7 @@ internal interface FarmerTransactionApi {
 internal data class FarmerTransactionRecord(val key: String,
     @field:com.google.gson.annotations.JsonAdapter(JournalProductMapAdapter::class) val items: Map<Long, Int>, val delivery: CheckoutQuoteRequest,
     val phase: String = "PREPARING", val quote: CheckoutQuote? = null, val orderId: Long? = null,
-    val paymentKey: String? = null, val paymentId: Long? = null, val quoteRequestId: String? = null)
+    val paymentKey: String? = null, val paymentId: Long? = null, val quoteRequestId: String? = null, val cartId: Long? = null)
 internal interface FarmerTransactionStore {
     fun read(): FarmerTransactionRecord?
     fun write(record: FarmerTransactionRecord)
@@ -89,13 +89,23 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     private suspend fun prepareSaved() {
         val record = state.value.record!!
-        val cart = request { api.prepare(FarmerPreparation(record.key, record.items), it) }
-        check(cart.id > 0 && cart.buyerId == expected.auth!!.userId.toLong() && cart.items == record.items && cart.status == "CHECKOUT_PROCESSING")
+        val cartId = if (record.cartId == null) {
+            val cart = request { api.prepare(it) }
+            check(cart.id > 0 && cart.buyerId == expected.auth!!.userId.toLong() && cart.status == "ACTIVE")
+            check(cart.items.map { it.productId }.distinct().size == cart.items.size && cart.items.associate { it.productId to it.quantity } == record.items)
+            save(record.copy(cartId = cart.id, phase = "START_PENDING"))
+            val response = api.start(cart.id, current())
+            current()
+            check(response.isSuccessful && response.body()?.success == true) { "Cart preparation was not acknowledged. Refresh cart and orders before continuing." }
+            save(state.value.record!!.copy(phase = "PREPARING"))
+            cart.id
+        } else record.cartId
         val selection = record.delivery
         val quote = request { api.quote(FarmerQuoteRequest(selection.deliveryMethod, selection.addressId,
-            selection.pickupLocation, selection.pickupStationId, record.quoteRequestId ?: (record.key + ":quote")), it) }
-        verifiedCheckoutQuote(quote, selection, now())
-        save(record.copy(phase = "QUOTE_READY", quote = quote))
+            selection.pickupLocation, selection.pickupStationId, cartId), it) }
+        verifiedCheckoutQuote(quote, selection.copy(cartId = cartId), now())
+        verifyQuotedBasket(quote, cartId, record.items)
+        save(state.value.record!!.copy(phase = "QUOTE_READY", quote = quote))
     }
     fun submitOrder() = run {
         val record = state.value.record!!
@@ -131,6 +141,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         check(record.orderId != null && (record.phase == "ORDER_CREATED" || record.phase == "PAYMENT_FAILED"))
         val order = readOrder()
         check(order.status in setOf("placed", "confirmed") && order.paymentStatus in setOf("pending", "failed"))
+        check(com.example.farmapp.orders.BuyerMpesaEnvironment.ready()) { "Sandbox payment configuration is required." }
         val normalized = try { mpesaPhone(phone) }
             catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number.") }
         try { check(order.total!!.intValueExact() > 0) }
@@ -163,6 +174,13 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     fun recover() = run {
         when (state.value.record?.phase) {
+            "START_PENDING" -> {
+                val record = state.value.record!!
+                val response = api.start(checkNotNull(record.cartId), current())
+                current()
+                check(response.isSuccessful && response.body()?.success == true)
+                save(record.copy(phase = "PREPARING")); prepareSaved()
+            }
             "PREPARING" -> prepareSaved() // Backend commits preparation/quote under original keys.
             "ORDER_PENDING" -> recoverOrder() // Atomic quote replay returns the same owned order.
             "ORDER_CREATED" -> readOrder()

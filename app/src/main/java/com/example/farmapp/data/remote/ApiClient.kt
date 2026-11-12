@@ -6,16 +6,19 @@ import com.example.farmapp.network.canonical.*
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-/** Configured backend transport. No HTTP logging, redirects or automatic connection retries. */
+/** Configured backend transport. No redirects or automatic connection retries. */
 object ApiClient {
+    private val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
     private fun clientBuilder() = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS).callTimeout(60, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .addInterceptor(logger)
 
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder()
         .baseUrl(BuildConfig.API_BASE_URL).client(client)

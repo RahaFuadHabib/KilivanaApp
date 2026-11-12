@@ -85,7 +85,9 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
             while (true) {
                 delay(15_000)
                 val latest = model.controller.state.value
-                if (latest.payments.isNotEmpty() && latest.payments.all { buyerPaymentOutcome(it.status) != "pending" }) break
+                val allSettled = latest.payments.isNotEmpty() && latest.payments.all { buyerPaymentOutcome(it.status) != "pending" }
+                val noPaymentPossible = !latest.canInitiate && latest.payments.isEmpty() && !latest.busy
+                if (allSettled || noPaymentPossible) break
                 model.controller.refresh(order.id!!)
             }
         }

@@ -56,7 +56,7 @@ import kotlinx.coroutines.flow.first
     val items=state.selection.cart.mapNotNull{(id,q)->known[id]?.let{CartItem(it,q)}}
     val orders=ordersState.rows.map{brianOrder(it)}
     var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf<String?>(null)}
-    var deliveryMethod by rememberSaveable{mutableStateOf("DOOR_DELIVERY")};var pickupText by rememberSaveable{mutableStateOf("")};var pickupStationId by rememberSaveable{mutableStateOf<Long?>(null)}
+    var deliveryMethod by rememberSaveable{mutableStateOf("DOOR_DELIVERY")};var pickupText by rememberSaveable{mutableStateOf("")};var pickupStationId by rememberSaveable{mutableStateOf<Long?>(null)};var pickupChoice by rememberSaveable{mutableStateOf(com.example.farmapp.buyers.ui.screens.PickupChoice.STATION)}
     val cart=CartViewModel(buyerCartSubtotal(state),{id->state.selection.cart[id.toLong()]?.let{model.shopping.setQuantity(id.toLong(),it+1)}},
         {id->state.selection.cart[id.toLong()]?.takeIf{it>1}?.let{model.shopping.setQuantity(id.toLong(),it-1)}},{id->model.shopping.remove(id.toLong())})
     fun add(product:Product):Boolean { val id=product.id.toLongOrNull() ?: return false; val before=model.shopping.state.value.selection.cart[id] ?: 0; state.known[id]?.let{model.shopping.add(it,1)}; return (model.shopping.state.value.selection.cart[id] ?: 0)>before }
@@ -116,7 +116,7 @@ import kotlinx.coroutines.flow.first
                     var deliverySelectionError by remember { mutableStateOf<String?>(null) }
                     var prepareRequest by remember { mutableStateOf<com.example.farmapp.buyers.data.DeliveryQuoteRequest?>(null) }
                     var confirmOrder by remember { mutableStateOf<Pair<String,String>?>(null) }
-                    val quote=checkoutState.quote?.takeIf{checkoutModel.controller.matchesCart(state.selection.cart) && it.deliveryMethod==deliveryMethod && if(deliveryMethod=="DOOR_DELIVERY")it.addressId==addresses.selectedId else it.pickupStationId==pickupStationId && it.pickupLocation==pickupText.trim().takeIf{pickupStationId==null}}
+                    val quote=checkoutState.quote?.takeIf{checkoutModel.controller.matchesCart(state.selection.cart) && it.deliveryMethod==deliveryMethod && if(deliveryMethod=="DOOR_DELIVERY")it.addressId==addresses.selectedId else if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION)it.pickupStationId==pickupStationId else it.pickupLocation==pickupText.trim().takeIf{it.isNotBlank()}}
                     fun requestPreparation(addressId:Long?=addresses.selectedId) {
                         deliverySelectionError=null
                         if(state.selection.cart.isEmpty() || buyerCartSubtotal(state)==null || items.size!=state.selection.cart.size)return
@@ -125,9 +125,11 @@ import kotlinx.coroutines.flow.first
                             deliverySelectionError=buyerDoorDeliveryIssue(addresses.rows.firstOrNull { it.id==addressId })
                             if(deliverySelectionError!=null)return
                             prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("DOOR_DELIVERY",addressId=addressId)
-                        } else if(pickupStationId!=null) {
+                        } else if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION && pickupStationId!=null) {
                             prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("PICKUP_STATION",pickupStationId=pickupStationId)
-                        } else if(pickupText.trim().length in 1..500)prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("PICKUP_STATION",pickupLocation=pickupText.trim())
+                        } else if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.TYPED && pickupText.trim().length in 1..500) {
+                            prepareRequest=com.example.farmapp.buyers.data.DeliveryQuoteRequest("PICKUP_STATION",pickupLocation=pickupText.trim())
+                        }
                     }
                     Column {
                         TextButton(onClick=checkoutModel.controller::recover,enabled=!checkoutState.busy){Text("Check checkout status")}
@@ -143,16 +145,28 @@ import kotlinx.coroutines.flow.first
                             initialAddressId=addresses.selectedId,onAddressSelected=model.addresses::select,feedback=deliverySelectionError ?: checkoutState.notice,
                             deliveryMethodContent={Column{
                                 TabRow(selectedTabIndex=if(deliveryMethod=="DOOR_DELIVERY")0 else 1){
-                                    Tab(deliveryMethod=="DOOR_DELIVERY",{deliveryMethod="DOOR_DELIVERY"},text={Text("Door Delivery")})
-                                    Tab(deliveryMethod=="PICKUP_STATION",{deliveryMethod="PICKUP_STATION"},text={Text("Pickup")})
+                                    Tab(deliveryMethod=="DOOR_DELIVERY",{deliveryMethod="DOOR_DELIVERY";pickupStationId=null;pickupText=""},text={Text("Door Delivery")})
+                                    Tab(deliveryMethod=="PICKUP_STATION",{deliveryMethod="PICKUP_STATION"},text={Text("Pickup Station")})
                                 }
                                 if(deliveryMethod=="PICKUP_STATION") {
-                                    OutlinedTextField(pickupText,{pickupText=it.take(500)},label={Text("Pickup location")},modifier=Modifier.fillMaxWidth())
-                                    TextButton(onClick={go("pickup")}){Text("Saved pickup stations")}
-                                    Button(onClick={requestPreparation()},enabled=pickupText.isNotBlank() && !checkoutState.busy){Text("Calculate delivery")}
+                                    // Sub-choice: Station or Typed
+                                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                                        FilterChip(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION,onClick={pickupChoice=com.example.farmapp.buyers.ui.screens.PickupChoice.STATION},label={Text("Select station")})
+                                        FilterChip(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.TYPED,onClick={pickupChoice=com.example.farmapp.buyers.ui.screens.PickupChoice.TYPED;pickupStationId=null},label={Text("Type location")})
+                                    }
+                                    if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION){
+                                        if(pickupStationId!=null && pickupText.isNotBlank()) Text("Selected: $pickupText",color=MaterialTheme.colorScheme.primary)
+                                        else Text("No station selected.",color=MaterialTheme.colorScheme.error)
+                                        Button(onClick={go("pickup")},modifier=Modifier.fillMaxWidth()){Text(if(pickupStationId!=null)"Change pickup station" else "Select pickup station")}
+                                        Button(onClick={requestPreparation()},enabled=pickupStationId!=null && !checkoutState.busy,modifier=Modifier.fillMaxWidth()){Text("Calculate delivery")}
+                                    } else {
+                                        OutlinedTextField(pickupText,{pickupText=it.take(500)},label={Text("Pickup location (max 500 chars)")},modifier=Modifier.fillMaxWidth(),minLines=2)
+                                        Text("${pickupText.length}/500",style=MaterialTheme.typography.bodySmall,color=TextSecondary)
+                                        Button(onClick={requestPreparation()},enabled=pickupText.trim().length in 1..500 && !checkoutState.busy,modifier=Modifier.fillMaxWidth()){Text("Calculate delivery")}
+                                    }
                                 }
                                 if(checkoutState.uncertain)TextButton(onClick={go("orders")}){Text("Inspect existing orders")}
-                            }},deliveryContent=if(deliveryMethod=="PICKUP_STATION")({Text("Pickup location: ${pickupText.trim()}")})else null)
+                            }},deliveryContent=if(deliveryMethod=="PICKUP_STATION")({if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION && pickupStationId!=null)Text("Pickup station: $pickupText") else if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.TYPED && pickupText.isNotBlank())Text("Pickup location: ${pickupText.trim()}") else Text("No pickup location set.",color=MaterialTheme.colorScheme.error)})else null)
                     }
                     prepareRequest?.let { request ->
                         AlertDialog(onDismissRequest={prepareRequest=null},title={Text("Prepare your checkout?")},
@@ -168,25 +182,26 @@ import kotlinx.coroutines.flow.first
                     }
                 }
                 composable("pickup"){
-                    val actions=BuyerPickupActions(model.pickups::refresh,model.pickups::select,model.pickups::save,model.pickups::remove,model.pickups::setDefault)
+                    val actions=BuyerPickupActions(model.pickups::refresh,
+                        select={ id ->
+                            model.pickups.select(id)
+                            val station=pickups.allStations.firstOrNull{it.id==id} ?: pickups.stations.firstOrNull{it.id==id}
+                            val savedRow=pickups.saved.firstOrNull{it.pickupStationId==id}
+                            val name=station?.name ?: savedRow?.pickupStationName
+                            val address=station?.address ?: savedRow?.pickupStationAddress
+                            if(name!=null){
+                                pickupStationId=id
+                                pickupText=listOfNotNull(name,address).joinToString(", ")
+                                deliveryMethod="PICKUP_STATION"
+                                nav.popBackStack()
+                            }
+                        },
+                        save=model.pickups::save,remove=model.pickups::remove,setDefault=model.pickups::setDefault)
                     LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-                        item{TextButton(onClick={nav.popBackStack()}){Text("Back to checkout")};Text("Pickup Stations",style=MaterialTheme.typography.headlineMedium)}
+                        item{TextButton(onClick={nav.popBackStack()}){Text("Back to checkout")};Text("Select Pickup Station",style=MaterialTheme.typography.headlineMedium);Text("Tap a station to select it and return to checkout.",style=MaterialTheme.typography.bodyMedium)}
                         pickupFeedback(pickups,actions);pickupRegionChips(pickups,actions)
                         items(pickups.saved,key={"saved-${it.id}"}){BuyerSavedPickupCard(it,pickups,actions)}
                         items(pickups.stations,key={"station-${it.id}"}){BuyerAvailablePickupCard(it,pickups,actions)}
-                        item {
-                            Button(
-                                onClick = {
-                                    pickups.selected?.let { station ->
-                                        pickupStationId = station.id
-                                        pickupText = listOfNotNull(station.name, station.address).joinToString(", ")
-                                        deliveryMethod = "PICKUP_STATION"
-                                        nav.popBackStack()
-                                    }
-                                },
-                                enabled = pickupSelectionValid(pickups)
-                            ) { Text("Use selected station location") }
-                        }
                     }
                 }
                 buyerOrderDestinations(

@@ -53,11 +53,12 @@ interface BuyerOrdersApi {
 internal val orderStatuses = setOf("placed", "confirmed", "in_transit", "delivered", "completed", "disputed", "cancelled")
 internal val paymentStatuses = setOf("pending", "paid", "held", "settled", "failed", "refunded")
 internal fun validateBuyerOrder(order: BuyerOrderDto, buyerId: Long): BuyerOrderDto {
-    check(order.id != null && order.id > 0 && order.buyerId == buyerId && order.status in orderStatuses &&
-        order.paymentStatus in paymentStatuses && order.total != null && order.total.signum() >= 0 && order.items != null) { "Order ownership or response could not be verified." }
-    check(order.items.all { it.id != null && it.id > 0 && it.productId != null && it.productId > 0 &&
+    val normalized = order.copy(status = order.status?.lowercase(), paymentStatus = order.paymentStatus?.lowercase())
+    check(normalized.id != null && normalized.id > 0 && normalized.buyerId == buyerId && normalized.status in orderStatuses &&
+        normalized.paymentStatus in paymentStatuses && normalized.total != null && normalized.total.signum() >= 0 && normalized.items != null) { "Order ownership or response could not be verified." }
+    check(normalized.items.all { it.id != null && it.id > 0 && it.productId != null && it.productId > 0 &&
         it.sellerId != null && it.sellerId > 0 && it.quantity != null && it.quantity > 0 && it.unitPrice != null && it.unitPrice.signum() >= 0 })
-    return order
+    return normalized
 }
 internal data class BuyerOrdersState(val rows: List<BuyerOrderDto> = emptyList(), val busy: Boolean = false, val error: String? = null,
     val selected: BuyerOrderDto? = null, val events: List<OrderEventDto> = emptyList(), val payments: List<PaymentDto> = emptyList(),
@@ -109,13 +110,13 @@ internal class BuyerOrdersModel : ViewModel() {
                 current()
                 mutable.update { if (it.selected?.id == id) it.copy(selected = row, receiptUncertain = false, rows = it.rows.map { old -> if (old.id == id) row else old }) else it }
                 val events = read(api.timeline(id, current()))
-                check(events.all { it.orderId == id && it.status in orderStatuses })
+                check(events.all { it.orderId == id && it.status?.lowercase() in orderStatuses })
                 current(); mutable.update { if (it.selected?.id == id) it.copy(events = events) else it }
-                val payments = read(api.payments(id, current()))
+                val payments = read(api.payments(id, current())).map { it.copy(status = it.status?.lowercase()) }
                 check(payments.all { it.orderId == id && it.id != null && it.id > 0 && it.status in paymentStatuses })
                 // Status endpoint is authoritative for pending attempts; never infer success from initiation.
                 val latest = payments.map { payment ->
-                    if (payment.status != "pending") payment else read(api.payment(payment.id!!, current())).also {
+                    if (payment.status != "pending") payment else read(api.payment(payment.id!!, current())).let { it.copy(status = it.status?.lowercase()) }.also {
                         check(it.id == payment.id && it.orderId == id && it.status in paymentStatuses)
                     }
                 }

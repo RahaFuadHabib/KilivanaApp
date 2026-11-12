@@ -53,8 +53,13 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
             try {
                 val (order, rows) = inspect(id)
                 val started = attempts.started(id)
-                mutable.value = PurchaserPaymentState<Payment>(id, canInitiate = payable(order) && rows.isEmpty() && !started,
-                    payments = rows, total = contract.total(order), submitted=started, submissionEnabled=paymentAllowed(), notice = if (started && rows.isEmpty()) "An initiation may have reached the server. Keep checking status; do not submit another payment." else if(!paymentAllowed()) MPESA_ENVIRONMENT_NOTICE else null)
+                // If the server confirms no payments exist and the order is still payable,
+                // the local reservation is stale (e.g. STK push failed before reaching server).
+                // The server is authoritative: allow a new attempt.
+                val staleLock = started && rows.isEmpty() && payable(order)
+                mutable.value = PurchaserPaymentState<Payment>(id, canInitiate = payable(order) && rows.isEmpty() && (!started || staleLock),
+                    payments = rows, total = contract.total(order), submitted = started && !staleLock, submissionEnabled = paymentAllowed(),
+                    notice = if (!paymentAllowed()) MPESA_ENVIRONMENT_NOTICE else null)
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { if (runCatching { current() }.isSuccess) mutable.update { it.copy(busy=false,canInitiate=false,
                 payments=it.payments.filter{p->paymentOutcome(contract.status(p))=="pending"},

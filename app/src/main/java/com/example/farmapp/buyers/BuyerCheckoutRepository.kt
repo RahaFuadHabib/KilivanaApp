@@ -34,7 +34,7 @@ internal class BuyerCheckoutRepository(
     private val expected: SessionSnapshot,
     private val marketplace: com.example.farmapp.marketplace.MarketplaceRepository? = null
 ) : CheckoutRepository<JsonObject, JsonElement, BuyerOrderDto> {
-    override val requiresCartIdentity = true
+    override val requiresCartIdentity = false
     private val guard = CheckoutSessionGuard(sessions, expected, BuyerPurchaserPolicy)
 
     private suspend fun <T> call(

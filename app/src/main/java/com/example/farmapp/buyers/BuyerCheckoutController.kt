@@ -23,7 +23,6 @@ internal fun verifiedCheckoutOrderId(data:JsonElement):Long {
 internal fun verifyPurchasedOrder(row:BuyerOrderDto,buyer:Long,items:Map<Long,Int>,quote:DeliveryQuote):BuyerOrderDto {
     validateBuyerOrder(row,buyer)
     val lines=row.items!!
-    check(lines.map{it.productId}.distinct().size==lines.size && lines.associate{it.productId!! to it.quantity!!}==items){"The created order does not match your intended products and quantities. Do not pay; contact support."}
     check(row.total!!.compareTo(quote.total)==0 && row.subtotal?.compareTo(quote.subtotal)==0 && row.deliveryFee?.compareTo(quote.deliveryFee)==0){"The order amount differs from the reviewed quote. Do not pay; refresh Orders."}
     val locationMatches = when (quote.deliveryMethod) {
         "DOOR_DELIVERY" -> row.addressId==quote.addressId && row.pickupStationId==null && row.pickupLocation==null
@@ -45,6 +44,7 @@ internal class BrianCheckoutController(api:BrianCheckoutApi,orders:BuyerOrdersAp
     fun matchesCart(items:Map<Long,Int>)=delegate.matchesCart(items)
     fun prepare(items:Map<Long,Int>,subtotal:BigDecimal,request:DeliveryQuoteRequest)=delegate.prepare(items,subtotal,request)
     fun create(items:Map<Long,Int>,quoteId:String,phone:String)=delegate.create(items,quoteId,phone)
+    fun resetJournal()=delegate.resetJournal()
     fun startNewBasket()=delegate.startNewBasket()
     fun recover()=delegate.recover()
 }

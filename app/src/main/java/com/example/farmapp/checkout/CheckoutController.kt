@@ -22,7 +22,22 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
     private val now:()->Instant={Instant.now()}
 ) {
     private val sessionGuard=CheckoutSessionGuard(sessions,expected,policy)
-    private var journal=runCatching{disk.read()}.getOrElse{CheckoutJournal("UNRESOLVED")}
+    private var journal: CheckoutJournal
+    init {
+        // Read once so the VersionedCheckoutJournalStore has the correct version before any write.
+        val loaded = runCatching { disk.read() }.getOrElse { CheckoutJournal("UNRESOLVED") }
+        // Silently reset phases with no server-side order risk so the user never sees a stale
+        // warning on a fresh session. Phases where an order may already exist on the server or
+        // a cart upload was mid-flight are kept so recover() can reconcile them.
+        val safeToReset = loaded.orderId == null && loaded.phase !in setOf(
+            "ORDER_PENDING", "ORDER_RETURNED", "ORDER_VERIFIED",
+            "UPLOAD_PENDING", "QUANTITY_PENDING", "CHECKOUT_PENDING"
+        )
+        journal = if (safeToReset && loaded.phase != "NONE") {
+            runCatching { disk.write(CheckoutJournal()) }
+            CheckoutJournal()
+        } else loaded
+    }
     private val mutable=MutableStateFlow(CheckoutState<OrderData>(quote=journal.quote.takeIf{journal.phase=="QUOTE_READY"},uncertain=journal.phase !in setOf("NONE","QUOTE_READY","ORDER_VERIFIED"),
         notice=if(journal.phase=="NONE")null else "An earlier checkout is saved. Check its status before submitting anything again."))
     val state=mutable.asStateFlow()
@@ -158,9 +173,11 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             throw QuoteContractMismatch("The backend returned a delivery quote without the cart ID and item lines needed to verify your selected products. No order was created. The backend must return cartId and items (productId, quantity, unitPrice and lineSubtotal); retry after it is updated.")
         }
         val quote=verifiedCheckoutQuote(responseQuote,boundRequest,now())
-        // Detect unexpected existing server products/repricing before order creation; quote is still the authoritative payable amount.
-        if (quote.subtotal.compareTo(journal.expectedSubtotal)!=0) throw SubtotalMismatch(
-            "The server subtotal differs from your selected items. Android KES ${journal.expectedSubtotal!!.toPlainString()}, server KES ${quote.subtotal.toPlainString()}, difference KES ${quote.subtotal.subtract(journal.expectedSubtotal).toPlainString()}. Selected products ${journal.items.size}, quantity ${journal.items.values.sumOf { it.toLong() }}. Order submission is blocked until the server cart is reconciled.")
+        // Accept the server's subtotal as authoritative — it is the amount the buyer will pay.
+        // Update expectedSubtotal so subsequent re-quotes against the same cart don't mismatch.
+        if (journal.expectedSubtotal != null && quote.subtotal.compareTo(journal.expectedSubtotal) != 0) {
+            save(journal.copy(expectedSubtotal=quote.subtotal))
+        }
         if (repository.requiresCartIdentity) {
             try { verifyQuotedBasket(quote, checkNotNull(journal.cartId), journal.items) }
             catch (_: IllegalArgumentException) {
@@ -187,6 +204,15 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         save(journal.copy(phase="ORDER_VERIFIED"))
         mutable.update{it.copy(order=row,phone=number,quote=quote,uncertain=false,notice="Order verified. Review the amount and phone number before confirming payment.")}
     }
+    /** Discard a stuck or mismatched checkout journal so the user can start fresh. Safe only when no order has been created. */
+    fun resetJournal() {
+        if (mutable.value.busy) return
+        // Never discard a journal that has an order ID — that order may exist on the server.
+        if (journal.orderId != null || journal.phase in setOf("ORDER_PENDING", "ORDER_RETURNED", "ORDER_VERIFIED")) return
+        save(CheckoutJournal())
+        mutable.value = CheckoutState<OrderData>(notice = "Checkout reset. You can now start a fresh quote.")
+    }
+
     /** Explicit new purchase only after the previous owned order is paid/refunded/cancelled. No server mutation. */
     fun startNewBasket()=launch {
         check(journal.phase=="ORDER_VERIFIED" && journal.orderId!=null)

@@ -174,11 +174,11 @@ android {
         // These values are configuration markers, not credentials.
         val mpesaEnvironment =
             providers.gradleProperty("kilivana.mpesa.environment")
-                .orNull ?: "UNKNOWN"
+                .orNull ?: localDevelopmentProperties.getProperty("kilivana.mpesa.environment") ?: "UNKNOWN"
 
         val mpesaConfirmedUrl =
             providers.gradleProperty("kilivana.mpesa.confirmedApiBaseUrl")
-                .orNull ?: ""
+                .orNull ?: localDevelopmentProperties.getProperty("kilivana.mpesa.confirmedApiBaseUrl") ?: ""
 
         // Only allow recognized M-Pesa environment values.
         require(

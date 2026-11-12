@@ -46,8 +46,9 @@ internal object BuyerPaymentContract : PurchaserPaymentContract<BuyerOrderDto, P
         check(payment.id != null && payment.id > 0 && payment.orderId == orderId)
     }
     override fun validateStatus(latest: PaymentDto, listed: PaymentDto, orderId: Long): PaymentDto {
-        check(latest.id == listed.id && latest.orderId == orderId && latest.amount != null && latest.amount.signum() >= 0 && latest.status in paymentStatuses)
-        return latest
+        val normalized = latest.copy(status = latest.status?.lowercase())
+        check(normalized.id == listed.id && normalized.orderId == orderId && normalized.amount != null && normalized.amount.signum() >= 0 && normalized.status in paymentStatuses)
+        return normalized
     }
     override fun pendingInitiation(response: BuyerStkResponse, orderId: Long, order: BuyerOrderDto): PaymentDto {
         check(response.orderId == orderId && response.paymentId != null && response.paymentId > 0 &&

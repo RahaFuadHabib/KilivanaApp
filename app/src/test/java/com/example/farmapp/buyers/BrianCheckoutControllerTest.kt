@@ -51,8 +51,15 @@ class BrianCheckoutControllerTest {
             updates++;assertEquals(10,cartId);assertEquals(7,productId);assertEquals(3,quantity)
             return Response.success(CanonicalApiResponse(true,data=metadata()))
         }
+        override suspend fun remove(cartId:Long,productId:Long,session:SessionSnapshot):Response<CanonicalApiResponse<Unit>> {
+            assertEquals(10,cartId);assertEquals(7,productId)
+            return Response.success(CanonicalApiResponse(true))
+        }
         override suspend fun checkout(session:SessionSnapshot):Response<CanonicalApiResponse<Unit>> {
             starts++;processing=true;return Response.success(CanonicalApiResponse(true))
+        }
+        override suspend fun checkoutCart(cartId:Long,session:SessionSnapshot):Response<CanonicalApiResponse<Unit>> {
+            assertEquals(10,cartId);starts++;processing=true;return Response.success(CanonicalApiResponse(true))
         }
         override suspend fun quote(request:DeliveryQuoteRequest,session:SessionSnapshot):Response<CanonicalApiResponse<DeliveryQuote>> {
             quotes++;assertEquals(DeliveryQuoteRequest("DOOR_DELIVERY",8),request)
@@ -376,6 +383,66 @@ class BrianCheckoutControllerTest {
         resumed.prepare(mapOf(7L to 3),BigDecimal("3.21"),DeliveryQuoteRequest("DOOR_DELIVERY",8))
         assertEquals(10L,resumed.state.value.quote?.cartId)
         assertEquals(0,api.starts);assertEquals(0,api.adds)
+    }
+    @Test fun resetJournalClearsSafePreOrderCheckoutWithoutServerCalls()=scenario {
+        disk.value=CheckoutJournal("QUOTE_READY",mapOf(7L to 3),BigDecimal("3.21"),10,
+            api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8))
+        val saved=disk.value
+        val restarted=controller()
+        restarted.resetJournal()
+        assertEquals(CheckoutJournal(),disk.value)
+        assertNotEquals(saved,disk.value)
+        assertEquals(0,api.adds);assertEquals(0,api.creates);assertEquals(0,api.quotes)
+        assertFalse(restarted.state.value.busy)
+    }
+    @Test fun resetJournalNeverDiscardsAnOrderThatMayExistOnTheServer()=scenario {
+        disk.value=CheckoutJournal("ORDER_RETURNED",mapOf(7L to 3),BigDecimal("3.21"),10,
+            api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8),105L)
+        val saved=disk.value
+        val restarted=controller()
+        restarted.resetJournal()
+        assertEquals(saved,disk.value)
+        assertFalse(restarted.state.value.busy)
+    }
+    @Test fun recoverClearsCheckoutJournalForFinishedOwnedOrderSoNewBasketCanStart()=scenario {
+        prepare();create()
+        for(status in listOf("held","paid","settled","refunded")) {
+            order=order.copy(paymentStatus=status)
+            val restarted=controller()
+            restarted.recover()
+            assertEquals("NONE",disk.value.phase);assertNull(restarted.state.value.order)
+            assertFalse(restarted.state.value.uncertain)
+            assertEquals(1,api.creates)
+        }
+        order=order.copy(status="cancelled");val restarted=controller();restarted.recover()
+        assertEquals("NONE",disk.value.phase);assertNull(restarted.state.value.order)
+    }
+    @Test fun recoverKeepsUnfinishedOwnedOrderAndDoesNotClearJournal()=scenario {
+        prepare();create()
+        val restarted=controller();restarted.recover()
+        assertEquals(order,restarted.state.value.order);assertEquals("ORDER_VERIFIED",disk.value.phase)
+        assertEquals(1,api.creates)
+    }
+    @Test fun persistedOwnedOrderJournalTriggersRecoveryOnConstructionAndClearsWhenFinished()=scenario {
+        disk.value=CheckoutJournal("ORDER_RETURNED",mapOf(7L to 3),BigDecimal("3.21"),10,
+            api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8),105L)
+        order=order.copy(paymentStatus="held")
+        val restarted=controller()
+        assertTrue(restarted.state.value.needsRecovery)
+        restarted.recover()
+        assertEquals("NONE",disk.value.phase);assertNull(restarted.state.value.order)
+        assertFalse(restarted.state.value.needsRecovery)
+        assertEquals(0,api.creates)
+    }
+    @Test fun persistedOwnedOrderJournalKeepsUnfinishedOrderAfterRecovery()=scenario {
+        disk.value=CheckoutJournal("ORDER_RETURNED",mapOf(7L to 3),BigDecimal("3.21"),10,
+            api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8),105L)
+        val restarted=controller()
+        assertTrue(restarted.state.value.needsRecovery)
+        restarted.recover()
+        assertEquals(order,restarted.state.value.order);assertEquals("ORDER_VERIFIED",disk.value.phase)
+        assertFalse(restarted.state.value.needsRecovery)
+        assertEquals(0,api.creates)
     }
 
 }

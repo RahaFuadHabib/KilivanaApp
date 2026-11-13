@@ -39,6 +39,7 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         } else loaded
     }
     private val mutable=MutableStateFlow(CheckoutState<OrderData>(quote=journal.quote.takeIf{journal.phase=="QUOTE_READY"},uncertain=journal.phase !in setOf("NONE","QUOTE_READY","ORDER_VERIFIED"),
+        needsRecovery=journal.orderId!=null,
         notice=if(journal.phase=="NONE")null else "An earlier checkout is saved. Check its status before submitting anything again."))
     val state=mutable.asStateFlow()
     fun matchesCart(items:Map<Long,Int>)=journal.items==items
@@ -226,8 +227,17 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         if(journal.orderId!=null){
             val row=data(performRequest(CheckoutOperation.READ_ORDERS){repository.readOrder(journal.orderId!!)},"Recover order")
             contract.verifyOrder(row,current().auth!!.userId.toLong(),journal.items,checkNotNull(journal.quote))
-            check(contract.orderId(row)==journal.orderId);save(journal.copy(phase="ORDER_VERIFIED"))
-            mutable.update{it.copy(order=row,uncertain=false,notice="Existing order recovered. No new order or payment was submitted.")}
+            check(contract.orderId(row)==journal.orderId)
+            if(contract.isFinished(row)){
+                // Owned order is settled (paid/refunded/cancelled). It remains visible in Orders;
+                // clear the checkout journal so a new basket can start instead of re-publishing
+                // the paid order and re-hitting the "earlier checkout is unresolved" guard.
+                save(CheckoutJournal())
+                mutable.update{it.copy(order=null,uncertain=false,needsRecovery=false,notice="Previous checkout resolved. You can start a new checkout.")}
+                return@launch
+            }
+            save(journal.copy(phase="ORDER_VERIFIED"))
+            mutable.update{it.copy(order=row,uncertain=false,needsRecovery=false,notice="Existing order recovered. No new order or payment was submitted.")}
         }else if(journal.phase=="CHECKOUT_ACKNOWLEDGED" && journal.request!=null && journal.items.isNotEmpty() && journal.expectedSubtotal!=null){
             // The acknowledged transition is durable. ACTIVE cart GET is not its status lookup.
             refreshQuote(journal.request!!)

@@ -76,6 +76,21 @@ class FarmerPurchaseControllerTest {
         assertTrue(f.requests.all { it.method == "GET" })
         assertTrue(f.requests.none { it.url.encodedPath.contains("orders/seller") || it.url.encodedPath.contains("stk-push") })
     }
+    @Test fun confirmedPurchaseClearsOnlyUnchangedPurchasedLocalCartLines() {
+        val f = FarmerPurchaseFixture()
+        f.basketValues = mapOf(7L to 3, 8L to 2)
+        f.basketLabels = mapOf(7L to "Synthetic seed", 8L to "Other product")
+        val controller = f.controller()
+        controller.clearPurchasedItems(mapOf(7L to 3))
+        assertEquals(mapOf(8L to 2), f.basketValues)
+        assertEquals(mapOf(8L to "Other product"), f.basketLabels)
+        assertEquals(mapOf(8L to 2), controller.state.value.items)
+
+        f.basketValues = mapOf(7L to 4)
+        val changed = f.controller()
+        changed.clearPurchasedItems(mapOf(7L to 3))
+        assertEquals(mapOf(7L to 4), f.basketValues)
+    }
     @Test fun staleReadCannotPublishHistoryOrModifyLocalBasket() = runBlocking {
         val f = FarmerPurchaseFixture(); val c = f.controller(); f.hook = f::stale
         c.history(); f.idle(c); assertTrue(c.state.value.orders.isEmpty())

@@ -29,6 +29,7 @@ internal class FarmerPurchaseFixture {
     var status = 200
     var handler: (Request) -> String = { request -> when (request.url.encodedPath.removePrefix("/api/v1/")) {
         "products/7" -> productJson
+        "orders/seller/42" -> """{"success":true,"data":[{"id":105,"status":"CONFIRMED","total":376.50,"createdAt":"2026-11-12T10:00:00","itemCount":2}]}"""
         "orders/buyer/42" -> """{"success":true,"data":[$orderJson]}"""
         "orders/105" -> """{"success":true,"data":$orderJson}"""
         "users/addresses" -> """{"success":true,"data":[{"id":8,"userId":42,"addressText":"Synthetic farm","latitude":-1.2,"longitude":36.8}]}"""
@@ -36,6 +37,7 @@ internal class FarmerPurchaseFixture {
         "pickup-stations/available" -> """{"success":true,"data":[$stationJson]}"""
         "pickup-stations/3" -> """{"success":true,"data":$stationJson}"""
         "pickup-stations/my-stations" -> """{"success":true,"data":[{"id":91,"userId":42,"pickupStationId":3,"pickupStationAvailable":true,"isDefault":true}]}"""
+        "payments/stk-push/buyer" -> """{"success":true,"data":{"paymentId":1001,"orderId":105,"amount":426.50,"status":"pending"}}"""
         "payments/order/105" -> """{"success":true,"data":[]}"""
         "logistics/jobs/order/105" -> """{"success":true,"data":[{"id":10,"orderId":105,"driverId":9,"status":"assigned"}]}"""
         "logistics/jobs/10/tracking" -> """{"success":true,"data":[{"id":1,"logisticsJobId":10,"status":"assigned"}]}"""

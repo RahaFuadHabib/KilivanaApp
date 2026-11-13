@@ -107,9 +107,9 @@ internal data class PurchaseOrderSnapshot(
 )
 
 /** Not persisted. A compatibility alias keeps the existing Buyer state fields and callbacks. */
-internal data class CheckoutState<OrderData>(
-    val busy: Boolean = false, val quote: CheckoutQuote? = null, val order: OrderData? = null,
-    val notice: String? = null, val uncertain: Boolean = false, val phone: String = ""
-) {
-    override fun toString() = "CheckoutState(redacted)"
-}
+    internal data class CheckoutState<OrderData>(
+        val busy: Boolean = false, val quote: CheckoutQuote? = null, val order: OrderData? = null,
+        val notice: String? = null, val uncertain: Boolean = false, val needsRecovery: Boolean = false, val phone: String = ""
+    ) {
+        override fun toString() = "CheckoutState(redacted)"
+    }

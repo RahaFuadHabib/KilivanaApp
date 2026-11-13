@@ -68,8 +68,23 @@ import kotlinx.coroutines.flow.first
         if(route=="pickup")model.pickups.refresh()
         BrianUiPresence.enter(when{route=="home"->BrianScreen.HOME;route.startsWith("products")->BrianScreen.PRODUCTS;route.startsWith("product/")->BrianScreen.PRODUCT;route=="cart"->BrianScreen.CART;route=="search"->BrianScreen.SEARCH;route=="savedItems"->BrianScreen.SAVED;route=="orders"->BrianScreen.ORDERS;route.startsWith("order/")->BrianScreen.ORDER;route.startsWith("payment/")->BrianScreen.PAYMENT;route=="addresses"->BrianScreen.ADDRESSES;route=="checkout"->BrianScreen.CHECKOUT;route=="pickup"->BrianScreen.PICKUP;route=="profile"->BrianScreen.PROFILE;else->BrianScreen.ACCOUNT})
     }
+    LaunchedEffect(route, checkoutState.uncertain, checkoutState.needsRecovery){
+        if(route=="checkout" && (checkoutState.uncertain || checkoutState.needsRecovery) && !checkoutState.busy) checkoutModel.controller.recover()
+    }
     DisposableEffect(session.generation){onDispose{BrianUiPresence.leave()}}
-    LaunchedEffect(checkoutState.order?.id){checkoutState.order?.id?.let{ordersModel.refresh();go("payment/$it")}}
+    LaunchedEffect(checkoutState.order?.id, checkoutState.justCreated){
+        if(checkoutState.justCreated && checkoutState.order!=null && !checkoutState.busy){
+            checkoutModel.controller.consumeJustCreated()
+            model.shopping.clearCart()
+            ordersModel.refresh();go("payment/${checkoutState.order!!.id}")
+        }
+    }
+    var previousOrderId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(checkoutState.order?.id){
+        if(previousOrderId!=null && checkoutState.order==null && !checkoutState.busy)
+            model.shopping.clearCart()
+        previousOrderId=checkoutState.order?.id
+    }
     LaunchedEffect(state.notice){state.notice?.let{snackbar.showSnackbar(it);model.shopping.dismissNotice()}}
     KilivanabuyerTheme {
         Scaffold(modifier.fillMaxSize().testTag("brian-buyer-app"),containerColor=NeutralBackground,snackbarHost={SnackbarHost(snackbar)},bottomBar={
@@ -119,6 +134,7 @@ import kotlinx.coroutines.flow.first
                     val quote=checkoutState.quote?.takeIf{checkoutModel.controller.matchesCart(state.selection.cart) && it.deliveryMethod==deliveryMethod && if(deliveryMethod=="DOOR_DELIVERY")it.addressId==addresses.selectedId else if(pickupChoice==com.example.farmapp.buyers.ui.screens.PickupChoice.STATION)it.pickupStationId==pickupStationId else it.pickupLocation==pickupText.trim().takeIf{it.isNotBlank()}}
                     fun requestPreparation(addressId:Long?=addresses.selectedId) {
                         deliverySelectionError=null
+                        if(checkoutState.uncertain){checkoutModel.controller.recover();return}
                         if(state.selection.cart.isEmpty() || buyerCartSubtotal(state)==null || items.size!=state.selection.cart.size)return
                         if(deliveryMethod=="DOOR_DELIVERY") {
                             if(addresses.busy || addresses.error!=null || addresses.rows.none{it.id==addressId})return
@@ -133,9 +149,11 @@ import kotlinx.coroutines.flow.first
                     }
                     Column {
                         TextButton(onClick=checkoutModel.controller::recover,enabled=!checkoutState.busy){Text("Check checkout status")}
+                        if(checkoutState.uncertain && !checkoutState.busy && checkoutState.order==null)
+                            TextButton(onClick=checkoutModel.controller::resetJournal){Text("Reset checkout")}
                         if(checkoutState.order!=null) {
                             Text("Your order has been created and verified.",Modifier.padding(16.dp))
-                            Button(onClick={go("payment/${checkoutState.order!!.id}")}){Text("Continue to payment review")}
+                            Button(onClick={go("payment/${checkoutState.order!!.id}")},enabled=!checkoutState.busy,modifier=Modifier.fillMaxWidth()){Text("Continue to payment review")}
                             TextButton(onClick={go("orders")}){Text("View orders")}
                             TextButton(onClick=checkoutModel.controller::startNewBasket,enabled=!checkoutState.busy){Text("Start another checkout after this order is finished")}
                             checkoutState.notice?.let{Text(it,Modifier.padding(16.dp))}
@@ -178,7 +196,7 @@ import kotlinx.coroutines.flow.first
                         AlertDialog(onDismissRequest={confirmOrder=null},title={Text("Create this order?")},
                             text={Text("Server-confirmed total: ${com.example.farmapp.buyers.model.formatKes(quote?.total)}. M-Pesa number: ${runCatching{buyerMpesaPhone(phone)}.getOrDefault("")}. Payment will require a separate confirmation after the order is verified.")},
                             confirmButton={TextButton(onClick={confirmOrder=null;checkoutModel.controller.create(model.shopping.state.value.selection.cart.toMap(),id,phone)}){Text("Confirm order")}},
-                            dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
+dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     }
                 }
                 composable("pickup"){

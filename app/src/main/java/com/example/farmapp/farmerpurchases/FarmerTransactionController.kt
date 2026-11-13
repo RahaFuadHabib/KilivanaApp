@@ -12,12 +12,12 @@ import retrofit2.http.*
 import java.time.Instant
 import java.util.UUID
 
-internal data class FarmerPreparedCart(val id: Long, val buyerId: Long, val status: String,
-    val items: List<FarmerPreparedItem> = emptyList())
-internal data class FarmerPreparedItem(val productId: Long, val quantity: Int)
+internal data class FarmerPreparedCart(val id: Long, val buyerId: Long, val status: String)
 internal data class FarmerQuoteRequest(val deliveryMethod: String, val addressId: Long?, val pickupLocation: String?,
-    val pickupStationId: Long?, val cartId: Long? = null)
-internal data class FarmerQuoteOrder(val quoteId: String)
+    val pickupStationId: Long?)
+internal data class FarmerQuoteOrder(val quoteId: String, val phoneNumber: String?) {
+    override fun toString() = "FarmerQuoteOrder(redacted)"
+}
 internal data class FarmerIntentRequest(val orderId: Long, val phoneNumber: String, val requestId: String) {
     override fun toString() = "FarmerIntentRequest(redacted)"
 }
@@ -31,7 +31,8 @@ internal interface FarmerTransactionApi {
 internal data class FarmerTransactionRecord(val key: String,
     @field:com.google.gson.annotations.JsonAdapter(JournalProductMapAdapter::class) val items: Map<Long, Int>, val delivery: CheckoutQuoteRequest,
     val phase: String = "PREPARING", val quote: CheckoutQuote? = null, val orderId: Long? = null,
-    val paymentKey: String? = null, val paymentId: Long? = null, val quoteRequestId: String? = null, val cartId: Long? = null)
+    val paymentKey: String? = null, val paymentId: Long? = null, val quoteRequestId: String? = null, val cartId: Long? = null,
+    val phoneNumber: String? = null)
 internal interface FarmerTransactionStore {
     fun read(): FarmerTransactionRecord?
     fun write(record: FarmerTransactionRecord)
@@ -67,6 +68,17 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         try { current() } catch (e: Exception) { response.errorBody()?.close(); throw e }
         return response.requirePurchaseData()
     }
+    private fun verifiedQuote(quote: CheckoutQuote, cartId: Long, items: Map<Long, Int>,
+        delivery: CheckoutQuoteRequest): CheckoutQuote {
+        try { verifiedCheckoutQuote(quote, delivery, now()) }
+        catch (_: Exception) { throw ClientValidation("The delivery quote did not match the selected delivery details, totals, or expiry.") }
+        val hasCartId = quote.cartId != null
+        val hasItems = quote.items != null
+        if (hasCartId != hasItems) throw ClientValidation("The delivery quote returned partial cart evidence; it must return both cartId and priced item lines, or neither.")
+        if (hasCartId) try { verifyQuotedBasket(quote, cartId, items) }
+        catch (_: Exception) { throw ClientValidation("The quoted cart or priced item lines did not match the saved basket. No purchase order was created.") }
+        return quote
+    }
     private fun run(action: suspend () -> Unit) {
         if (state.value.busy) return
         mutable.update { it.copy(busy = true, notice = null) }
@@ -75,8 +87,14 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
             catch (e: CancellationException) { throw e }
             catch (failure: Exception) {
                 reportFailure(failure)
-                mutable.update { it.copy(notice = if (failure is ClientValidation) failure.message else
-                    "Checkout is pending or could not be verified. Refresh to reconcile the saved request before trying again.") }
+                val saved = state.value.record
+                val notice = when {
+                    failure is ClientValidation -> failure.message
+                    saved?.phase == "ORDER_CREATED" && saved.orderId != null ->
+                        "Purchase order #${saved.orderId} was created, but its details could not be verified. No payment prompt was sent; contact support before proceeding."
+                    else -> "Checkout is pending or could not be verified. Refresh to reconcile the saved request before trying again."
+                }
+                mutable.update { it.copy(notice = notice) }
             }
             finally { mutable.update { it.copy(busy = false) } }
         }
@@ -92,7 +110,6 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         val cartId = if (record.cartId == null) {
             val cart = request { api.prepare(it) }
             check(cart.id > 0 && cart.buyerId == expected.auth!!.userId.toLong() && cart.status == "ACTIVE")
-            check(cart.items.map { it.productId }.distinct().size == cart.items.size && cart.items.associate { it.productId to it.quantity } == record.items)
             save(record.copy(cartId = cart.id, phase = "START_PENDING"))
             val response = api.start(cart.id, current())
             current()
@@ -102,17 +119,18 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         } else record.cartId
         val selection = record.delivery
         val quote = request { api.quote(FarmerQuoteRequest(selection.deliveryMethod, selection.addressId,
-            selection.pickupLocation, selection.pickupStationId, cartId), it) }
-        verifiedCheckoutQuote(quote, selection.copy(cartId = cartId), now())
-        verifyQuotedBasket(quote, cartId, record.items)
-        save(state.value.record!!.copy(phase = "QUOTE_READY", quote = quote))
+            selection.pickupLocation, selection.pickupStationId), it) }
+        val verified = verifiedQuote(quote, cartId, record.items, selection)
+        save(state.value.record!!.copy(phase = "QUOTE_READY", quote = verified))
     }
-    fun submitOrder() = run {
+    fun submitOrder(phoneInput: String) = run {
         val record = state.value.record!!
         check(record.phase == "QUOTE_READY")
-        try { verifiedCheckoutQuote(record.quote!!, record.delivery, now()) }
-        catch (_: Exception) { throw ClientValidation("This quote is no longer valid. Request a new quote and review it.") }
-        save(record.copy(phase = "ORDER_PENDING"))
+        val phone = try { mpesaPhone(phoneInput) }
+        catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number before creating the order.") }
+        verifiedQuote(record.quote!!, record.cartId ?: throw ClientValidation("The saved cart ID is unavailable. Reconcile checkout before continuing."),
+            record.items, record.delivery)
+        save(record.copy(phase = "ORDER_PENDING", phoneNumber = phone))
         recoverOrder()
     }
     fun refreshQuote() = run {
@@ -123,16 +141,30 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     private suspend fun recoverOrder() {
         val record = state.value.record!!
-        val id = request { api.order(FarmerQuoteOrder(record.quote!!.quoteId), it) }
+        val id = request { api.order(FarmerQuoteOrder(record.quote!!.quoteId, record.phoneNumber), it) }
         check(id > 0)
         save(record.copy(phase = "ORDER_CREATED", orderId = id))
         readOrder()
     }
     private suspend fun readOrder(): BuyerOrderDto {
         val record = state.value.record!!
-        val order = request { orders.order(record.orderId!!, it) }
-        validateFarmerPurchaseOrder(order, expected.auth!!.userId.toLong())
-        FarmerCheckoutContract.verifyOrder(order, expected.auth.userId.toLong(), record.items, record.quote!!)
+        val orderId = record.orderId!!
+        val purchaserId = expected.auth!!.userId.toLong()
+        val order = try { request { orders.order(orderId, it) } }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) {
+            throw ClientValidation("Purchase order #$orderId was created, but its details could not be loaded. Refresh order details; no payment prompt was sent.")
+        }
+        if (order.id != orderId || order.buyerId != purchaserId)
+            throw ClientValidation("Purchase order #$orderId was created, but its identity or owner could not be verified. No payment prompt was sent.")
+        try { validateFarmerPurchaseOrder(order, purchaserId) }
+        catch (_: Exception) {
+            throw ClientValidation("Purchase order #$orderId was created, but its amounts, delivery details, or ownership could not be verified. No payment prompt was sent.")
+        }
+        try { FarmerCheckoutContract.verifyOrder(order, purchaserId, record.items, record.quote!!) }
+        catch (_: Exception) {
+            throw ClientValidation("Purchase order #$orderId was created, but its details did not match the reviewed quote. No payment prompt was sent.")
+        }
         mutable.update { it.copy(order = order) }
         return order
     }

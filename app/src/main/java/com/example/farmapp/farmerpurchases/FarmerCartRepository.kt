@@ -61,9 +61,10 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
         val before = read()
         val result = metadata(write { requests.call(CheckoutOperation.SET_QUANTITY, { api.quantity(before.id!!, productId, quantity, it) }) })
         check(result.id == before.id)
-        val after = readBasket()
-        check(after.first == before.id && after.second[productId] == quantity)
-        return after.first
+        val after = read()
+        check(after.id == before.id)
+        journal.pending(false)
+        return after.id!!
     }
     fun hasPendingWrite() = journal.pending()
     private suspend fun <T> write(action: suspend () -> Response<CanonicalApiResponse<T>>): T {
@@ -77,10 +78,26 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
         require(productId > 0 && quantity > 0)
         check(!journal.pending()) { "A previous cart write is unresolved. Refresh and ask support to verify the server cart." }
         val before = read()
-        val result = metadata(write { requests.call(CheckoutOperation.UPLOAD_CART, { api.add(CartUpload(productId, quantity), it) }) })
-        check(result.id == before.id) { "The server cart changed during the request. Verify its contents before continuing." }
+        journal.pending(true)
+        val response = requests.call(CheckoutOperation.UPLOAD_CART, { api.add(CartUpload(productId, quantity), it) })
+        val duplicate = response.code() == 409 && runCatching {
+            response.errorBody()?.use { body ->
+                val json = com.google.gson.JsonParser.parseString(body.string()).asJsonObject
+                json.get("message")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString == "Product already in cart"
+            } == true
+        }.getOrDefault(false)
+        if (!response.isSuccessful && !duplicate) {
+            if (response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
+            accepted(response)
+        }
+        val added = if (duplicate) before else metadata(accepted(response))
+        check(added.id == before.id) { "The server cart changed during the request. Verify its contents before continuing." }
+        val exact = metadata(requests.call(CheckoutOperation.SET_QUANTITY, {
+            api.quantity(before.id!!, productId, quantity, it)
+        }).let(::accepted))
+        check(exact.id == before.id) { "The server cart changed during the request. Verify its contents before continuing." }
         val after = read()
-        check(after.id == result.id)
+        check(after.id == before.id)
         journal.pending(false)
         return after.id!!
     }

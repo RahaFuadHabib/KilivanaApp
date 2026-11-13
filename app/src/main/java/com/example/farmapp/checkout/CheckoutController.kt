@@ -203,7 +203,7 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         check(contract.orderId(row)==id)
         check(contract.isPayable(row)){"The returned order is not payable."}
         save(journal.copy(phase="ORDER_VERIFIED"))
-        mutable.update{it.copy(order=row,phone=number,quote=quote,uncertain=false,notice="Order verified. Review the amount and phone number before confirming payment.")}
+        mutable.update{it.copy(order=row,phone=number,quote=quote,uncertain=false,justCreated=true,notice="Order verified. Review the amount and phone number before confirming payment.")}
     }
     /** Discard a stuck or mismatched checkout journal so the user can start fresh. Safe only when no order has been created. */
     fun resetJournal() {
@@ -213,6 +213,8 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         save(CheckoutJournal())
         mutable.value = CheckoutState<OrderData>(notice = "Checkout reset. You can now start a fresh quote.")
     }
+    /** One-shot flag consumed by the UI to navigate to a freshly created order. Recovered orders never trigger it. */
+    fun consumeJustCreated() { mutable.update { it.copy(justCreated = false) } }
 
     /** Explicit new purchase only after the previous owned order is paid/refunded/cancelled. No server mutation. */
     fun startNewBasket()=launch {
@@ -228,16 +230,17 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             val row=data(performRequest(CheckoutOperation.READ_ORDERS){repository.readOrder(journal.orderId!!)},"Recover order")
             contract.verifyOrder(row,current().auth!!.userId.toLong(),journal.items,checkNotNull(journal.quote))
             check(contract.orderId(row)==journal.orderId)
-            if(contract.isFinished(row)){
-                // Owned order is settled (paid/refunded/cancelled). It remains visible in Orders;
-                // clear the checkout journal so a new basket can start instead of re-publishing
-                // the paid order and re-hitting the "earlier checkout is unresolved" guard.
+            if(contract.isFinished(row) || contract.isAwaitingPayment(row)){
+                // Owned order is settled or has an outstanding payment attempt awaiting admin
+                // confirmation. It remains visible in Orders; clear the checkout journal so a
+                // new basket can start instead of re-hitting the "earlier checkout is unresolved"
+                // guard. A pending payment is the buyer's responsibility, not a cancellation.
                 save(CheckoutJournal())
-                mutable.update{it.copy(order=null,uncertain=false,needsRecovery=false,notice="Previous checkout resolved. You can start a new checkout.")}
+                mutable.update{it.copy(order=null,uncertain=false,needsRecovery=false,justCreated=false,notice="Your order and payment are in progress. It stays visible in Orders while the admin confirms payment.")}
                 return@launch
             }
             save(journal.copy(phase="ORDER_VERIFIED"))
-            mutable.update{it.copy(order=row,uncertain=false,needsRecovery=false,notice="Existing order recovered. No new order or payment was submitted.")}
+            mutable.update{it.copy(order=row,uncertain=false,needsRecovery=false,justCreated=false,notice="Existing order recovered. No new order or payment was submitted.")}
         }else if(journal.phase=="CHECKOUT_ACKNOWLEDGED" && journal.request!=null && journal.items.isNotEmpty() && journal.expectedSubtotal!=null){
             // The acknowledged transition is durable. ACTIVE cart GET is not its status lookup.
             refreshQuote(journal.request!!)

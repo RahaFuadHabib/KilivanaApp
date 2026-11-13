@@ -75,12 +75,13 @@ class BrianCheckoutControllerTest {
     private class Fixture {
         val scope=CoroutineScope(SupervisorJob()+Dispatchers.Unconfined)
         val sessions=signedInStore(supplierAuth().copy(role="BUYER"));val api=Api();val disk=Disk()
-        var now=Instant.parse("2026-10-29T12:00:00Z");var orderReads=0;var paymentWrites=0;var failOrderRead=false
+        var now=Instant.parse("2026-10-29T12:00:00Z");var orderReads=0;var paymentWrites=0;var failOrderRead=false;var cancelCount=0
         var rows=emptyList<BuyerOrderDto>()
         var order=BuyerOrderDto(105,42,"placed",BigDecimal("153.21"),"pending",items=listOf(BuyerOrderItemDto(1,7,9,"Synthetic produce","kg",3,BigDecimal("1.07"),BigDecimal("3.21"))),subtotal=BigDecimal("3.21"),deliveryFee=BigDecimal("150"),addressId=8)
         val orders=Proxy.newProxyInstance(javaClass.classLoader,arrayOf(BuyerOrdersApi::class.java)){_,m,_->when(m.name){
             "orders"->Response.success(CanonicalApiResponse(true,data=rows))
             "order"->{orderReads++;if(failOrderRead)throw java.net.SocketTimeoutException();Response.success(CanonicalApiResponse(true,data=order))}
+            "cancel"->{cancelCount++;Response.success(CanonicalApiResponse(true,data=order.copy(status="cancelled",paymentStatus="refunded")))}
             "initiateBuyerStk"->{paymentWrites++;error("Checkout must never call STK")}
             else->error("Unexpected API: ${m.name}")
         }} as BuyerOrdersApi
@@ -418,7 +419,7 @@ class BrianCheckoutControllerTest {
         assertEquals("NONE",disk.value.phase);assertNull(restarted.state.value.order)
     }
     @Test fun recoverKeepsUnfinishedOwnedOrderAndDoesNotClearJournal()=scenario {
-        prepare();create()
+        prepare();create();order=order.copy(paymentStatus="failed")
         val restarted=controller();restarted.recover()
         assertEquals(order,restarted.state.value.order);assertEquals("ORDER_VERIFIED",disk.value.phase)
         assertEquals(1,api.creates)
@@ -437,12 +438,28 @@ class BrianCheckoutControllerTest {
     @Test fun persistedOwnedOrderJournalKeepsUnfinishedOrderAfterRecovery()=scenario {
         disk.value=CheckoutJournal("ORDER_RETURNED",mapOf(7L to 3),BigDecimal("3.21"),10,
             api.quote,DeliveryQuoteRequest("DOOR_DELIVERY",8),105L)
+        order=order.copy(paymentStatus="failed")
         val restarted=controller()
         assertTrue(restarted.state.value.needsRecovery)
         restarted.recover()
         assertEquals(order,restarted.state.value.order);assertEquals("ORDER_VERIFIED",disk.value.phase)
         assertFalse(restarted.state.value.needsRecovery)
+        assertFalse(restarted.state.value.justCreated)
         assertEquals(0,api.creates)
+    }
+    @Test fun justCreatedFlagIsSetOnlyByOrderCreationAndClearedByRecovery()=scenario {
+        prepare();create();order=order.copy(paymentStatus="failed")
+        assertTrue(controller.state.value.justCreated)
+        val restarted=controller();restarted.recover()
+        assertFalse(restarted.state.value.justCreated)
+        assertEquals(order,restarted.state.value.order)
+    }
+    @Test fun recoverClearsJournalForPendingPaymentOrderSoNewBasketCanStart()=scenario {
+        prepare();create()
+        order=order.copy(paymentStatus="pending")
+        val restarted=controller();restarted.recover()
+        assertEquals("NONE",disk.value.phase);assertNull(restarted.state.value.order)
+        assertEquals(1,api.creates)
     }
 
 }

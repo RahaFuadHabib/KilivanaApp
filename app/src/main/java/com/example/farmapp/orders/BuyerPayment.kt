@@ -43,22 +43,47 @@ internal class BuyerPaymentPreferences(context: Context, origin: String, user: S
         override fun markStarted(orderId: Long) {
             check(preferences.edit().putBoolean(orderId.toString(), true).commit())
         }
+        override fun clearStarted(orderId: Long) {
+            preferences.edit().remove(orderId.toString()).apply()
+        }
     }, lock)
     override fun started(orderId: Long) = delegate.started(orderId)
     override fun reserve(orderId: Long) = delegate.reserve(orderId)
+    override fun release(orderId: Long) = delegate.release(orderId)
     companion object { private val lock = Any() }
 }
 internal typealias BuyerPaymentState = com.example.farmapp.payments.PurchaserPaymentState<PaymentDto>
-internal class BuyerPaymentController(api: BuyerOrdersApi, sessions: SessionStore,
-    expected: SessionSnapshot, attempts: BuyerPaymentAttemptStore, scope: CoroutineScope,
+internal class BuyerPaymentController(private val api: BuyerOrdersApi, sessions: SessionStore,
+    expected: SessionSnapshot, attempts: BuyerPaymentAttemptStore, private val scope: CoroutineScope,
     paymentAllowed: () -> Boolean = BuyerMpesaEnvironment::ready) {
+    private val guard = com.example.farmapp.checkout.CheckoutSessionGuard(sessions, expected, com.example.farmapp.checkout.BuyerPurchaserPolicy)
     private val delegate = com.example.farmapp.payments.PurchaserPaymentController(
         BuyerPaymentRepository(api, sessions, expected, paymentAllowed), BuyerPaymentContract,
         sessions, expected, com.example.farmapp.checkout.BuyerPurchaserPolicy, attempts, scope, paymentAllowed)
+    private val _timedOut = MutableStateFlow(false)
+    val timedOut = _timedOut.asStateFlow()
     val state = delegate.state
     fun refresh(id: Long) = delegate.refresh(id)
     fun initiate(id: Long, phoneInput: String, reviewedTotal: BigDecimal? = state.value.total) =
         delegate.initiate(id, phoneInput, reviewedTotal)
+    fun notifyTimeout() { _timedOut.value = true }
+    fun pollLatest(orderId: Long) {
+        scope.launch {
+            try {
+                val session = guard.current(com.example.farmapp.checkout.CheckoutOperation.READ_PAYMENTS)
+                val response = api.payments(orderId, session)
+                if (response.isSuccessful) {
+                    val payments = response.body()?.data ?: return@launch
+                    val latest = payments.maxByOrNull { it.id ?: 0L }?.copy(status = payments.maxByOrNull { it.id ?: 0L }?.status?.lowercase()) ?: return@launch
+                    if (latest.status !in paymentStatuses) return@launch
+                    if (state.value.orderId != orderId) return@launch
+                    val existing = state.value.payments.firstOrNull { it.id == latest.id }
+                    if (existing?.status == "pending" && latest.status in setOf("paid", "cancelled", "failed"))
+                        delegate.refresh(orderId)
+                }
+            } catch (_: Exception) { /* silent; full refresh handles recovery */ }
+        }
+    }
 }
 internal class BuyerPaymentModel(context: Context) : ViewModel() {
     private val expected = TokenManager.session.value
@@ -74,61 +99,93 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
 }
 /** The same controller is shared by list/details/payment for an order; navigation only performs reads. */
 @Composable internal fun BuyerPaymentSession(order: BuyerOrderDto,
-    content: @Composable (BuyerPaymentState, () -> Unit, (String, BigDecimal?) -> Unit) -> Unit) {
+    content: @Composable (BuyerPaymentState, Boolean, () -> Unit, (String, BigDecimal?) -> Unit) -> Unit) {
     val session by TokenManager.session.collectAsStateWithLifecycle()
     val model: BuyerPaymentModel = viewModel(key = "buyer-payment-${session.generation}-${order.id}", factory = BuyerPaymentModel.factory(LocalContext.current))
     val state by model.controller.state.collectAsStateWithLifecycle()
+    val timedOut by model.controller.timedOut.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(order.id, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             model.controller.refresh(order.id!!)
+            val deadline = System.currentTimeMillis() + 120_000L
             while (true) {
-                delay(15_000)
+                delay(3_000)
                 val latest = model.controller.state.value
-                val allSettled = latest.payments.isNotEmpty() && latest.payments.all { buyerPaymentOutcome(it.status) != "pending" }
+                val terminalStatus = latest.payments.lastOrNull()?.status
+                if (terminalStatus in setOf("paid", "cancelled", "failed")) break
                 val noPaymentPossible = !latest.canInitiate && latest.payments.isEmpty() && !latest.busy
-                if (allSettled || noPaymentPossible) break
-                model.controller.refresh(order.id!!)
+                if (noPaymentPossible) break
+                if (latest.payments.any { it.status == "pending" } && System.currentTimeMillis() > deadline) {
+                    model.controller.notifyTimeout()
+                    break
+                }
+                model.controller.pollLatest(order.id!!)
             }
         }
     }
-    content(state, { model.controller.refresh(order.id!!) }, { phone, total -> model.controller.initiate(order.id!!, phone, total) })
+    content(state, timedOut, { model.controller.refresh(order.id!!) }, { phone, total -> model.controller.initiate(order.id!!, phone, total) })
 }
 @Composable internal fun BuyerPaymentPanel(order: BuyerOrderDto, refreshOrder: () -> Unit) {
-    BuyerPaymentSession(order) { state, refresh, initiate -> BuyerPaymentControls(order, state, { refresh(); refreshOrder() }, initiate) }
+    BuyerPaymentSession(order) { state, timedOut, refresh, initiate -> BuyerPaymentControls(order, state, timedOut, { refresh(); refreshOrder() }, initiate) }
 }
-@Composable internal fun BuyerPaymentPage(order: BuyerOrderDto, state: BuyerPaymentState, back: () -> Unit,
+@Composable internal fun BuyerPaymentPage(order: BuyerOrderDto, state: BuyerPaymentState, timedOut: Boolean, back: () -> Unit,
     refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit) {
     Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.White)) {
         OrderHeader("Pay with M-Pesa", back)
         HorizontalDivider(color = androidx.compose.ui.graphics.Color(0xFFE8EBEE))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(16.dp).testTag("payment-page")) {
-            BuyerPaymentControls(order, state, refresh, initiate, startExpanded = true)
+            BuyerPaymentControls(order, state, timedOut, refresh, initiate, startExpanded = true)
         }
     }
 }
 @Composable internal fun BuyerPaymentControls(order: BuyerOrderDto, state: BuyerPaymentState,
-    refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit, startExpanded: Boolean = false) {
+    timedOut: Boolean = false, refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit, startExpanded: Boolean = false) {
     var phone by rememberSaveable(order.id) { mutableStateOf("") }
     var showPayment by rememberSaveable(order.id) { mutableStateOf(startExpanded) }
     var confirm by remember(order.id) { mutableStateOf(false) }
     var confirmTotal by remember(order.id) { mutableStateOf<BigDecimal?>(null) }
+    val latestPayment = state.payments.lastOrNull()
+    val displayStatus = latestPayment?.status ?: order.paymentStatus?.lowercase()
+    val orderPayable = order.status in setOf("placed", "confirmed") && displayStatus in setOf("pending", "failed", "cancelled")
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         OrderSection {
             Text("Order payment", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(orderMoney(state.total ?: order.total), color = OrderGreen, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            val status = state.payments.lastOrNull()?.status ?: order.paymentStatus
-            val outcome = buyerPaymentOutcome(status)
-            OrderStatusBadge(when(outcome) { "confirmed" -> if (orderPaymentConfirmed(order, state)) "Paid" else "Part payment confirmed"; "pending" -> "Payment Pending"; "failed" -> "Payment Failed"; else -> "Status unavailable" },
-                if (outcome == "confirmed") "paid" else status.orEmpty())
+            when (displayStatus) {
+                "paid" -> OrderStatusBadge("PAID", "paid")
+                "pending" -> OrderStatusBadge("PENDING", "pending")
+                "cancelled" -> OrderStatusBadge("CANCELLED", "cancelled")
+                "failed" -> OrderStatusBadge("FAILED", "failed")
+                "held" -> OrderStatusBadge("HELD", "held")
+                "settled" -> OrderStatusBadge("SETTLED", "settled")
+                "refunded" -> OrderStatusBadge("REFUNDED", "refunded")
+                else -> OrderStatusBadge("UNKNOWN", "unknown")
+            }
         }
         if (state.orderId == order.id) {
-            if (state.notice != null || state.payments.isNotEmpty() || state.busy) OrderSection("Payment Status") {
-                state.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                state.payments.forEach { Text("Payment: ${buyerPaymentOutcome(it.status)} - KSh ${it.amount?.toPlainString()}") }
+            OrderSection("Payment Status") {
+                when (displayStatus) {
+                    "paid" -> {
+                        latestPayment?.mpesaReceiptNumber?.let { Text("Receipt: $it", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) }
+                        latestPayment?.amount?.let { Text("Amount: ${orderMoney(it)}", style = MaterialTheme.typography.bodyMedium) }
+                        (latestPayment?.paidAt ?: order.paidAt)?.let { Text("Paid: ${com.example.farmapp.buyer.buyerDate(it)}", style = MaterialTheme.typography.bodySmall) }
+                    }
+                    "pending" -> Text("M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment.", style = MaterialTheme.typography.bodyMedium)
+                    "cancelled" -> Text("You cancelled the M-Pesa payment. Your order has not been paid. You can try again when you are ready.", style = MaterialTheme.typography.bodyMedium)
+                    "failed" -> Text("Payment was unsuccessful.", style = MaterialTheme.typography.bodyMedium)
+                    "held" -> Text("Payment is held in escrow pending delivery confirmation.", style = MaterialTheme.typography.bodyMedium)
+                    "settled" -> Text("Payment has been released to the seller.", style = MaterialTheme.typography.bodyMedium)
+                    "refunded" -> Text("Payment has been refunded.", style = MaterialTheme.typography.bodyMedium)
+                    else -> if (state.notice != null) Text(state.notice, style = MaterialTheme.typography.bodyMedium)
+                }
+                if (timedOut && displayStatus == "pending")
+                    Text("Payment confirmation timed out. Please check your M-Pesa messages or try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
-            if (!state.busy && !state.canInitiate && state.payments.isEmpty() && state.notice == null)
+            if (displayStatus in setOf("cancelled", "failed") && orderPayable && !state.busy)
+                OrderPrimaryButton("Retry Payment", { showPayment = true })
+            if (!state.busy && !state.canInitiate && state.payments.isEmpty() && state.notice == null && displayStatus == null)
                 Text("Payment is not available for this order. Refresh to check its current status.")
             if (state.canInitiate) {
                 if (!showPayment) OrderPrimaryButton("Pay with M-Pesa", { showPayment = true }, !state.busy)

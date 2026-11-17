@@ -27,7 +27,16 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
         return response
     }
     private fun <T> read(response: Response<CanonicalApiResponse<T>>): T {
-        if (!response.isSuccessful) { response.errorBody()?.close(); error("Request not confirmed") }
+        if (!response.isSuccessful) {
+            val message = runCatching {
+                val body = response.errorBody()?.string() ?: return@runCatching null
+                val json = com.google.gson.JsonParser.parseString(body)
+                if (json.isJsonObject)
+                    json.asJsonObject.get("message")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+                else null
+            }.getOrNull()
+            error(message ?: "Payment request was rejected (HTTP ${response.code()}).")
+        }
         return response.body()?.requireData() ?: error("Incomplete response")
     }
     private suspend fun inspect(id: Long): Pair<Order, List<Payment>> {
@@ -53,11 +62,12 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
             try {
                 val (order, rows) = inspect(id)
                 val started = attempts.started(id)
-                // If the server confirms no payments exist and the order is still payable,
-                // the local reservation is stale (e.g. STK push failed before reaching server).
-                // The server is authoritative: allow a new attempt.
-                val staleLock = started && rows.isEmpty() && payable(order)
-                mutable.value = PurchaserPaymentState<Payment>(id, canInitiate = payable(order) && rows.isEmpty() && (!started || staleLock),
+                val allTerminal = rows.isNotEmpty() && rows.all { contract.status(it) in setOf("failed", "cancelled") }
+                // Stale lock: server has no payments and order is payable, OR all payments are terminal and order is still payable.
+                val staleLock = started && (rows.isEmpty() || allTerminal) && payable(order)
+                // Release the durable lock so reserve() succeeds on the next initiation attempt.
+                if (staleLock) runCatching { attempts.release(id) }
+                mutable.value = PurchaserPaymentState<Payment>(id, canInitiate = payable(order) && (rows.isEmpty() || allTerminal) && (!started || staleLock),
                     payments = rows, total = contract.total(order), submitted = started && !staleLock, submissionEnabled = paymentAllowed(),
                     notice = if (!paymentAllowed()) MPESA_ENVIRONMENT_NOTICE else null)
             } catch (e: CancellationException) { throw e }
@@ -80,7 +90,8 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
         scope.launch {
             try {
                 val (order, existing) = inspect(id)
-                check(payable(order) && existing.isEmpty() && contract.total(order).compareTo(reviewedTotal) == 0)
+                val retryable = existing.all { contract.status(it) in setOf("failed", "cancelled") }
+                check(payable(order) && (existing.isEmpty() || retryable) && contract.total(order).compareTo(reviewedTotal) == 0)
                 current()
                 check(paymentAllowed())
                 check(attempts.reserve(id))
@@ -93,9 +104,10 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
                 mutable.value = PurchaserPaymentState<Payment>(id, payments = listOf(pending),
                     total=contract.total(order),submitted=true,submissionEnabled=paymentAllowed(),notice = "Check your phone for the M-Pesa prompt. Payment is pending.")
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) {
-                if (runCatching { current() }.isSuccess) mutable.update{it.copy(busy=false,canInitiate=false,
-                    notice = "Initiation was not confirmed. Check payment status before taking any further action; no automatic retry was made.")}
+            catch (e: Exception) {
+                val detail = e.message?.takeIf { it.isNotBlank() && it != "Request not confirmed" }
+                    ?: "Initiation was not confirmed. Check payment status before taking any further action; no automatic retry was made."
+                if (runCatching { current() }.isSuccess) mutable.update{it.copy(busy=false,canInitiate=false,notice=detail)}
             }
         }
     }

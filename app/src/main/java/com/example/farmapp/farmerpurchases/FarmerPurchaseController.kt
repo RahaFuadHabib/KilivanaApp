@@ -47,7 +47,7 @@ internal class FarmerPurchaseController(
     private val requests = FarmerPurchaseRequests(sessions, expected)
     val checkout = CheckoutController(orders, FarmerCheckoutContract, sessions, expected, FarmerPurchaserPolicy, journal, scope)
     val payments = PurchaserPaymentController(payment, FarmerPaymentContract, sessions, expected,
-        FarmerPurchaserPolicy, attempts, scope, paymentAllowed = { false })
+        FarmerPurchaserPolicy, attempts, scope, paymentAllowed = BuyerMpesaEnvironment::ready)
     private val mutable = MutableStateFlow(FarmerPurchaseState())
     private var basketReadable = true
     val state = mutable.asStateFlow()
@@ -71,14 +71,14 @@ internal class FarmerPurchaseController(
                 val id = product.productId.toLong()
                 val combined = Math.addExact(mutable.value.items[id] ?: 0, quantity)
                 eligible(product, combined)
-                val cartId = cart.add(id, quantity)
-                val items = cart.readBasket().second
+                val cartId = cart.add(id, combined)
+                val items = mutable.value.items + (id to combined)
                 val labels = mutable.value.labels + (id to product.name)
                 basket.saveLabels(labels)
                 basket.saveBasket(items)
                 mutable.update { it.copy(items = items, labels = labels, serverCartId = cartId,
                     products = it.products.filterNot { row -> row.productId == product.productId } + product,
-                    basketVerified = false, notice = "${product.name} added to cart.", noticeIsError = false) }
+                    basketVerified = false, notice = "${product.name} added. The backend does not expose item-level cart readback.", noticeIsError = false) }
             }
             return
         }
@@ -95,7 +95,7 @@ internal class FarmerPurchaseController(
             read {
                 check(basketReadable)
                 val cartId = cart.remove(id)
-                val items = cart.readBasket().second
+                val items = mutable.value.items - id
                 basket.saveBasket(items)
                 val labels = mutable.value.labels - id
                 basket.saveLabels(labels)
@@ -114,9 +114,10 @@ internal class FarmerPurchaseController(
         val product = marketplace.detail(expected, id)
         eligible(product, quantity)
         val cartId = backend.quantity(id, quantity)
-        val items = backend.readBasket().second
+        val items = mutable.value.items + (id to quantity)
         basket.saveBasket(items)
-        mutable.update { it.copy(items = items, serverCartId = cartId, basketVerified = false, selection = null) }
+        mutable.update { it.copy(items = items, serverCartId = cartId, products = it.products.filterNot { row -> row.productId == id.toString() } + product,
+            basketVerified = false, selection = null) }
     }
     private fun read(productId: Long? = null, action: suspend () -> Unit) {
         if (mutable.value.busy) return
@@ -133,9 +134,8 @@ internal class FarmerPurchaseController(
     }
     fun reviewBasket() = read {
         if (cart != null) {
-            val server = cart.readBasket()
-            basket.saveBasket(server.second)
-            mutable.update { it.copy(serverCartId = server.first, items = server.second, cartWriteBlocked = false) }
+            val server = cart.read()
+            mutable.update { it.copy(serverCartId = server.id, cartWriteBlocked = cart.hasPendingWrite()) }
         }
         val items = mutable.value.items
         mutable.update { it.copy(basketVerified = false) }
@@ -143,7 +143,23 @@ internal class FarmerPurchaseController(
             marketplace.detail(expected, id).also { requests.current(); eligible(it, qty) }
         }
         requests.current()
-        mutable.update { it.copy(products = products, basketVerified = true) }
+        mutable.update { it.copy(products = products, basketVerified = cart == null,
+            notice = if (cart != null) "Cart lines use saved local quantities. The backend verifies products and quantities before quoting." else it.notice,
+            noticeIsError = false) }
+    }
+    fun clearPurchasedItems(items: Map<Long, Int>) {
+        if (mutable.value.busy || items.isEmpty()) return
+        val currentItems = mutable.value.items
+        val purchasedIds = items.filter { (id, quantity) -> currentItems[id] == quantity }.keys
+        if (purchasedIds.isEmpty()) return
+        val remaining = currentItems - purchasedIds
+        val labels = mutable.value.labels - purchasedIds
+        basket.saveBasket(remaining)
+        basket.saveLabels(labels)
+        mutable.update { it.copy(items = remaining, labels = labels,
+            products = it.products.filterNot { product -> product.productId.toLongOrNull() in purchasedIds },
+            serverCartId = null, selection = null, basketVerified = false,
+            notice = "Confirmed purchases were removed from this device cart.", noticeIsError = false) }
     }
     fun delivery() = read {
         val owned = addresses.list().requirePurchaseData()

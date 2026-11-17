@@ -45,6 +45,7 @@ internal class BrianCheckoutController(api:BrianCheckoutApi,orders:BuyerOrdersAp
     fun prepare(items:Map<Long,Int>,subtotal:BigDecimal,request:DeliveryQuoteRequest)=delegate.prepare(items,subtotal,request)
     fun create(items:Map<Long,Int>,quoteId:String,phone:String)=delegate.create(items,quoteId,phone)
     fun resetJournal()=delegate.resetJournal()
+    fun consumeJustCreated()=delegate.consumeJustCreated()
     fun startNewBasket()=delegate.startNewBasket()
     fun recover()=delegate.recover()
 }

@@ -275,10 +275,12 @@ class FarmerTransactionReadinessTest {
 
     // ── Section F: M-Pesa transaction safety ─────────────────────────────────
 
-    @Test fun mpesaInitiationIsBlockedWithoutNetworkCall() = runBlocking {
+    @Test fun mpesaInitiationUsesBuyerStkRouteWhenEnvironmentReady() = runBlocking {
         val f = FarmerPurchaseFixture()
-        try { f.payment.initiate(105, "254700000000") } catch (_: Exception) {}
-        assertTrue("STK initiation must not emit any network request", f.requests.isEmpty())
+        val response = f.payment.initiate(105, "254700000000")
+        assertTrue("Business buyer STK route must be used for Farmer purchaser initiation", f.requests.any { it.url.encodedPath == "/api/v1/payments/stk-push/buyer" })
+        assertEquals(105L, response.body()!!.data!!.orderId)
+        assertEquals(1001L, response.body()!!.data!!.paymentId)
     }
 
     @Test fun mpesaStkBuyerRouteIsAdvertisedByDeployedOpenApi() {
@@ -336,19 +338,18 @@ class FarmerTransactionReadinessTest {
         )
     }
 
-    @Test fun farmerPaymentControllerPaymentAllowedIsAlwaysFalse() {
-        // FarmerPurchaseController constructs PurchaserPaymentController with paymentAllowed = { false }.
-        // This test verifies the state machine honors this gate by confirming canInitiate is never true.
+    @Test fun farmerPaymentControllerUsesVerifiedMpesaEnvironmentGate() {
         val f = FarmerPurchaseFixture()
         val controller = f.controller()
-        // Initial state: canInitiate must be false regardless of order state.
-        assertFalse(
-            "Payment canInitiate must be false in initial Farmer controller state",
-            controller.payments.state.value.canInitiate
+        assertEquals(
+            "Farmer payment gate must match the verified buyer environment",
+            com.example.farmapp.orders.BuyerMpesaEnvironment.ready(),
+            controller.payments.state.value.submissionEnabled
         )
         controller.payments.initiate(1L, "invalid")
-        assertFalse(
-            "Payment submissionEnabled must be false after a gated Farmer initiation attempt",
+        assertEquals(
+            "Invalid phone input must not enable submission for Farmer payments",
+            com.example.farmapp.orders.BuyerMpesaEnvironment.ready(),
             controller.payments.state.value.submissionEnabled
         )
     }

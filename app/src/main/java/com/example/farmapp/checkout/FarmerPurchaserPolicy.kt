@@ -12,6 +12,7 @@ internal object FarmerPurchaserPolicy : PurchaserPolicy {
     override val sector = "AGRI_INPUTS"
     override fun permits(operation: CheckoutOperation) = operation in setOf(
         CheckoutOperation.READ_CART, CheckoutOperation.UPLOAD_CART, CheckoutOperation.SET_QUANTITY,
+        CheckoutOperation.START_CHECKOUT, CheckoutOperation.REQUEST_QUOTE, CheckoutOperation.CREATE_ORDER,
         CheckoutOperation.READ_ORDERS, CheckoutOperation.READ_PAYMENTS,
         CheckoutOperation.READ_ADDRESSES, CheckoutOperation.READ_PICKUP_STATIONS,
         CheckoutOperation.READ_LOGISTICS)

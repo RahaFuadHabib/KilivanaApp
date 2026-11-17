@@ -23,6 +23,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.example.farmapp.data.model.AuthResponse
+import com.example.farmapp.data.remote.ApiClient
+import com.example.farmapp.farmerpurchases.FarmerSellerOrdersApi
+import com.example.farmapp.farmerpurchases.FarmerSellerOrdersRepository
+import com.example.farmapp.network.TokenManager
 import com.example.farmapp.ui.navigation.FarmerDestination
 import com.example.farmapp.ui.theme.ForestGreen
 import com.example.farmapp.ui.theme.HarvestAmber
@@ -80,6 +84,8 @@ internal fun FarmerShell(
     val orders = orderRefresh.orders
     val ordersError = orderRefresh.error
     val loadingOrders = orderRefresh.refreshing
+    val sellerOrderRefresh = remember { FarmerSellerOrdersRefreshController() }
+    val sellerOrdersApi = remember { ApiClient.authenticatedService(FarmerSellerOrdersApi::class.java) }
     val manager = remember(repository) { CropManagement(
         update = { id, request -> repository.update(id, request); Unit },
         unlist = { repository.unlist(it) }, mine = { repository.mine() }) }
@@ -88,6 +94,14 @@ internal fun FarmerShell(
         mutate = { id, action -> repository.lifecycle(id, action); Unit },
         mine = { repository.mine() }, detail = { repository.detail(it) }) }
     suspend fun refreshOrders() { orderRefresh.refresh { repository.orders() } }
+    suspend fun refreshSellerOrders() {
+        sellerOrderRefresh.refresh {
+            FarmerSellerOrdersRepository(sellerOrdersApi, TokenManager, TokenManager.session.value).list()
+        }
+    }
+    LaunchedEffect(destination, auth.userId, repository.canonical) {
+        if (destination == FarmerDestination.ORDERS && repository.canonical) refreshSellerOrders()
+    }
     val selectedCrop = products.firstOrNull { it.productId == selectedCropId }
     val sellerOrders = orders?.let { cropOrders(it, auth.userId) }
     val selectedOrders = orders?.let { cropOrders(it, auth.userId, selectedCropId) }
@@ -306,7 +320,10 @@ internal fun FarmerShell(
                         onResumeExisting = if (cropPhotos.draft.creationUncertain && !publishing) ({ recoveryProduct = it }) else null,
                         onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } },
                         onOpenSupplies = { destination = FarmerDestination.SUPPLIES }, onOpenOrders = { destination = FarmerDestination.ORDERS })
-                    FarmerDestination.ORDERS -> FarmerOrdersScreen(sellerOrders, ordersError, loadingOrders,
+                    FarmerDestination.ORDERS -> if (repository.canonical) {
+                        FarmerSellerOrdersScreen(sellerOrderRefresh.orders, sellerOrderRefresh.error,
+                            sellerOrderRefresh.refreshing, contentModifier) { scope.launch { refreshSellerOrders() } }
+                    } else FarmerOrdersScreen(sellerOrders, ordersError, loadingOrders,
                         null, contentModifier, null, { scope.launch { refreshOrders() } },
                         onTracking = { trackingFrom = FarmerDestination.ORDERS })
                     FarmerDestination.ADD -> AddCropScreen(cropPhotos, contentModifier, publishing, publishMessage, publish, checkCreation,

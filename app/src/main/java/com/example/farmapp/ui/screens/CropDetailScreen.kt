@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.farmapp.data.model.*
+import com.example.farmapp.farmerpurchases.FarmerSellerOrderSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +118,33 @@ internal fun CropDetailScreen(product: FarmerProductResponse, modifier: Modifier
         }
     if (!editing) PullToRefreshDefaults.Indicator(state = pullState, isRefreshing = refreshing,
         modifier = Modifier.align(Alignment.TopCenter))
+    }
+}
+
+@Composable
+internal fun FarmerSellerOrdersScreen(orders: List<FarmerSellerOrderSummary>?, error: String?, loading: Boolean,
+    modifier: Modifier, onRefresh: () -> Unit) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Incoming orders", style = MaterialTheme.typography.headlineSmall)
+        TextButton(onClick = onRefresh, enabled = !loading) { Text(if (error != null) "Retry" else "Refresh orders") }
+        if (loading && orders == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+        error?.let { Text(if (orders != null) "Could not refresh orders. Previously loaded orders are still shown. $it" else it,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        if (orders == null && !loading && error == null) Text("Incoming orders are unavailable. Refresh to try again.")
+        if (orders?.isEmpty() == true) Text("No incoming orders found.")
+        orders?.forEach { order ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Order #${order.id}", style = MaterialTheme.typography.titleSmall)
+                    Text(order.status.replace('_', ' '))
+                    Text("Items: ${order.itemCount}")
+                    Text("Seller total: ${order.total.toPlainString()}")
+                    order.createdAt?.let { Text(it) }
+                }
+            }
+        }
     }
 }
 

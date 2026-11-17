@@ -10,6 +10,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.http.*
+import java.math.BigDecimal
 
 /** Spring Page envelope is NOT the List returned by orders/buyer/{id}. */
 internal data class PurchaserOrderPage(val content: List<BuyerOrderDto>? = null,
@@ -22,6 +23,47 @@ internal interface PurchaserOrderSearchApi {
     @GET("orders/search") suspend fun search(@Query("buyerId") purchaserId: Long,
         @Query("page") page: Int, @Query("size") size: Int,
         @Tag session: SessionSnapshot): Response<CanonicalApiResponse<PurchaserOrderPage>>
+}
+
+internal data class FarmerSellerOrderDto(val id: Long? = null, val status: String? = null,
+    val total: BigDecimal? = null, val createdAt: String? = null, val itemCount: Int? = null)
+internal data class FarmerSellerOrderSummary(val id: Long, val status: String,
+    val total: BigDecimal, val createdAt: String?, val itemCount: Int)
+internal interface FarmerSellerOrdersApi {
+    @GET("orders/seller/{sellerId}") suspend fun orders(@Path("sellerId") sellerId: Long,
+        @Tag session: SessionSnapshot): Response<CanonicalApiResponse<List<FarmerSellerOrderDto>>>
+}
+
+/** Reads only the authenticated Farmer's seller-scoped summaries; the API does not expose line details here. */
+internal class FarmerSellerOrdersRepository(private val api: FarmerSellerOrdersApi,
+    sessions: SessionStore, expected: SessionSnapshot) {
+    private val requests = FarmerPurchaseRequests(sessions, expected)
+    suspend fun list(): List<FarmerSellerOrderSummary> {
+        val sellerId = requests.purchaserId()
+        val response = requests.call(CheckoutOperation.READ_ORDERS, { api.orders(sellerId, it) })
+        if (!response.isSuccessful) {
+            response.errorBody()?.close()
+            error(when (response.code()) {
+                401 -> "Your session expired. Sign in again to view incoming orders."
+                403 -> "This Farmer account cannot access its seller orders. Contact support."
+                404 -> "Seller orders are not available on the configured backend."
+                else -> "Incoming orders could not be loaded. Check your connection and retry."
+            })
+        }
+        val rows = response.body()?.requireData() ?: error("Incomplete seller-order response.")
+        val result = rows.map { row ->
+            val id = row.id?.takeIf { it > 0 } ?: error("Seller order identity could not be verified.")
+            val status = row.status?.trim()?.takeIf { it.isNotEmpty() && it.length <= 64 && it.none(Char::isISOControl) }
+                ?: error("Seller order status could not be verified.")
+            val total = row.total?.takeIf { it.signum() >= 0 } ?: error("Seller order total could not be verified.")
+            val itemCount = row.itemCount?.takeIf { it > 0 } ?: error("Seller order item count could not be verified.")
+            check(row.createdAt == null || row.createdAt.length <= 128 && row.createdAt.none(Char::isISOControl))
+            FarmerSellerOrderSummary(id, status, total, row.createdAt, itemCount)
+        }
+        check(result.map { it.id }.distinct().size == result.size) { "Duplicate seller orders were returned." }
+        requests.current(CheckoutOperation.READ_ORDERS)
+        return result
+    }
 }
 
 /** Shares the existing session-tagged Retrofit services, not Buyer authorization. No retries. */
@@ -140,7 +182,16 @@ internal class FarmerPaymentRepository(private val api: BuyerOrdersApi,
         return response
     }
     override suspend fun initiate(orderId: Long, phone: String): Response<CanonicalApiResponse<BuyerStkResponse>> {
-        requests.current(); error(FARMER_PAYMENT_BLOCKED)
+        require(orderId > 0 && mpesaPhone(phone) == phone)
+        check(BuyerMpesaEnvironment.ready()) { com.example.farmapp.payments.MPESA_ENVIRONMENT_NOTICE }
+        val ownedOrder = order(orderId).requirePurchaseData()
+        return requests.call(CheckoutOperation.INITIATE_PAYMENT, { session ->
+            api.initiateBuyerStk(BuyerStkRequest(orderId, phone), session)
+        }) { response ->
+            check(response.orderId == orderId && response.paymentId != null && response.paymentId > 0 &&
+                response.amount != null && response.amount.signum() > 0)
+            check(response.amount <= ownedOrder.total)
+        }
     }
     private fun checkedPayment(row: PaymentDto) {
         check(row.orderId != null && row.orderId > 0 && row.amount != null && row.amount.signum() >= 0 && row.status in paymentStatuses)

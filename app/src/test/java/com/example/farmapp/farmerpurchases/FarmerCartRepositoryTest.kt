@@ -23,8 +23,8 @@ class FarmerCartRepositoryTest {
     @Test fun addUsesAuthenticatedPrincipalCartAndReadsBackServerIdentity() = runBlocking {
         scenario { f, journal, repository ->
             assertEquals(11L, repository.add(7, 3))
-            assertEquals(listOf("GET", "POST", "GET"), f.requests.map { it.method })
-            assertEquals(listOf("/api/v1/cart", "/api/v1/cart/items", "/api/v1/cart"), f.requests.map { it.url.encodedPath })
+            assertEquals(listOf("GET", "POST", "PUT", "GET"), f.requests.map { it.method })
+            assertEquals(listOf("/api/v1/cart", "/api/v1/cart/items", "/api/v1/carts/11/items/7", "/api/v1/cart"), f.requests.map { it.url.encodedPath })
             assertTrue(f.requests.all { it.header("Authorization")?.startsWith("Bearer ") == true })
             val buffer = okio.Buffer(); f.requests[1].body!!.writeTo(buffer)
             assertEquals("{\"productId\":7,\"quantity\":3}", buffer.readUtf8())
@@ -41,13 +41,16 @@ class FarmerCartRepositoryTest {
             assertEquals(1, f.requests.count { it.method == "POST" })
         }
     }
-    @Test fun conflictIsReportedWithoutAutomaticQuantityWrite() = runBlocking {
+    @Test fun documentedDuplicateConflictSetsExactQuantityWithoutRepeatingPost() = runBlocking {
         scenario { f, journal, repository ->
-            f.handler = { if (it.method == "POST") { f.status = 409; """{"success":false,"message":"Conflict"}""" } else cart }
-            val failure = runCatching { repository.add(7, 3) }.exceptionOrNull()
-            assertTrue(failure?.message?.contains("HTTP 409") == true)
+            f.handler = { request -> when (request.method) {
+                "POST" -> { f.status = 409; """{"success":false,"message":"Product already in cart"}""" }
+                "PUT" -> { f.status = 200; cart }
+                else -> { f.status = 200; cart }
+            } }
+            assertEquals(11L, repository.add(7, 3))
             assertFalse(journal.value)
-            assertEquals(listOf("GET", "POST"), f.requests.map { it.method })
+            assertEquals(listOf("GET", "POST", "PUT", "GET"), f.requests.map { it.method })
         }
     }
     @Test fun foreignCartBlocksMutationAndStaleSessionCannotPublishAcknowledgement() = runBlocking {

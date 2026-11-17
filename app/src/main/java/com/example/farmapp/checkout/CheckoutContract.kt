@@ -13,5 +13,7 @@ internal interface CheckoutContract<CartData, CreatedOrderId, OrderData> {
     fun orderId(order: OrderData): Long
     fun isPayable(order: OrderData): Boolean
     fun isFinished(order: OrderData): Boolean
+    /** True when the owned order has an outstanding payment attempt awaiting confirmation (e.g. STK push sent). */
+    fun isAwaitingPayment(order: OrderData): Boolean = false
     fun normalizePhone(input: String): String
 }

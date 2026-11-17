@@ -67,10 +67,12 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
 }
 @Composable internal fun OrderStatusBadge(label: String, kind: String) {
     val (bg, fg) = when (kind) {
-        "paid", "delivered", "completed" -> Color(0xFFD9F6CE) to Color(0xFF175D2B)
-        "cancelled", "failed", "refunded" -> Color(0xFFFFE0E0) to Color(0xFFA22323)
-        "confirmed", "in_transit" -> Color(0xFFDDEEFF) to Color(0xFF174B8A)
-        else -> Color(0xFFFFE3A0) to Color(0xFF633A00)
+        "paid", "delivered", "completed", "settled" -> Color(0xFFD9F6CE) to Color(0xFF175D2B)
+        "cancelled", "failed" -> Color(0xFFFFE0E0) to Color(0xFFA22323)
+        "refunded" -> Color(0xFFEEEEEE) to Color(0xFF444444)
+        "confirmed", "in_transit", "held" -> Color(0xFFDDEEFF) to Color(0xFF174B8A)
+        "pending" -> Color(0xFFFFE3A0) to Color(0xFF633A00)
+        else -> Color(0xFFEEEEEE) to Color(0xFF444444)
     }
     Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(9.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp))

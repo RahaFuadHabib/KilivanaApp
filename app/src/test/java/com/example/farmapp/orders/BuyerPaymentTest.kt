@@ -37,6 +37,8 @@ class BuyerPaymentTest {
         override suspend fun payments(id: Long, session: SessionSnapshot) = Response.success(CanonicalApiResponse(true, data = records))
         override suspend fun payment(id: Long, session: SessionSnapshot) = Response.success(CanonicalApiResponse(true, data = records.first { it.id == id }))
         override suspend fun receipt(id: Long, session: SessionSnapshot) = error("Never confirm receipt")
+        override suspend fun cancel(id: Long, reason: String, session: SessionSnapshot): Response<CanonicalApiResponse<BuyerOrderDto>> =
+            Response.success(CanonicalApiResponse(true, data = row.copy(status = "cancelled")))
         override suspend fun initiateBuyerStk(request: BuyerStkRequest, session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>> {
             calls++; gate?.await(); if (timeout) throw java.net.SocketTimeoutException()
             return Response.success(CanonicalApiResponse(true, data = BuyerStkResponse(9, request.orderId, BigDecimal("125.57"), "PAID")))

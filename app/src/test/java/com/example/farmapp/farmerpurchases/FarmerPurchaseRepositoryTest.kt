@@ -22,6 +22,19 @@ class FarmerPurchaseRepositoryTest {
         f.requests.forEach { assertEquals(f.expected, it.tag(SessionSnapshot::class.java)); assertEquals("Bearer ${f.expected.auth!!.accessToken}", it.header("Authorization")) }
         rejects { f.orders.listOrders(9) }; assertEquals(2, f.requests.size)
     }
+    @Test fun sellerOrderSummaryUsesAuthenticatedFarmerIdAndValidatesRows() = runBlocking {
+        val f = FarmerPurchaseFixture()
+        val rows = FarmerSellerOrdersRepository(f.api(), f.sessions, f.expected).list()
+        assertEquals(105L, rows.single().id)
+        assertEquals(2, rows.single().itemCount)
+        assertEquals(java.math.BigDecimal("376.50"), rows.single().total)
+        assertEquals("/api/v1/orders/seller/42", f.requests.single().url.encodedPath)
+        assertEquals(f.expected, f.requests.single().tag(SessionSnapshot::class.java))
+        assertEquals("Bearer ${f.expected.auth!!.accessToken}", f.requests.single().header("Authorization"))
+
+        f.handler = { """{"success":true,"data":[{"id":105,"status":"CONFIRMED","total":376.50,"createdAt":"2026-11-12T10:00:00","itemCount":2},{"id":105,"status":"CONFIRMED","total":376.50,"itemCount":2}]}""" }
+        rejects { FarmerSellerOrdersRepository(f.api(), f.sessions, f.expected).list() }
+    }
     @Test fun legacyReadOnlyAdapterRemainsBlockedWhileDedicatedCartAdapterIsAuthorized() = runBlocking {
         val f = FarmerPurchaseFixture()
         listOf<suspend () -> Unit>({ f.orders.readCart(42) }, { f.orders.addItem(7, 3) },

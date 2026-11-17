@@ -43,8 +43,9 @@ import com.example.farmapp.checkout.DeliverySelection
                 if (state.order?.id != record.orderId)
                     Text("Enter your number now. Refresh order details; payment stays disabled until the created order is verified.")
             }
-            if (record.phase == "PAYMENT_PENDING") Text("Payment pending. Status is checked automatically; an uncertain prompt is never repeated.")
-            if (record.phase == "PAYMENT_FAILED") Text("Payment was not completed. A new prompt requires confirmation.")
+            if (record.phase == "PAYMENT_PENDING") Text("M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment.")
+            if (record.phase == "PAYMENT_FAILED") Text("Payment was unsuccessful. A new prompt requires confirmation.")
+            if (record.phase == "PAYMENT_CANCELLED") Text("You cancelled the M-Pesa payment. Your order has not been paid. You can try again when you are ready.")
             if (record.phase == "CONFIRMED") {
                 Text("Payment confirmed. Purchase order #${record.orderId}")
                 Button(onClick = { selection?.let { controller.prepare(items, it) } },

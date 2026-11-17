@@ -227,7 +227,7 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                         OrdersScreen(orders, { go("order/${it.id}") }, { go("products") }, ordersState.busy, ordersState.error,
                             extraAction = { displayOrder ->
                                 ordersState.rows.firstOrNull { it.id?.toString() == displayOrder.id }?.let { original ->
-                                    BuyerPaymentSession(original) { payment, _, _ ->
+                                    BuyerPaymentSession(original) { payment, _, _, _ ->
                                         if (payment.canInitiate && !payment.busy) Button(onClick = { go("payment/${displayOrder.id}") }) { Text("Pay with M-Pesa") }
                                     }
                                 }
@@ -239,7 +239,7 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                         val row=ordersState.selected?.takeIf{it.id==id} ?: original
                         if(row==null)Text(ordersState.error ?: "Order unavailable. Refresh Orders.",Modifier.padding(24.dp))
                         else OrderDetailScreen(brianOrder(row,ordersState.events),reorder={row.items.orEmpty().forEach{item->state.known[item.productId]?.let{model.shopping.add(it,item.quantity!!)}};go("cart")},back={nav.popBackStack()},payment={
-                            BuyerPaymentSession(row){payment,refresh,_->
+                            BuyerPaymentSession(row){payment,_,refresh,_->
                                 payment.notice?.let{Text(it,color=TextSecondary)}
                                 if(orderPaymentConfirmed(row,payment))Text(if(row.paymentMethod.equals("mpesa",true) || payment.payments.any{it.method.equals("mpesa",true)})"Payment completed via M-Pesa" else "Payment confirmed",color=Green600)
                                 if(payment.canInitiate)Button(onClick={go("payment/$id")}){Text("Pay with M-Pesa")}
@@ -256,7 +256,7 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     paymentContent = { id ->
                         val row=checkoutState.order?.takeIf{it.id==id} ?: ordersState.rows.firstOrNull{it.id==id}
                         if(row==null)Text("Refresh Orders to verify this order.")
-                        else BuyerPaymentSession(row){payment,refresh,send->BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty())}
+                        else BuyerPaymentSession(row){payment,timedOut,refresh,send->BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty())}
                     }
                 )
             }

@@ -173,7 +173,7 @@ class SupplierModuleTest {
         assertEquals(VerifiedPaymentStatus.PAID, VerifiedPaymentStatus.parse("paid"))
         assertEquals(VerifiedPaymentStatus.HELD, VerifiedPaymentStatus.parse("held"))
         assertEquals(VerifiedPaymentStatus.FAILED, VerifiedPaymentStatus.parse("failed"))
-        assertNull(VerifiedPaymentStatus.parse("cancelled")) // Backend collapses non-success/cancellation to FAILED.
+        assertEquals(VerifiedPaymentStatus.CANCELLED, VerifiedPaymentStatus.parse("cancelled"))
         assertNull(VerifiedPaymentStatus.parse("STK accepted"))
     }
     @Test fun supplierApiOnlyAllowsSupplierScopedOrderReadsAndNoPaymentOrDriverRequests() {

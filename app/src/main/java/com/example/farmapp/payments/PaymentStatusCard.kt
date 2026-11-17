@@ -9,7 +9,8 @@ import androidx.compose.ui.unit.dp
 /** Backend PaymentStatus wire values, not an STK-initiation response or client-calculated receipt. */
 enum class VerifiedPaymentStatus(val wire: String, val label: String) {
     PENDING("pending", "Pending provider confirmation"), PAID("paid", "Paid"), HELD("held", "Held in escrow"),
-    SETTLED("settled", "Settled to seller"), FAILED("failed", "Payment failed"), REFUNDED("refunded", "Refunded");
+    SETTLED("settled", "Settled to seller"), FAILED("failed", "Payment failed"), CANCELLED("cancelled", "Payment cancelled"),
+    REFUNDED("refunded", "Refunded");
     companion object { fun parse(wire: String?) = entries.firstOrNull { it.wire == wire } }
 }
 const val MPESA_SUPPLIER_BLOCKER = "M-Pesa requests are unavailable until Supplier-authorized orders, payment-status access and duplicate-safe initiation are verified. An STK prompt or accepted request is not proof of payment."

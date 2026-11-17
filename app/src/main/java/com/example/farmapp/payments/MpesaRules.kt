@@ -18,6 +18,7 @@ internal fun paymentOutcome(status: String?): String = when (status?.lowercase(L
     "paid", "held", "settled" -> "confirmed"
     "pending" -> "pending"
     "failed" -> "failed"
+    "cancelled" -> "cancelled"
     "refunded" -> "refunded"
     else -> "unverified"
 }

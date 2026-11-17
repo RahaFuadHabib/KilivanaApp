@@ -223,9 +223,14 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     private fun poll() {
         if (polling?.isActive == true) return
         polling = scope.launch {
+            val deadline = System.currentTimeMillis() + 120_000L
             while (isActive && state.value.record?.phase == "PAYMENT_PENDING") {
                 delay(pollMs)
                 if (state.value.busy) continue
+                if (System.currentTimeMillis() > deadline) {
+                    mutable.update { it.copy(notice = "Payment confirmation timed out. Please check your M-Pesa messages or try again.") }
+                    break
+                }
                 mutable.update { it.copy(busy = true) }
                 try { current(); reconcilePayment() }
                 catch (e: CancellationException) { throw e }

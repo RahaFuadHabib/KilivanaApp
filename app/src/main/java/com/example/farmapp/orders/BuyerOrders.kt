@@ -34,7 +34,8 @@ data class BuyerOrderItemDto(val id: Long? = null, val productId: Long? = null, 
     val subtotal: BigDecimal? = null)
 data class OrderEventDto(val id: Long? = null, val orderId: Long? = null, val status: String? = null, val note: String? = null, val createdAt: String? = null)
 data class PaymentDto(val id: Long? = null, val orderId: Long? = null, val method: String? = null, val amount: BigDecimal? = null,
-    val status: String? = null, val updatedAt: String? = null)
+    val status: String? = null, val updatedAt: String? = null, val paidAt: String? = null,
+    val mpesaReceiptNumber: String? = null, val phoneNumber: String? = null, val transactionDate: String? = null)
 data class BuyerStkRequest(val orderId: Long, val phoneNumber: String) {
     override fun toString() = "BuyerStkRequest(redacted)"
 }
@@ -53,11 +54,16 @@ interface BuyerOrdersApi {
     @POST("orders/{id}/confirm-receipt") suspend fun receipt(@Path("id") id: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerOrderDto>>
 }
 internal val orderStatuses = setOf("placed", "confirmed", "in_transit", "delivered", "completed", "disputed", "cancelled")
-internal val paymentStatuses = setOf("pending", "paid", "held", "settled", "failed", "refunded")
+internal val paymentStatuses = setOf("pending", "paid", "held", "settled", "failed", "refunded", "cancelled")
 internal fun validateBuyerOrder(order: BuyerOrderDto, buyerId: Long): BuyerOrderDto {
     val normalized = order.copy(status = order.status?.lowercase(), paymentStatus = order.paymentStatus?.lowercase())
-    check(normalized.id != null && normalized.id > 0 && normalized.buyerId == buyerId && normalized.status in orderStatuses &&
-        normalized.paymentStatus in paymentStatuses && normalized.total != null && normalized.total.signum() >= 0 && normalized.items != null) { "Order ownership or response could not be verified." }
+    check(normalized.id != null && normalized.id > 0) { "Order ID is missing from the response." }
+    check(normalized.buyerId != null) { "The order is missing buyer information (buyerId is null). The order may not have been created correctly. Contact support." }
+    check(normalized.buyerId == buyerId) { "This order belongs to a different buyer account. Sign in with the account that placed this order." }
+    check(normalized.status in orderStatuses) { "Order status could not be verified." }
+    check(normalized.paymentStatus in paymentStatuses) { "Payment status could not be verified." }
+    check(normalized.total != null && normalized.total.signum() >= 0) { "Order total could not be verified." }
+    check(normalized.items != null) { "Order items could not be verified." }
     check(normalized.items.all { it.id != null && it.id > 0 && it.productId != null && it.productId > 0 &&
         it.sellerId != null && it.sellerId > 0 && it.quantity != null && it.quantity > 0 && it.unitPrice != null && it.unitPrice.signum() >= 0 })
     return normalized
@@ -197,11 +203,11 @@ internal class BuyerOrdersModel : ViewModel() {
                 onRefresh = { state.selected?.let(model::open) ?: model.refresh() }, modifier = Modifier.weight(1f)) {
                 val row = state.selected
                 if (row == null) BuyerOrdersListDesign(state.rows, onBack) { order ->
-                    BuyerPaymentSession(order) { payment, _, _ ->
+                    BuyerPaymentSession(order) { payment, _, _, _ ->
                         BuyerOrderCard(order, payment, { paymentFor = null; model.open(order) }, { model.open(order); paymentFor = order.id })
                     }
-                } else BuyerPaymentSession(row) { payment, refresh, initiate ->
-                    if (paymentFor == row.id) BuyerPaymentPage(row, payment, { paymentFor = null }, { refresh(); model.open(row) }, initiate)
+                } else BuyerPaymentSession(row) { payment, timedOut, refresh, initiate ->
+                    if (paymentFor == row.id) BuyerPaymentPage(row, payment, timedOut, { paymentFor = null }, { refresh(); model.open(row) }, initiate)
                     else BuyerOrderDetailsDesign(row, payment, ::back, { paymentFor = row.id }) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             state.detailError?.let { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = { model.open(row) }) { Text("Retry order details") } }

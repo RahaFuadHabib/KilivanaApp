@@ -31,15 +31,20 @@ internal class BuyerPaymentRepository(private val api: BuyerOrdersApi, sessions:
     override suspend fun initiate(orderId: Long, phone: String): Response<CanonicalApiResponse<BuyerStkResponse>> {
         require(orderId > 0 && mpesaPhone(phone) == phone)
         check(paymentAllowed())
-        return call(CheckoutOperation.INITIATE_PAYMENT) { api.initiateBuyerStk(BuyerStkRequest(orderId, phone), it) }
+        val response = call(CheckoutOperation.INITIATE_PAYMENT) { api.initiateBuyerStk(BuyerStkRequest(orderId, phone), it) }
+        println("BuyerPayment diagnostic: STK push orderId=$orderId responseCode=${response.code()} successful=${response.isSuccessful}")
+        return response
     }
 }
 
 internal object BuyerPaymentContract : PurchaserPaymentContract<BuyerOrderDto, PaymentDto, BuyerStkResponse> {
-    override fun validateOrder(order: BuyerOrderDto, orderId: Long, purchaserId: Long) = validateBuyerOrder(order, purchaserId).also { check(it.id == orderId) }
+    override fun validateOrder(order: BuyerOrderDto, orderId: Long, purchaserId: Long): BuyerOrderDto {
+        println("BuyerPayment diagnostic: orderId=$orderId order.buyerId=${order.buyerId} session.userId=$purchaserId match=${order.buyerId == purchaserId}")
+        return validateBuyerOrder(order, purchaserId).also { check(it.id == orderId) }
+    }
     override fun total(order: BuyerOrderDto) = order.total!!
     override fun payable(order: BuyerOrderDto) = order.status in setOf("placed", "confirmed") &&
-        order.paymentStatus in setOf("pending", "failed") && order.total!!.signum() > 0
+        order.paymentStatus in setOf("pending", "failed", "cancelled") && order.total!!.signum() > 0
     override fun paymentId(payment: PaymentDto) = payment.id
     override fun status(payment: PaymentDto) = payment.status
     override fun validateReference(payment: PaymentDto, orderId: Long) {

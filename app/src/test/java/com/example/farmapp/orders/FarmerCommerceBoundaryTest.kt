@@ -70,13 +70,13 @@ class FarmerCommerceBoundaryTest {
     }
 
     @Test fun paymentStateNeverTreatsStkAcceptanceOrUnknownResultsAsPaid() {
-        for (wire in listOf("pending", "paid", "held", "settled", "failed", "refunded")) {
+        for (wire in listOf("pending", "paid", "held", "settled", "failed", "refunded", "cancelled")) {
             assertEquals(wire, VerifiedPaymentStatus.parse(wire)!!.wire)
             assertTrue(paymentStatuses.contains(wire))
         }
         assertNotEquals(VerifiedPaymentStatus.PAID, VerifiedPaymentStatus.parse("pending"))
         assertNotEquals(VerifiedPaymentStatus.SETTLED, VerifiedPaymentStatus.parse("held"))
-        for (wire in listOf(null, "", "0", "STK accepted", "success", "cancelled", "timeout"))
+        for (wire in listOf(null, "", "0", "STK accepted", "success", "timeout"))
             assertNull(VerifiedPaymentStatus.parse(wire))
     }
 }

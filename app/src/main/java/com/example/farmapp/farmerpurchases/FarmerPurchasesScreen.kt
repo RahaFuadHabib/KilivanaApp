@@ -198,8 +198,8 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                         Text("Order: ${order.status} · Payment: ${order.paymentStatus}") }
                     items(order.items.orEmpty(), key = { it.id!! }) { Text("${it.productName ?: "Product #${it.productId}"}: ${it.quantity}") }
                     item {
-                        BuyerPaymentSession(order) { paymentState, refresh, initiate ->
-                            BuyerPaymentControls(order, paymentState, { refresh(); controller.payments.refresh(order.id!!) }, initiate, startExpanded = true)
+                        BuyerPaymentSession(order) { paymentState, timedOut, refresh, initiate ->
+                            BuyerPaymentControls(order, paymentState, timedOut, { refresh(); controller.payments.refresh(order.id!!) }, initiate, startExpanded = true)
                         }
                         TextButton(onClick = controller::track, enabled = !state.busy) { Text("View purchase tracking") }
                     }

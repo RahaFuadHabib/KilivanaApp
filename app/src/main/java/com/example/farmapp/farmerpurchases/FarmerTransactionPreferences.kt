@@ -15,7 +15,11 @@ internal class FarmerTransactionPreferences(context: Context, user: String) : Fa
         prefs.getString("record", null)?.let { json ->
             CanonicalJson.gson.fromJson(json, FarmerTransactionRecord::class.java).also { record ->
                 check(record.key.isNotBlank() && record.items.isNotEmpty() && record.items.all { it.key > 0 && it.value > 0 })
-                check(record.phase in setOf("PREPARING", "QUOTE_READY", "ORDER_PENDING", "ORDER_CREATED", "PAYMENT_PENDING", "PAYMENT_FAILED", "CONFIRMED"))
+                // These are durable write-ahead states too. In particular, START_PENDING is
+                // saved before POST /checkout and PAYMENT_CANCELLED after reconciliation.
+                // Rejecting either here makes the entire journal unreadable after a process death.
+                check(record.phase in setOf("START_PENDING", "PREPARING", "QUOTE_READY", "ORDER_PENDING",
+                    "ORDER_CREATED", "PAYMENT_PENDING", "PAYMENT_FAILED", "PAYMENT_CANCELLED", "CONFIRMED"))
                 check(record.orderId == null || record.orderId > 0)
             }
         }

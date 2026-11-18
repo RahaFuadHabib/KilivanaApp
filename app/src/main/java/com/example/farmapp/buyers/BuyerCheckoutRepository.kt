@@ -21,7 +21,7 @@ internal interface BrianCheckoutApi {
     @PUT("carts/{cartId}/items/{productId}") suspend fun quantity(@Path("cartId") cartId:Long,@Path("productId") productId:Long,@Query("quantity") quantity:Int,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>>
     @DELETE("carts/{cartId}/items/{productId}") suspend fun remove(@Path("cartId") cartId:Long,@Path("productId") productId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
     @POST("checkout") suspend fun checkout(@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
-    @POST("checkout") suspend fun checkoutCart(@Query("cartId") cartId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
+    @POST("carts/{cartId}/checkout") suspend fun checkoutCart(@Path("cartId") cartId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
     @POST("checkout/delivery-quote") suspend fun quote(@Body request:DeliveryQuoteRequest,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<DeliveryQuote>>
     @POST("checkout/order") suspend fun order(@Body request:QuoteOrderRequest,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<JsonElement>>
 }

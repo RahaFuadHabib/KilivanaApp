@@ -289,7 +289,10 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                         style = MaterialTheme.typography.labelLarge)
                     OrderPrimaryButton("Proceed to checkout", { page = "delivery"; controller.delivery() },
                         !state.busy && !state.cartWriteBlocked && state.items.isNotEmpty())
-                    if (state.cartWriteBlocked) Text("Resolve the pending cart update before continuing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    if (state.cartWriteBlocked) {
+                        Text("A cart update may have reached the server, but its item quantities cannot be read back. Checkout and further cart changes are paused to prevent duplicate items. Contact support to reconcile this cart.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     else if (state.items.isEmpty()) Text("Add supplier products to continue.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }

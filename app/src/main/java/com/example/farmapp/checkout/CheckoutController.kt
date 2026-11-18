@@ -83,7 +83,11 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             if(e is Rejected && e.status in setOf(400,401,403,404,409,422,429)) {
                 // Only documented, definite rejections can be resubmitted by another explicit user action.
                 if(journal.phase in setOf("UPLOAD_PENDING","QUANTITY_PENDING"))runCatching{save(journal.copy(phase="CART_REJECTED"))}
-                // An order error does not prove that no order was created. Preserve its reservation.
+                // createOrderFromQuote is transactional. A definite 4xx rolls it back, so
+                // retain the prepared cart but discard the rejected quote and allow refresh.
+                if(journal.phase=="ORDER_PENDING" && journal.orderId==null)runCatching{
+                    save(journal.copy(phase="CHECKOUT_ACKNOWLEDGED",quote=null))
+                }
             }
             val pending=journal.phase !in setOf("NONE","QUOTE_READY","ORDER_VERIFIED")
             mutable.update{it.copy(notice=if(e is Rejected)e.message else when(e){

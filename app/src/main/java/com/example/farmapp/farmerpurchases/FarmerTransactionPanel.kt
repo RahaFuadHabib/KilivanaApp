@@ -100,9 +100,9 @@ import com.example.farmapp.orders.OrderStatusBadge
                 "QUOTE_READY" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Ready to order", "Review your order summary above, enter your M-Pesa number, and create the purchase order.")
                 "ORDER_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.Refresh, "Creating order…", "Submitting your purchase order. Please wait.", spinner = true)
                 "ORDER_CREATED" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Order created", "Purchase order #${record.orderId}. Enter your M-Pesa number below to send a payment prompt.")
-                "PAYMENT_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Awaiting M-Pesa confirmation", "M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment.", spinner = true)
-                "PAYMENT_FAILED" -> FarmerStatusCard(DangerSurface, ErrorRed, Icons.Default.Cancel, "Payment was unsuccessful", "The M-Pesa transaction did not complete. You can try again.")
-                "PAYMENT_CANCELLED" -> FarmerStatusCard(CancelledSurface, CancelledText, Icons.Default.Cancel, "Payment cancelled", "You cancelled the M-Pesa prompt. Your order has not been paid. You can try again when ready.")
+                "PAYMENT_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Awaiting M-Pesa confirmation", "M-Pesa request sent for purchase #${record.orderId}. Enter your PIN on your phone and wait for confirmation. This attempt must resolve before another prompt can be sent.", spinner = true)
+                "PAYMENT_FAILED" -> FarmerStatusCard(DangerSurface, ErrorRed, Icons.Default.Cancel, "Payment was unsuccessful", "Payment for purchase #${record.orderId} failed. Retry here to pay this order without creating another one.")
+                "PAYMENT_CANCELLED" -> FarmerStatusCard(CancelledSurface, CancelledText, Icons.Default.Cancel, "Payment cancelled", "Payment for purchase #${record.orderId} was cancelled. Retry here to pay this order without creating another one.")
                 "CONFIRMED" -> FarmerStatusCard(SuccessSurface, com.example.farmapp.buyers.ui.theme.Green600, Icons.Default.CheckCircle, "Payment confirmed", "Your purchase has been paid. Purchase order #${record.orderId}.")
                 else -> null
             }
@@ -112,6 +112,8 @@ import com.example.farmapp.orders.OrderStatusBadge
 
             // ── Phase-specific controls ──────────────────────────────────
             when (record.phase) {
+                "PAYMENT_PENDING" -> OrderPrimaryButton("Check payment for order #${record.orderId}", controller::recover,
+                    controller.enabled && !state.busy)
                 "QUOTE_READY" -> {
                     OrderSection("M-Pesa payment") {
                         Text("Enter the Kenyan mobile number to use for payment.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -135,7 +137,7 @@ import com.example.farmapp.orders.OrderStatusBadge
                         }
                     OrderSection("M-Pesa payment") {
                         if (isRetry)
-                            Text("Your previous payment attempt did not go through. Enter your M-Pesa number below to try again, or start a new purchase with different items.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            Text("Your previous attempt did not go through. Enter your M-Pesa number to retry payment for purchase #${record.orderId}. The existing order will be reused.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                         OutlinedTextField(phone, { phone = it }, label = { Text("M-Pesa phone number") },
                             placeholder = { Text("07XXXXXXXX or 2547XXXXXXXX") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -145,10 +147,6 @@ import com.example.farmapp.orders.OrderStatusBadge
                             Text("Enter a valid Kenyan mobile number.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         OrderPrimaryButton(if (isRetry) "Retry M-Pesa prompt" else "Send M-Pesa prompt", { confirmPayment = true },
                             controller.enabled && !state.busy && phone.isNotBlank() && state.order?.id == record.orderId)
-                        if (isRetry)
-                            OrderPrimaryButton("Start new purchase", {
-                                selection?.let { sel -> controller.prepare(items, sel) }
-                            }, controller.enabled && !state.busy && selection != null && items.isNotEmpty())
                     }
                 }
                 "CONFIRMED" -> {

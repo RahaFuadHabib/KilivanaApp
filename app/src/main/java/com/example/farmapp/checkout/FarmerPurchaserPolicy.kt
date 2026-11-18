@@ -2,9 +2,7 @@ package com.example.farmapp.checkout
 
 import com.example.farmapp.data.model.canonical.CanonicalFarmerProduct
 
-/** Owner-authorized cart integration uses documented purchaser endpoints and fails on HTTP 401/403.
- * Cart GET may create an ACTIVE cart. Order and payment activation remain independently gated.
- */
+/** Farmer-as-purchaser operations are restricted to the signed-in Farmer's own cart and orders. */
 internal object FarmerPurchaserPolicy : PurchaserPolicy {
     override val flow = PurchasingFlow.FARMER_FROM_SUPPLIER
     override val role = "FARMER"
@@ -13,7 +11,7 @@ internal object FarmerPurchaserPolicy : PurchaserPolicy {
     override fun permits(operation: CheckoutOperation) = operation in setOf(
         CheckoutOperation.READ_CART, CheckoutOperation.UPLOAD_CART, CheckoutOperation.SET_QUANTITY,
         CheckoutOperation.START_CHECKOUT, CheckoutOperation.REQUEST_QUOTE, CheckoutOperation.CREATE_ORDER,
-        CheckoutOperation.READ_ORDERS, CheckoutOperation.READ_PAYMENTS,
+        CheckoutOperation.READ_ORDERS, CheckoutOperation.READ_PAYMENTS, CheckoutOperation.INITIATE_PAYMENT,
         CheckoutOperation.READ_ADDRESSES, CheckoutOperation.READ_PICKUP_STATIONS,
         CheckoutOperation.READ_LOGISTICS)
     override fun validateQuantity(product: CanonicalFarmerProduct, quantity: Int) =

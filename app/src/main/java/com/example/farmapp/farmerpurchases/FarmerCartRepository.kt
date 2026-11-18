@@ -49,38 +49,33 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
         }
         return response.body()?.requireData() ?: error("Cart response is incomplete.")
     }
-    suspend fun readBasket(): Pair<Long, Map<Long, Int>> {
-        val value = accepted(requests.call(CheckoutOperation.READ_CART, api::cart))
-        val cart = metadata(value)
-        val items = com.example.farmapp.buyers.BuyerCheckoutContract.cartItems(value)
-            ?: error("Backend cart item readback is required before continuing.")
-        journal.pending(false)
-        return cart.id!! to items
-    }
+    // GET /cart intentionally returns cart metadata only. It cannot resolve an
+    // ambiguous write, so a read must never discard the write-ahead marker.
     suspend fun read() = metadata(accepted(requests.call(CheckoutOperation.READ_CART, api::cart)))
     suspend fun quantity(productId: Long, quantity: Int): Long {
         require(productId > 0 && quantity > 0)
         val before = read()
-        val result = metadata(write { requests.call(CheckoutOperation.SET_QUANTITY, { api.quantity(before.id!!, productId, quantity, it) }) })
-        check(result.id == before.id)
+        val cartId = checkNotNull(before.id)
+        val result = metadata(write { requests.call(CheckoutOperation.SET_QUANTITY, { api.quantity(cartId, productId, quantity, it) }) })
+        check(result.id == cartId && result.status == "ACTIVE") { "The server cart changed during the quantity update." }
         val after = read()
-        check(after.id == before.id)
+        check(after.id == cartId && after.status == "ACTIVE") { "The server cart could not be verified after setting quantity." }
         journal.pending(false)
-        return after.id!!
+        return cartId
     }
     fun hasPendingWrite() = journal.pending()
     private suspend fun <T> write(action: suspend () -> Response<CanonicalApiResponse<T>>): T {
         check(!journal.pending()) { "A previous cart write is unresolved. The backend must verify its item quantities before another write." }
         journal.pending(true)
         val response = action()
-        if (response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
+        if (!response.isSuccessful && response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
         return accepted(response)
     }
     suspend fun add(productId: Long, quantity: Int): Long {
         require(productId > 0 && quantity > 0)
         check(!journal.pending()) { "A previous cart write is unresolved. Refresh and ask support to verify the server cart." }
         val before = read()
-        val wasActive = before.status == "ACTIVE"
+        val cartId = checkNotNull(before.id)
         journal.pending(true)
         val response = requests.call(CheckoutOperation.UPLOAD_CART, { api.add(CartUpload(productId, quantity), it) })
         val duplicate = response.code() == 409 && runCatching {
@@ -93,25 +88,15 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
             if (response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
             accepted(response)
         }
-        val added = when {
-            duplicate && wasActive -> before
-            duplicate -> read()
-            else -> metadata(accepted(response))
-        }
-        if (wasActive) {
-            check(added.id == before.id) { "The server cart changed during the request. Verify its contents before continuing." }
-        }
-        val cartId = added.id!!
-        val exact = metadata(requests.call(CheckoutOperation.SET_QUANTITY, {
-            api.quantity(cartId, productId, quantity, it)
-        }).let(::accepted))
-        if (wasActive) {
-            check(exact.id == before.id) { "The server cart changed during the request. Verify its contents before continuing." }
-        }
+        val added = if (duplicate) before else metadata(accepted(response))
+        check(added.id == cartId && added.status == "ACTIVE") { "The server cart changed during the add. Verify its contents before continuing." }
+        val exactResponse = requests.call(CheckoutOperation.SET_QUANTITY, { api.quantity(cartId, productId, quantity, it) })
+        // POST already changed the cart; even a definite PUT rejection leaves a
+        // partially applied add that cannot be reconciled from metadata alone.
+        val exact = metadata(accepted(exactResponse))
+        check(exact.id == cartId && exact.status == "ACTIVE") { "The server cart changed after setting quantity." }
         val after = read()
-        if (wasActive) {
-            check(after.id == before.id)
-        }
+        check(after.id == cartId && after.status == "ACTIVE") { "The server cart could not be verified after adding the item." }
         journal.pending(false)
         return after.id!!
     }
@@ -121,13 +106,14 @@ internal class FarmerCartRepository(private val api: PurchaserCartApi, sessions:
         val before = read()
         // Successful deletion may legitimately return no data.
         journal.pending(true)
-        val response = requests.call(CheckoutOperation.SET_QUANTITY, { api.remove(before.id!!, productId, it) })
-        if (response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
+        val cartId = checkNotNull(before.id)
+        val response = requests.call(CheckoutOperation.SET_QUANTITY, { api.remove(cartId, productId, it) })
+        if (!response.isSuccessful && response.code() in setOf(400, 401, 403, 404, 409, 422, 429)) journal.pending(false)
         if (!response.isSuccessful) accepted(response)
         check(response.body()?.success == true) { "Cart removal could not be verified." }
         val after = read()
-        check(after.id == before.id)
+        check(after.id == cartId && after.status == "ACTIVE") { "The server cart could not be verified after removal." }
         journal.pending(false)
-        return after.id!!
+        return cartId
     }
 }

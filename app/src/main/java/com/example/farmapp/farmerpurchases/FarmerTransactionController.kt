@@ -23,7 +23,7 @@ internal data class FarmerIntentRequest(val orderId: Long, val phoneNumber: Stri
 }
 internal interface FarmerTransactionApi {
     @POST("checkout/validate") suspend fun prepare( @Tag session: SessionSnapshot): Response<CanonicalApiResponse<FarmerPreparedCart>>
-    @POST("checkout") suspend fun start(@Query("cartId") cartId: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>>
+    @POST("carts/{cartId}/checkout") suspend fun start(@Path("cartId") cartId: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>>
     @POST("checkout/delivery-quote") suspend fun quote(@Body request: FarmerQuoteRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CheckoutQuote>>
     @POST("checkout/order") suspend fun order(@Body request: FarmerQuoteOrder, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Long>>
     @POST("payments/stk-push/buyer") suspend fun pay(@Body request: FarmerIntentRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>>
@@ -141,7 +141,17 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     private suspend fun recoverOrder() {
         val record = state.value.record!!
-        val id = request { api.order(FarmerQuoteOrder(record.quote!!.quoteId, record.phoneNumber), it) }
+        val response = api.order(FarmerQuoteOrder(record.quote!!.quoteId, record.phoneNumber), current())
+        try { current() } catch (e: Exception) { response.errorBody()?.close(); throw e }
+        if (!response.isSuccessful && response.code() in 400..499) {
+            response.errorBody()?.close()
+            // The backend's quote-to-order operation is transactional. A definite client
+            // rejection did not create an order, so refresh the quote instead of trapping
+            // this journal in ORDER_PENDING. Transport failures and 5xx remain unresolved.
+            save(record.copy(phase = "PREPARING", quote = null))
+            throw ClientValidation("The backend rejected this order request. No order was created; refresh the quote before trying again.")
+        }
+        val id = response.requirePurchaseData()
         check(id > 0)
         save(record.copy(phase = "ORDER_CREATED", orderId = id))
         readOrder()
@@ -197,7 +207,8 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         if (row == null) { mutable.update { it.copy(notice = "Payment outcome is unresolved. No STK request was repeated.") }; return }
         val latest = request { orders.payment(row.id!!, it) }
         FarmerPaymentContract.validateStatus(latest, row, order.id!!)
-        mutable.update { it.copy(payment = latest) }
+        mutable.update { it.copy(payment = latest,
+            notice = if (latest.status in setOf("paid", "held", "settled", "failed", "cancelled")) null else it.notice) }
         when (latest.status) {
             "paid", "held", "settled" -> save(record.copy(phase = "CONFIRMED", paymentId = latest.id))
             "failed" -> save(record.copy(phase = "PAYMENT_FAILED", paymentId = latest.id))
@@ -225,12 +236,13 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         if (polling?.isActive == true) return
         polling = scope.launch {
             val deadline = System.currentTimeMillis() + 120_000L
+            var timeoutShown = false
             while (isActive && state.value.record?.phase == "PAYMENT_PENDING") {
-                delay(pollMs)
+                delay(if (timeoutShown) maxOf(pollMs, 10_000L) else pollMs)
                 if (state.value.busy) continue
-                if (System.currentTimeMillis() > deadline) {
-                    mutable.update { it.copy(notice = "Payment confirmation timed out. Please check your M-Pesa messages or try again.") }
-                    break
+                if (!timeoutShown && System.currentTimeMillis() > deadline) {
+                    timeoutShown = true
+                    mutable.update { it.copy(notice = "Payment is taking longer than expected. Checking this same order for the backend's final status; no duplicate prompt was sent.") }
                 }
                 mutable.update { it.copy(busy = true) }
                 try { current(); reconcilePayment() }

@@ -154,6 +154,16 @@ class BrianCheckoutControllerTest {
         assertEquals("NONE",disk.value.phase);assertNull(controller.state.value.order)
         assertEquals(1,api.creates);assertEquals(1,api.adds);assertEquals(0,paymentWrites)
     }
+    @Test fun cancelledPaymentOrderAllowsNewBasket()=scenario {
+        prepare();create();order=order.copy(paymentStatus="cancelled");controller.startNewBasket()
+        assertEquals("NONE",disk.value.phase);assertNull(controller.state.value.order)
+        assertEquals(1,api.creates);assertEquals(1,api.adds);assertEquals(0,paymentWrites)
+    }
+    @Test fun failedPaymentOrderAllowsNewBasket()=scenario {
+        prepare();create();order=order.copy(paymentStatus="failed");controller.startNewBasket()
+        assertEquals("NONE",disk.value.phase);assertNull(controller.state.value.order)
+        assertEquals(1,api.creates);assertEquals(1,api.adds);assertEquals(0,paymentWrites)
+    }
     @Test fun unknownOrderOutcomeCannotBeClearedAsNewBasket()=scenario {
         prepare();api.orderTimeout=true;create();controller.startNewBasket()
         assertEquals("ORDER_PENDING",disk.value.phase);assertEquals(1,api.creates)

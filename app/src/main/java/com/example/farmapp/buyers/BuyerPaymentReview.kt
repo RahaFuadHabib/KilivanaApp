@@ -23,7 +23,7 @@ import java.math.BigDecimal
     if(state.payments.isNotEmpty() || state.submitted) {
         val payment=state.payments.lastOrNull()
         com.example.farmapp.buyers.ui.screens.PaymentStatusScreen(
-            com.example.farmapp.buyers.data.PaymentStatus(payment?.status ?: "UNKNOWN",payment?.amount ?: state.total ?: order.total,null),state.busy,state.notice,refresh,back)
+            com.example.farmapp.buyers.data.PaymentStatus(payment?.status ?: "UNKNOWN",payment?.amount ?: state.total ?: order.total,payment?.mpesaReceiptNumber),state.busy,state.notice,refresh,back)
         return
     }
     var phone by rememberSaveable(order.id){mutableStateOf(initialPhone)}

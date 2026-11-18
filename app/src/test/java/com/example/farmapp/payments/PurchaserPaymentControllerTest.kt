@@ -25,6 +25,7 @@ class PurchaserPaymentControllerTest {
         val attempts = object : PaymentAttemptStore {
             override fun started(orderId: Long): Boolean { check(!readFailure); return orderId in markers }
             override fun reserve(orderId: Long): Boolean { check(!diskFailure); return markers.add(orderId) }
+            override fun release(orderId: Long) { markers.remove(orderId) }
         }
         var row = BuyerOrderDto(10, 42, "placed", BigDecimal("125.57"), "pending", items = emptyList())
         var records = emptyList<PaymentDto>()

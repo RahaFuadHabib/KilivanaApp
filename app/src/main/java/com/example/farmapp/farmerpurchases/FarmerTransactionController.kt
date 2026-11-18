@@ -100,7 +100,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         }
     }
     fun prepare(items: Map<Long, Int>, delivery: DeliverySelection) = run {
-        check(state.value.record == null || state.value.record?.phase == "CONFIRMED") { "Recover saved checkout first" }
+        check(state.value.record == null || state.value.record?.phase in setOf("CONFIRMED", "PAYMENT_FAILED", "PAYMENT_CANCELLED")) { "Recover saved checkout first" }
         require(items.isNotEmpty() && items.size <= 100 && items.all { it.key > 0 && it.value > 0 })
         save(FarmerTransactionRecord(UUID.randomUUID().toString(), items.toSortedMap(), delivery.toQuoteRequest()))
         prepareSaved()
@@ -170,9 +170,9 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     fun initiate(phone: String) = run {
         var record = state.value.record!!
-        check(record.orderId != null && (record.phase == "ORDER_CREATED" || record.phase == "PAYMENT_FAILED"))
+        check(record.orderId != null && (record.phase == "ORDER_CREATED" || record.phase == "PAYMENT_FAILED" || record.phase == "PAYMENT_CANCELLED"))
         val order = readOrder()
-        check(order.status in setOf("placed", "confirmed") && order.paymentStatus in setOf("pending", "failed"))
+        check(order.status in setOf("placed", "confirmed") && order.paymentStatus in setOf("pending", "failed", "cancelled"))
         check(com.example.farmapp.orders.BuyerMpesaEnvironment.ready()) { "Sandbox payment configuration is required." }
         val normalized = try { mpesaPhone(phone) }
             catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number.") }
@@ -201,6 +201,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         when (latest.status) {
             "paid", "held", "settled" -> save(record.copy(phase = "CONFIRMED", paymentId = latest.id))
             "failed" -> save(record.copy(phase = "PAYMENT_FAILED", paymentId = latest.id))
+            "cancelled" -> save(record.copy(phase = "PAYMENT_CANCELLED", paymentId = latest.id))
             else -> save(record.copy(paymentId = latest.id))
         }
     }
@@ -217,7 +218,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
             "ORDER_PENDING" -> recoverOrder() // Atomic quote replay returns the same owned order.
             "ORDER_CREATED" -> readOrder()
             "PAYMENT_PENDING" -> { reconcilePayment(); poll() }
-            "PAYMENT_FAILED", "CONFIRMED" -> reconcilePayment()
+            "PAYMENT_FAILED", "PAYMENT_CANCELLED", "CONFIRMED" -> reconcilePayment()
         }
     }
     private fun poll() {

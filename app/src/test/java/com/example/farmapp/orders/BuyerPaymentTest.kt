@@ -20,6 +20,7 @@ class BuyerPaymentTest {
         val ids = mutableSetOf<Long>(); var fail = false
         override fun started(orderId: Long) = orderId in ids
         override fun reserve(orderId: Long): Boolean { check(!fail); return ids.add(orderId) }
+        override fun release(orderId: Long) { ids.remove(orderId) }
     }
     private class Api : BuyerOrdersApi {
         var readsFail = false

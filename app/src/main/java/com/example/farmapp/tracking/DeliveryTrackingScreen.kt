@@ -1,12 +1,16 @@
 package com.example.farmapp.tracking
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -143,6 +147,21 @@ internal fun validateDeliveryLocation(location: DeliveryLocationDto, job: Delive
 }
 
 @Composable private fun DriverLocationMap(fix: DeliveryLocationDto) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val token = remember { runCatching {
+        context.getString(context.resources.getIdentifier("mapbox_access_token", "string", context.packageName))
+    }.getOrNull() }
+    val hasToken = !token.isNullOrBlank() && token != "your_mapbox_access_token_here"
+    if (!hasToken) {
+        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth().height(100.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Driver location", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("${fix.latitude}, ${fix.longitude}", style = MaterialTheme.typography.bodyMedium)
+                Text("Map view requires a Mapbox access token.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
     val point = remember(fix.latitude, fix.longitude) { Point.fromLngLat(fix.longitude!!, fix.latitude!!) }
     val viewport = rememberMapViewportState { setCameraOptions { center(point); zoom(14.0) } }
     LaunchedEffect(point) { viewport.setCameraOptions { center(point); zoom(14.0) } }

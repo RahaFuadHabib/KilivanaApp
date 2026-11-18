@@ -14,6 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.farmapp.buyers.data.DeliveryAddress
@@ -65,15 +68,22 @@ fun CheckoutScreen(
     val isPickup = deliveryContent != null
 
     Column(
-        Modifier.fillMaxSize().background(NeutralBackground).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        Modifier.fillMaxSize().background(NeutralBackground)
     ) {
-        // Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-            Text("Checkout", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+        // Branded header
+        Surface(color = GreenCard) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White) }
+                Text("Checkout", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
+            }
         }
-
+        Column(
+            Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // Delivery method tabs (Door / Pickup)
         deliveryMethodContent()
 
@@ -149,7 +159,7 @@ fun CheckoutScreen(
 
         // ── Step 2: Payment ───────────────────────────────────────────────
         CheckoutSection("2. Payment") {
-            Text("M-Pesa STK Push", style = MaterialTheme.typography.titleSmall, color = TextSecondary)
+            Text("M-Pesa STK Push", style = MaterialTheme.typography.titleSmall, color = MessaGreen, fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 phone, { phone = it }, Modifier.fillMaxWidth(),
                 label = { Text("Kenyan mobile number") },
@@ -179,13 +189,15 @@ fun CheckoutScreen(
                 HorizontalDivider(color = NeutralDivider)
                 SummaryLine("Items subtotal", "${deliveryQuote.currency} ${"%.2f".format(deliveryQuote.subtotal)}")
                 SummaryLine("Delivery fee", "${deliveryQuote.currency} ${"%.2f".format(deliveryQuote.deliveryFee)}")
+                HorizontalDivider(color = NeutralDivider)
                 SummaryLine("Total", "${deliveryQuote.currency} ${"%.2f".format(deliveryQuote.total)}", emphasize = true)
             }
 
             Button(
                 onClick = { place(deliveryQuote.quoteId, true, phone) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !submitting && validPhone
+                enabled = !submitting && validPhone,
+                colors = ButtonDefaults.buttonColors(containerColor = MessaGreen)
             ) {
                 if (submitting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else { Icon(Icons.Default.PhoneAndroid, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Create order & pay with M-Pesa") }
@@ -193,14 +205,19 @@ fun CheckoutScreen(
         }
 
         if (items.isEmpty()) Text("Your cart is empty.", color = TextSecondary)
+        }
     }
 }
 
 @Composable
 internal fun CheckoutSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(18.dp), color = NeutralSurface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+    Surface(shape = RoundedCornerShape(16.dp), color = NeutralSurface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(4.dp, 18.dp).background(Green600, RoundedCornerShape(2.dp)))
+                Spacer(Modifier.width(10.dp))
+                Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            }
             content()
         }
     }
@@ -216,7 +233,9 @@ internal fun SummaryLine(label: String, value: String, emphasize: Boolean = fals
 }
 
 /** Payment state machine display — shown on the payment screen after order creation. */
-enum class MpesaPaymentState { IDLE, PENDING, PAID, FAILED }
+enum class MpesaPaymentState { IDLE, PENDING, PAID, FAILED, CANCELLED }
+
+private data class PaymentCard(val bg: Color, val tint: Color, val icon: ImageVector?, val title: String, val body: String)
 
 @Composable
 internal fun PaymentStatusScreen(
@@ -228,39 +247,82 @@ internal fun PaymentStatusScreen(
 ) {
     val paymentState = when {
         busy -> MpesaPaymentState.PENDING
-        status.status in setOf("PAID", "HELD", "SETTLED", "COMPLETED") -> MpesaPaymentState.PAID
-        status.status in setOf("FAILED", "CANCELLED", "EXPIRED") -> MpesaPaymentState.FAILED
+        status.status.lowercase() in setOf("paid", "held", "settled", "completed") -> MpesaPaymentState.PAID
+        status.status.lowercase() == "cancelled" -> MpesaPaymentState.CANCELLED
+        status.status.lowercase() in setOf("failed", "expired") -> MpesaPaymentState.FAILED
+        status.status.lowercase() == "pending" -> MpesaPaymentState.PENDING
         else -> MpesaPaymentState.IDLE
+    }
+    val card = when (paymentState) {
+        MpesaPaymentState.PENDING -> PaymentCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid,
+            "Awaiting M-Pesa confirmation",
+            "Enter your M-Pesa PIN on your phone. We'll update the status automatically once Safaricom responds.")
+        MpesaPaymentState.PAID -> PaymentCard(SuccessSurface, Green600, Icons.Default.CheckCircle,
+            "Payment confirmed",
+            status.reference?.let { "Receipt: $it" } ?: "Your payment has been verified.")
+        MpesaPaymentState.FAILED -> PaymentCard(DangerSurface, ErrorRed, Icons.Default.Cancel,
+            "Payment was unsuccessful",
+            notice ?: "The M-Pesa transaction did not complete. You can try again.")
+        MpesaPaymentState.CANCELLED -> PaymentCard(CancelledSurface, CancelledText, Icons.Default.Cancel,
+            "Payment cancelled",
+            "You cancelled the M-Pesa prompt. Your order has not been paid. You can try again when ready.")
+        MpesaPaymentState.IDLE -> PaymentCard(NeutralSurface, TextSecondary, Icons.Default.Info,
+            "Payment status",
+            notice ?: "Check your payment status below.")
     }
     Column(
         Modifier.fillMaxSize().background(NeutralBackground).padding(24.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TextButton(onClick = onBack) { Text("← Back to order") }
-        when (paymentState) {
-            MpesaPaymentState.PENDING -> {
-                CircularProgressIndicator(color = Green600)
-                Text("Waiting for M-Pesa confirmation…", style = MaterialTheme.typography.titleMedium)
-                Text("Check your phone and enter your M-Pesa PIN.", color = TextSecondary)
-            }
-            MpesaPaymentState.PAID -> {
-                Icon(Icons.Default.CheckCircle, null, Modifier.size(64.dp), tint = Green600)
-                Text("Payment confirmed", style = MaterialTheme.typography.headlineSmall, color = Green700)
-                status.amount?.let { Text("Amount: KES ${"%.2f".format(it)}", color = TextSecondary) }
-            }
-            MpesaPaymentState.FAILED -> {
-                Icon(Icons.Default.Cancel, null, Modifier.size(64.dp), tint = ErrorRed)
-                Text("Payment failed", style = MaterialTheme.typography.headlineSmall, color = ErrorRed)
-                notice?.let { Text(it, color = TextSecondary) }
-                // Retry uses the existing pendingOrderId — no duplicate order created
-                Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("Retry payment") }
-            }
-            MpesaPaymentState.IDLE -> {
-                notice?.let { Text(it, color = TextSecondary) }
+        Surface(shape = RoundedCornerShape(20.dp), color = card.bg, modifier = Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (paymentState == MpesaPaymentState.PENDING) {
+                    Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(48.dp), color = card.tint, strokeWidth = 3.dp)
+                    }
+                } else {
+                    card.icon?.let { Icon(it, null, Modifier.size(64.dp), tint = card.tint) }
+                }
+                Text(card.title, style = MaterialTheme.typography.titleLarge, color = card.tint)
+                Text(card.body, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
         }
+        if (status.amount != null || status.reference != null) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = NeutralSurface,
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    status.amount?.let {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Amount", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            Text("KES ${"%.2f".format(it)}", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                        }
+                    }
+                    status.reference?.let {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Receipt", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            Text(it, style = MaterialTheme.typography.bodyMedium, color = Green600, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+        }
+        if (paymentState == MpesaPaymentState.FAILED || paymentState == MpesaPaymentState.CANCELLED) {
+            Button(
+                onClick = onRefresh, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Green600)
+            ) { Icon(Icons.Default.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Retry payment") }
+        }
         OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
-            Text("Refresh payment status")
+            Icon(Icons.Default.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Refresh payment status")
         }
     }
 }

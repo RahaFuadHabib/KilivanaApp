@@ -62,7 +62,7 @@ internal class SupplierProfilePhotosModel(context: Context) : ViewModel() {
         val id = current().auth!!.userId.toLong()
         val profile = read(ApiClient.profileEditorApi.business(id, current()))
         check(profile.userId == id && profile.id != null && profile.id > 0)
-        val rows = read(ApiClient.supplierProfilePhotosApi.images(id, current()))
+        val rows = read(ApiClient.supplierPadrofilePhotosApi.images(id, current()))
         rows.forEach { it.toImageView() }; check(rows.map { it.id }.distinct().size == rows.size)
         current(); return rows
     }

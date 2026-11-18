@@ -35,6 +35,7 @@ class PaymentInfrastructureTest {
         val persistence = object : PaymentAttemptPersistence {
             override fun started(orderId: Long) = orderId in ids
             override fun markStarted(orderId: Long) { ids.add(orderId) }
+            override fun clearStarted(orderId: Long) { ids.remove(orderId) }
         }
         val lock = Any(); val first = DurablePaymentAttempts(persistence, lock); val second = DurablePaymentAttempts(persistence, lock)
         val executor = Executors.newFixedThreadPool(4)
@@ -49,6 +50,7 @@ class PaymentInfrastructureTest {
         val store = DurablePaymentAttempts(object : PaymentAttemptPersistence {
             override fun started(orderId: Long) = false
             override fun markStarted(orderId: Long) { error("Synthetic disk failure") }
+            override fun clearStarted(orderId: Long) {}
         }, Any())
         assertThrows(IllegalStateException::class.java) { store.reserve(10) }
     }

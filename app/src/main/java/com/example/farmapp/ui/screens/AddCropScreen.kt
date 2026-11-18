@@ -24,13 +24,16 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.example.farmapp.repository.FarmerFarm
 
 @Composable
-internal fun AddCropScreen(controller: CropPhotoController, modifier: Modifier = Modifier, publishing: Boolean = false, publishMessage: String? = null, onPublish: () -> Unit = {}, onCheckCreation: () -> Unit = {}, categories: CategoryCatalog = CategoryCatalog(), onRetryCategories: () -> Unit = {}) {
+internal fun AddCropScreen(controller: CropPhotoController, modifier: Modifier = Modifier, publishing: Boolean = false, publishMessage: String? = null, onPublish: () -> Unit = {}, onCheckCreation: () -> Unit = {}, categories: CategoryCatalog = CategoryCatalog(), onRetryCategories: () -> Unit = {}, farms: List<FarmerFarm> = emptyList(), farmsLoading: Boolean = false, farmsError: String? = null, onRetryFarms: () -> Unit = {}, onOpenFarms: () -> Unit = {}) {
     val draft = controller.draft
     val locked = publishing || draft.productId != null || draft.creationUncertain
     val editable = !controller.busy && !locked
     val categoryReady = draft.productId != null || categories.contains(draft.categoryId)
+    val dispatchFarms = farms.filter { it.canDispatchFrom }
+    val farmReady = draft.productId != null || dispatchFarms.any { it.id == draft.farmId }
     val categoryName = categories.name(draft.categoryId, draft.categoryName)
     var review by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
@@ -89,6 +92,21 @@ internal fun AddCropScreen(controller: CropPhotoController, modifier: Modifier =
         }
         HorizontalDivider()
         Text("Crop details", style = MaterialTheme.typography.titleMedium)
+        if (draft.productId == null) {
+            CropFarmDropdown(dispatchFarms, draft.farmId, editable && !farmsLoading) { id ->
+                controller.update(draft.copy(farmId = id))
+            }
+            if (farmsLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            farmsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (dispatchFarms.isEmpty() || !farmReady) {
+                Text(if (dispatchFarms.isEmpty())
+                    "No Admin-approved active farm with a physical address is available. Register your farm and wait for inspection approval before uploading produce."
+                else "Choose the active farm where this produce is grown.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onOpenFarms) { Text("Open My Farms") }
+            }
+            if (farmsError != null) TextButton(onClick = onRetryFarms, enabled = !farmsLoading) { Text("Retry farms") }
+        }
         OutlinedTextField(draft.name, { controller.update(draft.copy(name = it)); formError = null },
             label = { Text("Crop name") }, singleLine = true, enabled = editable, modifier = Modifier.fillMaxWidth())
         CropCategoryDropdown(categories, draft.categoryId, draft.categoryName, editable, onRetryCategories) {
@@ -114,7 +132,7 @@ internal fun AddCropScreen(controller: CropPhotoController, modifier: Modifier =
         }
         formError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = { formError = draft.validationError() ?: if (!categoryReady) "Select an available backend category." else null; review = formError == null },
-            enabled = !controller.busy && !publishing && !draft.creationUncertain && categoryReady, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            enabled = !controller.busy && !publishing && !draft.creationUncertain && categoryReady && farmReady, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Text(if (draft.productId == null) "Review draft" else "Resume publishing")
         }
     }
@@ -147,6 +165,26 @@ private fun CropPhotoPreview(storage: CropPhotoStorage, name: String, number: In
         else Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.Image, null)
             Text("Preview unavailable", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CropFarmDropdown(farms: List<FarmerFarm>, selectedId: Long?, enabled: Boolean, onSelect: (Long?) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = farms.firstOrNull { it.id == selectedId }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled && farms.isNotEmpty()) expanded = it }) {
+        OutlinedTextField(value = selected?.let { "${it.name} · ${it.county}" }.orEmpty(), onValueChange = {},
+            readOnly = true, enabled = enabled && farms.isNotEmpty(), label = { Text("Dispatch farm") },
+            placeholder = { Text("Select an approved farm") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth())
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            farms.forEach { farm ->
+                DropdownMenuItem(text = { Text("${farm.name} · ${farm.county}") },
+                    onClick = { onSelect(farm.id); expanded = false })
+            }
         }
     }
 }

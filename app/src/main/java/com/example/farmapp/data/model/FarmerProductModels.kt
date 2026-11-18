@@ -10,7 +10,8 @@ data class CreateProductRequest(
     val availableQuantity: BigDecimal,
     val categoryId: String? = null,
     val lowStockThreshold: BigDecimal? = null,
-    val minimumOrderQuantity: BigDecimal? = null
+    val minimumOrderQuantity: BigDecimal? = null,
+    val farmId: Long? = null
 )
 
 data class ProductImageResponse(val imageId: String, val fileName: String?, val contentType: String?,
@@ -22,7 +23,8 @@ data class FarmerProductResponse(val productId: String, val name: String, val de
     val status: String = "ACTIVE", val categoryId: String? = null,
     val lowStockThreshold: BigDecimal? = null, val minimumOrderQuantity: BigDecimal? = null,
     val categoryName: String? = null,
-    val sellerId: String? = null, val reservedQuantity: BigDecimal? = null)
+    val sellerId: String? = null, val reservedQuantity: BigDecimal? = null, val farmId: Long? = null,
+    val statusReason: String? = null)
 
 /** Presentation eligibility only. The server rechecks ownership, state and reservations. */
 enum class FarmerProductAction(val label: String, val targetStatus: String?, val successMessage: String) {

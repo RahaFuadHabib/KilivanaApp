@@ -113,7 +113,8 @@ fun FarmerScreen(
     onResumeExisting: ((com.example.farmapp.data.model.FarmerProductResponse) -> Unit)? = null,
     onOpenCrop: (com.example.farmapp.data.model.FarmerProductResponse) -> Unit = {},
     onOpenSupplies: (() -> Unit)? = null,
-    onOpenOrders: (() -> Unit)? = null
+    onOpenOrders: (() -> Unit)? = null,
+    onOpenFarms: (() -> Unit)? = null
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(1) } // Default to "My Crops" to showcase Behance listings
     val pullRefreshState = rememberPullToRefreshState()
@@ -195,6 +196,7 @@ fun FarmerScreen(
                             maxItemsInEachRow = 4
                         ) {
                             FarmerShortcut("My Crops", Icons.Default.Spa) { selectedTabIndex = 1 }
+                            FarmerShortcut("My Farms", Icons.Default.Agriculture) { onOpenFarms?.invoke() }
                             FarmerShortcut("Orders", Icons.Default.LocalShipping) { onOpenOrders?.invoke() ?: run { selectedTabIndex = 0 } }
                             FarmerShortcut("Supplies", Icons.Default.Agriculture) { onOpenSupplies?.invoke() ?: run { selectedTabIndex = 2 } }
                             FarmerShortcut("Audits", Icons.AutoMirrored.Filled.FactCheck) { showAuditsDialog = true }
@@ -267,6 +269,14 @@ fun FarmerScreen(
                                         product.images.firstOrNull()?.let { ProductImage(it.url, product.name) }
                                         Text(product.name, style = MaterialTheme.typography.titleMedium)
                                         Text("Status: ${productStatusLabel(product.status)}")
+                                        if (product.status == "PENDING_APPROVAL")
+                                            Text("Submitted to Admin. This produce will appear in the marketplace after approval.",
+                                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (product.status == "REJECTED")
+                                            product.statusReason?.takeIf { it.isNotBlank() }?.let { reason ->
+                                                Text("Admin feedback: $reason", style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error)
+                                            }
                                         Text("${product.availableQuantity.toPlainString()} ${product.unit}")
                                         Text("KES ${product.unitPrice.toPlainString()} / ${product.unit}")
                                         onResumeExisting?.let { resume -> TextButton(onClick = { resume(product) }) { Text("Use this listing for pending draft") } }

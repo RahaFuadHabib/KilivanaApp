@@ -2,7 +2,7 @@ package com.example.farmapp.ui.navigation
 
 /** One flat Farmer tab selection, with no nested home stack. */
 internal enum class FarmerDestination(val label: String) {
-    HOME("Home"), ORDERS("Orders"), ADD("Add"), MAP("Map"), SUPPLIES("Supplies"), PROFILE("Profile");
+    HOME("Home"), ORDERS("Orders"), ADD("Add"), MAP("Map"), SUPPLIES("Supplies"), PROFILE("Profile"), FARMS("My Farms");
 
     fun backDestination(): FarmerDestination? = if (this == HOME) null else HOME
 

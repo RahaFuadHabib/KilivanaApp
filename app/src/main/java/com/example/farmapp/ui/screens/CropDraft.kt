@@ -12,7 +12,8 @@ internal data class CropDraft(
     val uploadedPhotos: Int = 0,
     val creationUncertain: Boolean = false,
     val categoryId: String? = null,
-    val categoryName: String? = null
+    val categoryName: String? = null,
+    val farmId: Long? = null
 ) {
     fun validationError(): String? = when {
         name.isBlank() || name.trim().length > 150 -> "Enter a crop name."
@@ -26,11 +27,17 @@ internal data class CropDraft(
         else -> null
     }
 
-    fun savedValues(): List<String> = listOf("crop-draft-v4", name, quantity, pricePerUnit, description, unit.name, productId.orEmpty(), uploadedPhotos.toString(), creationUncertain.toString(), categoryId.orEmpty(), categoryName.orEmpty()) + photos
+    fun savedValues(): List<String> = listOf("crop-draft-v5", name, quantity, pricePerUnit, description, unit.name,
+        productId.orEmpty(), uploadedPhotos.toString(), creationUncertain.toString(), categoryId.orEmpty(),
+        categoryName.orEmpty(), farmId?.toString().orEmpty()) + photos
 
     companion object {
         fun fromSavedValues(values: List<String>): CropDraft =
-            if (values.firstOrNull() == "crop-draft-v4") {
+            if (values.firstOrNull() == "crop-draft-v5") {
+                CropDraft(values[1], values[2], values[3], values[4], values.drop(12), CropUnit.valueOf(values[5]),
+                    values[6].ifBlank { null }, values[7].toInt(), values[8].toBoolean(), values[9].ifBlank { null },
+                    values[10].ifBlank { null }, values[11].toLongOrNull())
+            } else if (values.firstOrNull() == "crop-draft-v4") {
                 CropDraft(values[1], values[2], values[3], values[4], values.drop(11), CropUnit.valueOf(values[5]), values[6].ifBlank { null }, values[7].toInt(), values[8].toBoolean(), values[9].ifBlank { null }, values[10].ifBlank { null })
             } else if (values.firstOrNull() == "crop-draft-v3") {
                 CropDraft(values[1], values[2], values[3], values[4], values.drop(9), CropUnit.valueOf(values[5]), values[6].ifBlank { null }, values[7].toInt(), values[8].toBoolean())

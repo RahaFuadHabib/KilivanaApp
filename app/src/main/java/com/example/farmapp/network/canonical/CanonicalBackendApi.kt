@@ -41,7 +41,16 @@ interface CanonicalBackendApi {
 data class CanonicalFarmProfileRequest(val farmName: String, val location: String)
 data class CanonicalProfileUpdate(val name: String, val email: String, val phone: String)
 data class CanonicalProductRequest(val name: String, val description: String, val unit: String,
-    val price: BigDecimal, val stockQty: Int, val minimumOrderQty: Int, val categoryId: Long)
+    val price: BigDecimal, val stockQty: Int, val minimumOrderQty: Int, val categoryId: Long,
+    val farmId: Long? = null)
+
+data class CanonicalFarmRequest(val name: String, val county: String, val subCounty: String? = null,
+    val address: String, val latitude: Double? = null, val longitude: Double? = null,
+    val sizeAcres: Double, val ownershipType: String, val description: String? = null)
+data class CanonicalFarmDto(val id: Long? = null, val farmerId: Long? = null, val name: String? = null,
+    val county: String? = null, val subCounty: String? = null, val address: String? = null,
+    val latitude: Double? = null, val longitude: Double? = null, val sizeAcres: Double? = null,
+    val ownershipType: String? = null, val status: String? = null, val description: String? = null)
 
 data class CanonicalCreatedProfileDto(val userId: Long? = null, val farmName: String? = null)
 data class CanonicalSupplierProfileRequest(val businessName: String, val location: String) {

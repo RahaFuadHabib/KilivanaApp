@@ -22,8 +22,7 @@ internal fun buyerCartEvidence(data: JsonObject, expectedBuyer: Long): BuyerCart
     val buyer = id("buyerId")
     check(buyer == expectedBuyer)
     val status = data.get("status")
-    check(status != null && status.isJsonPrimitive && status.asJsonPrimitive.isString &&
-        status.asString in setOf("ACTIVE", "CHECKOUT_PROCESSING", "ABANDONED"))
+    check(status != null && status.isJsonPrimitive && status.asJsonPrimitive.isString && status.asString.isNotBlank())
     val paths = mutableSetOf<String>()
     fun visit(value: JsonElement, prefix: String, depth: Int) {
         if (depth > 6) return

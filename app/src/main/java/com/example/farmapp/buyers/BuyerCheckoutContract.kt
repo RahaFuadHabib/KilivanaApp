@@ -27,7 +27,7 @@ internal object BuyerCheckoutContract : CheckoutContract<JsonObject, JsonElement
     override fun orderId(order: BuyerOrderDto) = order.id!!
     override fun isPayable(order: BuyerOrderDto) = order.status in setOf("placed", "confirmed")
     override fun isFinished(order: BuyerOrderDto) =
-        buyerPaymentOutcome(order.paymentStatus) in setOf("confirmed", "refunded") || order.status == "cancelled"
+        buyerPaymentOutcome(order.paymentStatus) in setOf("confirmed", "refunded", "cancelled", "failed") || order.status == "cancelled"
     override fun isAwaitingPayment(order: BuyerOrderDto) = buyerPaymentOutcome(order.paymentStatus) == "pending"
     override fun normalizePhone(input: String) = buyerMpesaPhone(input)
 }

@@ -80,6 +80,7 @@ internal class FarmerPurchaseFixture {
     val attempts = object : PaymentAttemptStore {
         override fun started(orderId: Long) = orderId in reservations
         override fun reserve(orderId: Long) = reservations.add(orderId)
+        override fun release(orderId: Long) { reservations.remove(orderId) }
     }
     fun controller(cart: FarmerCartRepository? = null) = FarmerPurchaseController(marketplace, orders, addresses, pickup, tracking, payment,
         sessions, expected, journal, attempts, basket, scope, cart)

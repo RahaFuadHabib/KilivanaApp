@@ -10,10 +10,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -74,11 +81,12 @@ internal class BuyerPaymentController(private val api: BuyerOrdersApi, sessions:
                 val response = api.payments(orderId, session)
                 if (response.isSuccessful) {
                     val payments = response.body()?.data ?: return@launch
-                    val latest = payments.maxByOrNull { it.id ?: 0L }?.copy(status = payments.maxByOrNull { it.id ?: 0L }?.status?.lowercase()) ?: return@launch
-                    if (latest.status !in paymentStatuses) return@launch
+                    val latest = payments.maxByOrNull { it.id ?: 0L } ?: return@launch
+                    if (latest.status?.lowercase() !in paymentStatuses) return@launch
                     if (state.value.orderId != orderId) return@launch
                     val existing = state.value.payments.firstOrNull { it.id == latest.id }
-                    if (existing?.status == "pending" && latest.status in setOf("paid", "cancelled", "failed"))
+                    val normalized = latest.copy(status = latest.status?.lowercase())
+                    if (existing == null || (existing.status == "pending" && normalized.status in setOf("paid", "cancelled", "failed")))
                         delegate.refresh(orderId)
                 }
             } catch (_: Exception) { /* silent; full refresh handles recovery */ }
@@ -131,9 +139,8 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
 }
 @Composable internal fun BuyerPaymentPage(order: BuyerOrderDto, state: BuyerPaymentState, timedOut: Boolean, back: () -> Unit,
     refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit) {
-    Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.White)) {
-        OrderHeader("Pay with M-Pesa", back)
-        HorizontalDivider(color = androidx.compose.ui.graphics.Color(0xFFE8EBEE))
+    Column(Modifier.fillMaxSize().background(com.example.farmapp.buyers.ui.theme.NeutralBackground)) {
+        OrderHeader("Pay with M-Pesa", back, green = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(16.dp).testTag("payment-page")) {
             BuyerPaymentControls(order, state, timedOut, refresh, initiate, startExpanded = true)
         }
@@ -149,39 +156,68 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
     val displayStatus = latestPayment?.status ?: order.paymentStatus?.lowercase()
     val orderPayable = order.status in setOf("placed", "confirmed") && displayStatus in setOf("pending", "failed", "cancelled")
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        OrderSection {
-            Text("Order payment", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(orderMoney(state.total ?: order.total), color = OrderGreen, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            when (displayStatus) {
-                "paid" -> OrderStatusBadge("PAID", "paid")
-                "pending" -> OrderStatusBadge("PENDING", "pending")
-                "cancelled" -> OrderStatusBadge("CANCELLED", "cancelled")
-                "failed" -> OrderStatusBadge("FAILED", "failed")
-                "held" -> OrderStatusBadge("HELD", "held")
-                "settled" -> OrderStatusBadge("SETTLED", "settled")
-                "refunded" -> OrderStatusBadge("REFUNDED", "refunded")
-                else -> OrderStatusBadge("UNKNOWN", "unknown")
+        // ── Payment summary card with colored status ──────────────────────
+        val statusConfig: Triple<Color, Color, ImageVector>? = when (displayStatus) {
+            "paid" -> Triple(com.example.farmapp.buyers.ui.theme.SuccessSurface, com.example.farmapp.buyers.ui.theme.Green600, Icons.Default.CheckCircle)
+            "pending" -> Triple(com.example.farmapp.buyers.ui.theme.AmberSurface, com.example.farmapp.buyers.ui.theme.AmberIcon, Icons.Default.PhoneAndroid)
+            "cancelled" -> Triple(com.example.farmapp.buyers.ui.theme.CancelledSurface, com.example.farmapp.buyers.ui.theme.CancelledText, Icons.Default.Cancel)
+            "failed" -> Triple(com.example.farmapp.buyers.ui.theme.DangerSurface, com.example.farmapp.buyers.ui.theme.ErrorRed, Icons.Default.Cancel)
+            "held" -> Triple(com.example.farmapp.buyers.ui.theme.AmberSurface, com.example.farmapp.buyers.ui.theme.AmberText, Icons.Default.PauseCircle)
+            "settled" -> Triple(com.example.farmapp.buyers.ui.theme.SuccessSurface, com.example.farmapp.buyers.ui.theme.Green600, Icons.Default.VerifiedUser)
+            "refunded" -> Triple(Color(0xFFEEEEEE), Color(0xFF444444), Icons.Default.Refresh)
+            else -> null
+        }
+        Surface(shape = RoundedCornerShape(16.dp), color = statusConfig?.first ?: Color.White, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    statusConfig?.let { (bg, tint, icon) ->
+                        Box(Modifier.size(42.dp).background(tint.copy(alpha = 0.15f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                            Icon(icon, null, Modifier.size(24.dp), tint = tint)
+                        }
+                    }
+                    Column {
+                        Text("Order payment", style = MaterialTheme.typography.labelMedium, color = com.example.farmapp.buyers.ui.theme.TextSecondary)
+                        Text(orderMoney(state.total ?: order.total), color = statusConfig?.second ?: OrderGreen, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    statusConfig?.let { (_, tint, _) ->
+                        Surface(color = tint.copy(alpha = 0.15f), shape = RoundedCornerShape(20.dp)) {
+                            Text(displayStatus?.uppercase() ?: "UNKNOWN", color = tint, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                        }
+                    }
+                }
             }
         }
+        // ── Payment details card ──────────────────────────────────────────
         if (state.orderId == order.id) {
-            OrderSection("Payment Status") {
-                when (displayStatus) {
-                    "paid" -> {
-                        latestPayment?.mpesaReceiptNumber?.let { Text("Receipt: $it", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) }
-                        latestPayment?.amount?.let { Text("Amount: ${orderMoney(it)}", style = MaterialTheme.typography.bodyMedium) }
-                        (latestPayment?.paidAt ?: order.paidAt)?.let { Text("Paid: ${com.example.farmapp.buyer.buyerDate(it)}", style = MaterialTheme.typography.bodySmall) }
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val hasPendingPayment = state.payments.any { it.status == "pending" }
+                    val statusBody: String? = when (displayStatus) {
+                        "paid" -> {
+                            val sb = StringBuilder()
+                            latestPayment?.mpesaReceiptNumber?.let { sb.append("Receipt: $it\n") }
+                            latestPayment?.amount?.let { sb.append("Amount: ${orderMoney(it)}\n") }
+                            (latestPayment?.paidAt ?: order.paidAt)?.let { sb.append("Paid: ${com.example.farmapp.buyer.buyerDate(it)}") }
+                            sb.toString().ifBlank { null }
+                        }
+                        "pending" -> if (hasPendingPayment)
+                            "M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment." else null
+                        "cancelled" -> "You cancelled the M-Pesa payment. Your order has not been paid. You can try again when you are ready."
+                        "failed" -> "Payment was unsuccessful."
+                        "held" -> "Payment is held in escrow pending delivery confirmation."
+                        "settled" -> "Payment has been released to the seller."
+                        "refunded" -> "Payment has been refunded."
+                        else -> null
                     }
-                    "pending" -> Text("M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment.", style = MaterialTheme.typography.bodyMedium)
-                    "cancelled" -> Text("You cancelled the M-Pesa payment. Your order has not been paid. You can try again when you are ready.", style = MaterialTheme.typography.bodyMedium)
-                    "failed" -> Text("Payment was unsuccessful.", style = MaterialTheme.typography.bodyMedium)
-                    "held" -> Text("Payment is held in escrow pending delivery confirmation.", style = MaterialTheme.typography.bodyMedium)
-                    "settled" -> Text("Payment has been released to the seller.", style = MaterialTheme.typography.bodyMedium)
-                    "refunded" -> Text("Payment has been refunded.", style = MaterialTheme.typography.bodyMedium)
-                    else -> if (state.notice != null) Text(state.notice, style = MaterialTheme.typography.bodyMedium)
+                    statusBody?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = com.example.farmapp.buyers.ui.theme.TextSecondary, lineHeight = 22.sp)
+                    }
+                    state.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+                    if (timedOut && displayStatus == "pending" && hasPendingPayment)
+                        Text("Payment confirmation timed out. Please check your M-Pesa messages or try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = OrderGreen)
                 }
-                if (timedOut && displayStatus == "pending")
-                    Text("Payment confirmation timed out. Please check your M-Pesa messages or try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
             if (displayStatus in setOf("cancelled", "failed") && orderPayable && !state.busy)
                 OrderPrimaryButton("Retry Payment", { showPayment = true })
@@ -189,31 +225,39 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
                 Text("Payment is not available for this order. Refresh to check its current status.")
             if (state.canInitiate) {
                 if (!showPayment) OrderPrimaryButton("Pay with M-Pesa", { showPayment = true }, !state.busy)
-                else OrderSection("M-Pesa Payment") {
-                    Surface(color = OrderPaleGreen, shape = RoundedCornerShape(9.dp)) {
-                        Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Icon(Icons.Default.VerifiedUser, null, tint = OrderGreen)
-                            Text("You will receive an M-Pesa prompt on your phone. Enter your M-Pesa PIN there to complete the payment.", style = MaterialTheme.typography.bodyMedium)
+                else {
+                    Surface(shape = RoundedCornerShape(16.dp), color = com.example.farmapp.buyers.ui.theme.MessaTint, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.PhoneAndroid, null, tint = com.example.farmapp.buyers.ui.theme.MessaGreen)
+                                Text("M-Pesa Payment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = com.example.farmapp.buyers.ui.theme.MessaGreen)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Default.VerifiedUser, null, tint = OrderGreen, modifier = Modifier.padding(top = 2.dp))
+                                Text("You will receive an M-Pesa prompt on your phone. Enter your M-Pesa PIN there to complete the payment.", style = MaterialTheme.typography.bodyMedium, color = com.example.farmapp.buyers.ui.theme.TextSecondary)
+                            }
+                            OutlinedTextField(phone, { phone = it }, label = { Text("M-Pesa phone number") },
+                                placeholder = { Text("07XXXXXXXX or 2547XXXXXXXX") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                shape = RoundedCornerShape(10.dp), enabled = !state.busy, modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = com.example.farmapp.buyers.ui.theme.MessaGreen))
+                            if (phone.isNotBlank() && runCatching { buyerMpesaPhone(phone) }.isFailure)
+                                Text("Enter a valid Kenyan mobile number.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            OrderPrimaryButton("Send M-Pesa Prompt", { confirmTotal = state.total; confirm = true },
+                                !state.busy && runCatching { buyerMpesaPhone(phone) }.isSuccess)
                         }
                     }
-                    Text("Phone Number", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(phone, { phone = it }, label = { Text("M-Pesa phone number") },
-                        placeholder = { Text("07XXXXXXXX or 2547XXXXXXXX") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        shape = RoundedCornerShape(8.dp), enabled = !state.busy, modifier = Modifier.fillMaxWidth())
-                    if (phone.isNotBlank() && runCatching { buyerMpesaPhone(phone) }.isFailure)
-                        Text("Enter a valid Kenyan mobile number.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    OrderPrimaryButton("Send M-Pesa Prompt", { confirmTotal = state.total; confirm = true },
-                        !state.busy && runCatching { buyerMpesaPhone(phone) }.isSuccess)
                 }
             }
         }
-        if (showPayment) OrderSection {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Lock, null, tint = androidx.compose.ui.graphics.Color(0xFF526074))
-                Text("Payment Security", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        if (showPayment) Surface(shape = RoundedCornerShape(16.dp), color = Color.White, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, null, tint = com.example.farmapp.buyers.ui.theme.TextSecondary)
+                    Text("Payment Security", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
+                Text("\u2022 Secure payment via Safaricom M-Pesa\n\u2022 You will be prompted on your phone\n\u2022 Enter your PIN only in the M-Pesa prompt\n\u2022 Never share your M-Pesa PIN\n\u2022 Payment status updates after confirmation", style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp, color = com.example.farmapp.buyers.ui.theme.TextSecondary)
             }
-            Text("\u2022 Secure payment via Safaricom M-Pesa\n\u2022 You will be prompted on your phone\n\u2022 Enter your PIN only in the M-Pesa prompt\n\u2022 Never share your M-Pesa PIN\n\u2022 Payment status updates after confirmation", style = MaterialTheme.typography.bodyMedium, lineHeight = 23.sp)
         }
         TextButton(onClick = refresh, enabled = !state.busy, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Refresh payment and order") }
     }

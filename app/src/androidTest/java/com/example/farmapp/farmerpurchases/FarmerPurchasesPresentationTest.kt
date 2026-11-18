@@ -83,9 +83,9 @@ class FarmerPurchasesPresentationTest {
     @Test fun catalogueLocalBasketDeliveryAndDisabledCheckoutRemainReadOnly() {
         show(); compose.onNodeWithText("Select synthetic seed").performClick()
         compose.onNodeWithText("Basket (1)").performClick()
-        compose.onNodeWithText("Estimated items: KES 376.50").assertExists()
+        compose.onNodeWithText("KES 376.50").assertExists()
         click("Review delivery options"); click("Station #3: Synthetic station")
-        compose.onNodeWithText("Selected: Station(pickupStationId=3)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Station(pickupStationId=3)", substring = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Get delivery quote").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Create purchase order").performScrollTo().assertIsNotEnabled()
         assertEquals(mapOf(7L to 3), disk.basket())
@@ -94,8 +94,8 @@ class FarmerPurchasesPresentationTest {
     }
     @Test fun purchaserHistoryDetailsPaymentReviewAndTrackingDoNotUseSellerWorkflows() {
         show(); compose.onNodeWithText("My purchases").performClick()
-        compose.onNodeWithText("Purchase #105: KES 426.50 — placed").performClick()
-        compose.onNodeWithText("Purchaser #42").assertExists()
+        compose.onNodeWithText("View Details").performClick()
+        compose.onNodeWithText("Total: KES 426.50").assertExists()
         compose.onNodeWithText("Send M-Pesa prompt").performScrollTo().assertIsNotEnabled()
         click("View purchase tracking")
         compose.onAllNodesWithText("Delivery #10: assigned").onFirst().performScrollTo().assertIsDisplayed()

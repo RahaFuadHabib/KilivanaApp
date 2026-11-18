@@ -71,6 +71,6 @@ class FarmerTransactionPresentationTest {
         compose.runOnIdle { assertEquals(0, paymentCalls) }
         compose.onNodeWithText("Confirm STK Push").performClick()
         compose.runOnIdle { assertEquals(1, paymentCalls) }
-        compose.onNodeWithText("Payment pending. Status is checked automatically; an uncertain prompt is never repeated.").assertExists()
+        compose.onNodeWithText("Awaiting M-Pesa confirmation").assertExists()
     }
 }

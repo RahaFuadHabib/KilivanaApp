@@ -20,6 +20,7 @@ internal class FarmerPurchasePersistence(context: Context, user: String, origin:
     val attempts: PaymentAttemptStore = DurablePaymentAttempts(object : PaymentAttemptPersistence {
         override fun started(orderId: Long) = prefs.getBoolean("payment-$orderId", false)
         override fun markStarted(orderId: Long) { check(prefs.edit().putBoolean("payment-$orderId", true).commit()) }
+        override fun clearStarted(orderId: Long) { check(prefs.edit().remove("payment-$orderId").commit()) }
     }, lock)
     val cartWrites = object : CartWriteJournal {
         override fun pending() = prefs.getBoolean("cart-write-pending", false)

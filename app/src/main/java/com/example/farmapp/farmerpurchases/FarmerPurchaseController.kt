@@ -159,7 +159,24 @@ internal class FarmerPurchaseController(
         mutable.update { it.copy(items = remaining, labels = labels,
             products = it.products.filterNot { product -> product.productId.toLongOrNull() in purchasedIds },
             serverCartId = null, selection = null, basketVerified = false,
-            notice = "Confirmed purchases were removed from this device cart.", noticeIsError = false) }
+            notice = "Purchase complete. You can add products to your cart again.", noticeIsError = false) }
+        // Remove purchased items from the server cart so it can be reused for new purchases.
+        // Skip any item the user has re-added to the local cart (avoids racing with a new add).
+        val backendCart = cart ?: return
+        scope.launch {
+            try {
+                requests.current()
+                purchasedIds.forEach { productId ->
+                    if (mutable.value.items.containsKey(productId)) return@forEach
+                    runCatching { backendCart.remove(productId) }
+                        .onFailure { requests.current() }
+                }
+                mutable.update { it.copy(serverCartId = null) }
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                // Server cart cleanup is best-effort; the local cart is already clear.
+            }
+        }
     }
     fun delivery() = read {
         val owned = addresses.list().requirePurchaseData()

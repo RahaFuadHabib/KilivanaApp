@@ -30,7 +30,9 @@ import java.util.Locale
 internal val OrderGreen = Color(0xFF00834A)
 private val OrderInk = Color(0xFF101827)
 private val OrderMuted = Color(0xFF526074)
-private val OrderBorder = Color(0xFFE8EBEE)
+private val OrderBorder = Color(0xFFDCE3E0)
+private val OrderCardTint = Color(0xFFFBFCFB)
+private val OrderPageTint = Color(0xFFF0F3EE)
 internal val OrderPaleGreen = Color(0xFFECFBF2)
 internal fun orderMoney(value: BigDecimal?): String = value?.let {
     "KSh " + NumberFormat.getNumberInstance(Locale.ENGLISH).apply { minimumFractionDigits = 0; maximumFractionDigits = 2 }.format(it)
@@ -53,11 +55,11 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
 }
 @Composable internal fun BuyerOrdersTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = lightColorScheme(primary = OrderGreen, onPrimary = Color.White,
-        background = Color.White, surface = Color.White, onSurface = OrderInk, onBackground = OrderInk,
+        background = OrderPageTint, surface = Color.White, onSurface = OrderInk, onBackground = OrderInk,
         outline = Color(0xFF90B5A5)), content = content)
 }
 @Composable internal fun OrderHeader(title: String, back: () -> Unit, green: Boolean = false) {
-    Surface(color = if (green) Color(0xFF00644B) else Color.White,
+    Surface(color = if (green) Color(0xFF00644B) else OrderPaleGreen,
         contentColor = if (green) Color.White else OrderInk) {
         Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
@@ -67,23 +69,27 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
 }
 @Composable internal fun OrderStatusBadge(label: String, kind: String) {
     val (bg, fg) = when (kind) {
-        "paid", "delivered", "completed", "settled" -> Color(0xFFD9F6CE) to Color(0xFF175D2B)
-        "cancelled", "failed" -> Color(0xFFFFE0E0) to Color(0xFFA22323)
-        "refunded" -> Color(0xFFEEEEEE) to Color(0xFF444444)
-        "confirmed", "in_transit", "held" -> Color(0xFFDDEEFF) to Color(0xFF174B8A)
-        "pending" -> Color(0xFFFFE3A0) to Color(0xFF633A00)
-        else -> Color(0xFFEEEEEE) to Color(0xFF444444)
+        "paid", "delivered", "completed", "settled" -> Color(0xFFE8F5E9) to Color(0xFF1B5E20)
+        "cancelled", "failed" -> Color(0xFFFFEBEE) to Color(0xFFB71C1C)
+        "refunded" -> Color(0xFFF5F5F5) to Color(0xFF555555)
+        "confirmed", "in_transit", "held" -> Color(0xFFE3F2FD) to Color(0xFF0D47A1)
+        "pending" -> Color(0xFFFFF8E1) to Color(0xFFE65100)
+        else -> Color(0xFFF5F5F5) to Color(0xFF555555)
     }
     Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(9.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
     }
 }
 @Composable internal fun OrderSection(title: String? = null, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, OrderBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-        Column(Modifier.padding(if (compact) 12.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 12.dp)) {
-            if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = OrderCardTint), border = BorderStroke(1.dp, OrderBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+        Column(Modifier.padding(if (compact) 12.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 12.dp)) {
+            if (title != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(4.dp, 16.dp).background(OrderGreen, RoundedCornerShape(2.dp)))
+                Spacer(Modifier.width(9.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
             content()
         }
     }
@@ -198,16 +204,15 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
 }
 @Composable internal fun BuyerOrderDetailsDesign(order: BuyerOrderDto, payment: BuyerPaymentState?, onBack: () -> Unit,
     onPay: () -> Unit, extras: @Composable () -> Unit = {}) {
-    Column(Modifier.fillMaxSize().background(Color.White)) {
-        OrderHeader("Order Details", onBack)
-        HorizontalDivider(color = OrderBorder)
+    Column(Modifier.fillMaxSize().background(OrderPageTint)) {
+        OrderHeader("Order Details", onBack, green = true)
         LazyColumn(Modifier.weight(1f).testTag("order-details-list"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 if (orderPaymentConfirmed(order, payment)) OrderPaymentConfirmation(order, payment)
                 else Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        val status = order.paymentStatus.orEmpty()
-                        OrderStatusBadge(if (status == "pending") "Payment Pending" else status.replaceFirstChar { it.uppercase() }, status)
+                        val status = order.paymentStatus?.lowercase().orEmpty()
+                        OrderStatusBadge(if (status == "pending") "Payment Pending" else "Payment ${status.replaceFirstChar { it.uppercase() }}", status)
                         Text(buyerDate(order.createdAt), style = MaterialTheme.typography.labelSmall, color = OrderMuted, modifier = Modifier.padding(start = 8.dp).weight(1f))
                     }
                     if (payment?.canInitiate == true) Text("Pay securely with M-Pesa. Review your order before sending a prompt to your phone.", style = MaterialTheme.typography.bodyMedium)
@@ -226,7 +231,7 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
 @Composable internal fun BuyerOrdersListDesign(rows: List<BuyerOrderDto>, back: () -> Unit,
     content: @Composable (BuyerOrderDto) -> Unit) {
     var filter by rememberSaveable { mutableStateOf("All") }
-    Column(Modifier.fillMaxSize().background(Color.White)) {
+    Column(Modifier.fillMaxSize().background(OrderPageTint)) {
         OrderHeader("My Orders", back, green = true)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf("All", "Pending", "Processing", "Delivered").forEach { label ->

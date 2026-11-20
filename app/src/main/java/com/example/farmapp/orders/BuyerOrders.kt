@@ -40,7 +40,8 @@ data class BuyerStkRequest(val orderId: Long, val phoneNumber: String) {
     override fun toString() = "BuyerStkRequest(redacted)"
 }
 data class BuyerStkResponse(val paymentId: Long? = null, val orderId: Long? = null,
-    val amount: BigDecimal? = null, val status: String? = null)
+    val amount: BigDecimal? = null, val status: String? = null,
+    val darajaResponse: String? = null, val createdAt: String? = null)
 interface BuyerOrdersApi {
     @POST("payments/stk-push/buyer") suspend fun initiateBuyerStk(@Body request: BuyerStkRequest,
         @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>>

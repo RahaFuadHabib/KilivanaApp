@@ -3,6 +3,7 @@ package com.example.farmapp.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -147,7 +148,7 @@ internal fun FarmerShell(
         }
     }
     LaunchedEffect(destination, auth.userId, repository.canonical) {
-        if (destination == FarmerDestination.ORDERS && repository.canonical) refreshSellerOrders()
+        if (repository.canonical && destination in setOf(FarmerDestination.ORDERS, FarmerDestination.HOME)) refreshSellerOrders()
     }
     val selectedCrop = products.firstOrNull { it.productId == selectedCropId }
     val sellerOrders = orders?.let { cropOrders(it, auth.userId) }
@@ -283,29 +284,27 @@ internal fun FarmerShell(
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(
-                    title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Kilivana", style = MaterialTheme.typography.titleLarge)
-                            if (destination == FarmerDestination.HOME) {
-                                Text("Farmer", style = MaterialTheme.typography.titleMedium,
-                                    color = colors.primary)
-                            }
+                Box(Modifier.fillMaxWidth().background(ForestGreen)) {
+                    Row(
+                        Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text("Kilivana", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            if (destination == FarmerDestination.HOME)
+                                Text("Farmer Portal", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                         }
-                    },
-                    actions = {
                         if (destination == FarmerDestination.HOME) {
                             IconButton(onClick = { searchOpen = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search your farm", tint = colors.primary)
+                                Icon(Icons.Default.Search, contentDescription = "Search your farm", tint = Color.White)
                             }
                             com.example.farmapp.ui.components.FarmerThemeToggle(isDarkTheme, onToggleTheme, iconOnly = true)
                             IconButton(onClick = onLogout, enabled = !isLoading) {
-                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Log Out",
-                                    tint = colors.primary)
+                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Log Out", tint = Color.White)
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface))
+                    }
+                }
             },
             bottomBar = {
                 FarmerBottomBar(destination) { tab ->
@@ -369,7 +368,11 @@ internal fun FarmerShell(
                         onResumeExisting = if (cropPhotos.draft.creationUncertain && !publishing) ({ recoveryProduct = it }) else null,
                         onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } },
                         onOpenSupplies = { destination = FarmerDestination.SUPPLIES }, onOpenOrders = { destination = FarmerDestination.ORDERS },
-                        onOpenFarms = { destination = FarmerDestination.FARMS })
+                        onOpenFarms = { destination = FarmerDestination.FARMS },
+                        realSellerOrders = if (repository.canonical) sellerOrderRefresh.orders else null,
+                        sellerOrdersLoading = sellerOrderRefresh.refreshing,
+                        sellerOrdersError = sellerOrderRefresh.error,
+                        onRefreshSellerOrders = { scope.launch { refreshSellerOrders() } })
                     FarmerDestination.ORDERS -> if (repository.canonical) {
                         FarmerSellerOrdersScreen(sellerOrderRefresh.orders, sellerOrderRefresh.error,
                             sellerOrderRefresh.refreshing, contentModifier) { scope.launch { refreshSellerOrders() } }

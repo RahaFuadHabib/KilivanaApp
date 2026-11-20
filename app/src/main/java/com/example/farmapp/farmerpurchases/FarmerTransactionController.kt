@@ -25,14 +25,13 @@ internal interface FarmerTransactionApi {
     @POST("checkout/validate") suspend fun prepare( @Tag session: SessionSnapshot): Response<CanonicalApiResponse<FarmerPreparedCart>>
     @POST("carts/{cartId}/checkout") suspend fun start(@Path("cartId") cartId: Long, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Unit>>
     @POST("checkout/delivery-quote") suspend fun quote(@Body request: FarmerQuoteRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CheckoutQuote>>
-    @POST("checkout/order") suspend fun order(@Body request: FarmerQuoteOrder, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<Long>>
-    @POST("payments/stk-push/buyer") suspend fun pay(@Body request: FarmerIntentRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>>
+    @POST("checkout/order") suspend fun order(@Body request: FarmerQuoteOrder, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<BuyerStkResponse>>
 }
 internal data class FarmerTransactionRecord(val key: String,
     @field:com.google.gson.annotations.JsonAdapter(JournalProductMapAdapter::class) val items: Map<Long, Int>, val delivery: CheckoutQuoteRequest,
     val phase: String = "PREPARING", val quote: CheckoutQuote? = null, val orderId: Long? = null,
     val paymentKey: String? = null, val paymentId: Long? = null, val quoteRequestId: String? = null, val cartId: Long? = null,
-    val phoneNumber: String? = null)
+    val phoneNumber: String? = null, val beforeOrderIds: Set<Long>? = emptySet())
 internal interface FarmerTransactionStore {
     fun read(): FarmerTransactionRecord?
     fun write(record: FarmerTransactionRecord)
@@ -40,8 +39,7 @@ internal interface FarmerTransactionStore {
 internal data class FarmerTransactionState(val busy: Boolean = false, val record: FarmerTransactionRecord? = null,
     val order: BuyerOrderDto? = null, val payment: PaymentDto? = null, val notice: String? = null)
 
-/** All uncertain writes retain their original keys. Automatic recovery performs keyed order replay
- * or payment reads only. The server alone decides whether another STK can safely be dispatched. */
+/** The quote checkout endpoint sends STK and creates the order only after Daraja confirms payment. */
 internal class FarmerTransactionController(private val api: FarmerTransactionApi, private val orders: BuyerOrdersApi,
     private val sessions: SessionStore, private val expected: SessionSnapshot, private val disk: FarmerTransactionStore,
     private val scope: CoroutineScope, val enabled: Boolean, private val pollMs: Long = 5000,
@@ -53,6 +51,20 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     private var polling: Job? = null
     private val sessionGuard = CheckoutSessionGuard(sessions, expected, FarmerPurchaserPolicy)
     private class ClientValidation(message: String) : Exception(message)
+    private fun requirePickup(selection: DeliverySelection) {
+        when (selection) {
+            is DeliverySelection.Station -> check(selection.pickupStationId > 0)
+            is DeliverySelection.TypedPickup, is DeliverySelection.Door ->
+                throw ClientValidation("Select an available pickup station before requesting a quote or creating an order.")
+        }
+    }
+    private fun requirePickup(request: CheckoutQuoteRequest) {
+        if (request.deliveryMethod != "PICKUP_STATION" || request.addressId != null ||
+            request.pickupStationId == null || request.pickupLocation != null) {
+            throw ClientValidation("Select an available pickup station before requesting a quote or creating an order.")
+        }
+        check(request.pickupStationId > 0)
+    }
     init {
         try { mutable.value = FarmerTransactionState(record = disk.read()) }
         catch (_: Exception) { readable = false; mutable.value = FarmerTransactionState(notice = "Saved checkout cannot be read. No record was replaced.") }
@@ -90,8 +102,8 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
                 val saved = state.value.record
                 val notice = when {
                     failure is ClientValidation -> failure.message
-                    saved?.phase == "ORDER_CREATED" && saved.orderId != null ->
-                        "Purchase order #${saved.orderId} was created, but its details could not be verified. No payment prompt was sent; contact support before proceeding."
+                    saved?.phase == "PAYMENT_PENDING" && saved.paymentId != null ->
+                        "Payment was requested, but its result could not be verified. Refresh checkout status before trying again."
                     else -> "Checkout is pending or could not be verified. Refresh to reconcile the saved request before trying again."
                 }
                 mutable.update { it.copy(notice = notice) }
@@ -102,11 +114,13 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     fun prepare(items: Map<Long, Int>, delivery: DeliverySelection) = run {
         check(state.value.record == null || state.value.record?.phase in setOf("CONFIRMED", "PAYMENT_FAILED", "PAYMENT_CANCELLED")) { "Recover saved checkout first" }
         require(items.isNotEmpty() && items.size <= 100 && items.all { it.key > 0 && it.value > 0 })
+        requirePickup(delivery)
         save(FarmerTransactionRecord(UUID.randomUUID().toString(), items.toSortedMap(), delivery.toQuoteRequest()))
         prepareSaved()
     }
     private suspend fun prepareSaved() {
         val record = state.value.record!!
+        requirePickup(record.delivery)
         val cartId = if (record.cartId == null) {
             val cart = request { api.prepare(it) }
             check(cart.id > 0 && cart.buyerId == expected.auth!!.userId.toLong() && cart.status == "ACTIVE")
@@ -125,37 +139,35 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
     }
     fun submitOrder(phoneInput: String) = run {
         val record = state.value.record!!
-        check(record.phase == "QUOTE_READY")
+        check(record.phase in setOf("QUOTE_READY", "PAYMENT_FAILED", "PAYMENT_CANCELLED"))
+        requirePickup(record.delivery)
         val phone = try { mpesaPhone(phoneInput) }
-        catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number before creating the order.") }
+        catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number before requesting payment.") }
         verifiedQuote(record.quote!!, record.cartId ?: throw ClientValidation("The saved cart ID is unavailable. Reconcile checkout before continuing."),
             record.items, record.delivery)
-        save(record.copy(phase = "ORDER_PENDING", phoneNumber = phone))
-        recoverOrder()
+        val quote = record.quote!!
+        check(com.example.farmapp.orders.BuyerMpesaEnvironment.ready()) { "Sandbox payment configuration is required." }
+        val beforeOrderIds = request { orders.orders(expected.auth!!.userId.toLong(), it) }
+            .mapNotNull { it.id }.toSet()
+        save(record.copy(phase = "PAYMENT_PENDING", phoneNumber = phone, paymentId = null,
+            orderId = null, beforeOrderIds = beforeOrderIds))
+        val result = request { api.order(FarmerQuoteOrder(quote.quoteId, phone), it) }
+        check(result.paymentId != null && result.paymentId > 0 && result.orderId == null &&
+            result.amount?.compareTo(quote.total) == 0) {
+            "The backend payment response did not match the reviewed quote. Refresh checkout status before retrying."
+        }
+        save(state.value.record!!.copy(paymentId = result.paymentId))
+        reconcilePayment()
+        poll()
     }
     fun refreshQuote() = run {
         val record = state.value.record!!
-        check(record.phase == "QUOTE_READY")
-        save(record.copy(phase = "PREPARING", quote = null, quoteRequestId = UUID.randomUUID().toString()))
+        check(record.phase in setOf("QUOTE_READY", "PAYMENT_FAILED", "PAYMENT_CANCELLED"))
+        save(record.copy(phase = "PREPARING", quote = null, paymentId = null, orderId = null,
+            quoteRequestId = UUID.randomUUID().toString()))
         prepareSaved()
     }
-    private suspend fun recoverOrder() {
-        val record = state.value.record!!
-        val response = api.order(FarmerQuoteOrder(record.quote!!.quoteId, record.phoneNumber), current())
-        try { current() } catch (e: Exception) { response.errorBody()?.close(); throw e }
-        if (!response.isSuccessful && response.code() in 400..499) {
-            response.errorBody()?.close()
-            // The backend's quote-to-order operation is transactional. A definite client
-            // rejection did not create an order, so refresh the quote instead of trapping
-            // this journal in ORDER_PENDING. Transport failures and 5xx remain unresolved.
-            save(record.copy(phase = "PREPARING", quote = null))
-            throw ClientValidation("The backend rejected this order request. No order was created; refresh the quote before trying again.")
-        }
-        val id = response.requirePurchaseData()
-        check(id > 0)
-        save(record.copy(phase = "ORDER_CREATED", orderId = id))
-        readOrder()
-    }
+    private suspend fun recoverOrder() = reconcilePayment()
     private suspend fun readOrder(): BuyerOrderDto {
         val record = state.value.record!!
         val orderId = record.orderId!!
@@ -178,42 +190,31 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         mutable.update { it.copy(order = order) }
         return order
     }
-    fun initiate(phone: String) = run {
-        var record = state.value.record!!
-        check(record.orderId != null && (record.phase == "ORDER_CREATED" || record.phase == "PAYMENT_FAILED" || record.phase == "PAYMENT_CANCELLED"))
-        val order = readOrder()
-        check(order.status in setOf("placed", "confirmed") && order.paymentStatus in setOf("pending", "failed", "cancelled"))
-        check(com.example.farmapp.orders.BuyerMpesaEnvironment.ready()) { "Sandbox payment configuration is required." }
-        val normalized = try { mpesaPhone(phone) }
-            catch (_: Exception) { throw ClientValidation("Enter a valid Kenyan M-Pesa phone number.") }
-        try { check(order.total!!.intValueExact() > 0) }
-        catch (_: Exception) { throw ClientValidation("M-Pesa requires an exact whole-KES total within provider limits. No prompt was requested.") }
-        record = record.copy(phase = "PAYMENT_PENDING", paymentKey = UUID.randomUUID().toString(), paymentId = null)
-        save(record) // Commit the key before transport. Never send a second initiation on a timeout.
-        poll() // Read-only reconciliation must continue even if the initiation response is lost.
-        val result = request { api.pay(FarmerIntentRequest(record.orderId!!, normalized, record.paymentKey!!), it) }
-        check(result.orderId == record.orderId && result.paymentId != null && result.paymentId > 0 && result.amount?.compareTo(order.total) == 0)
-        save(record.copy(paymentId = result.paymentId))
-        reconcilePayment()
-        poll()
-    }
+    fun initiate(phone: String) = submitOrder(phone)
     private suspend fun reconcilePayment() {
         val record = state.value.record!!
-        val order = readOrder()
-        val rows = request { orders.payments(record.orderId!!, it) }
-        check(rows.map { it.id }.distinct().size == rows.size)
-        rows.forEach { check(it.id != null && it.id > 0 && it.orderId == order.id && it.amount != null && it.amount.signum() > 0 && it.amount <= order.total && it.status in paymentStatuses) }
-        val row = if (record.paymentId != null) rows.singleOrNull { it.id == record.paymentId } else rows.maxByOrNull { it.id!! }
-        if (row == null) { mutable.update { it.copy(notice = "Payment outcome is unresolved. No STK request was repeated.") }; return }
-        val latest = request { orders.payment(row.id!!, it) }
-        FarmerPaymentContract.validateStatus(latest, row, order.id!!)
-        mutable.update { it.copy(payment = latest,
-            notice = if (latest.status in setOf("paid", "held", "settled", "failed", "cancelled")) null else it.notice) }
-        when (latest.status) {
-            "paid", "held", "settled" -> save(record.copy(phase = "CONFIRMED", paymentId = latest.id))
+        val paymentId = record.paymentId
+        // This flow's order appears only after the callback succeeds. Match against the saved
+        // quote and basket before exposing it as the completed purchase.
+        val rows = request { orders.orders(expected.auth!!.userId.toLong(), it) }
+        val candidate = rows.firstOrNull { order ->
+            order.id !in record.beforeOrderIds.orEmpty() && order.paymentStatus?.lowercase() == "paid" &&
+                runCatching { FarmerCheckoutContract.verifyOrder(order, expected.auth!!.userId.toLong(), record.items, record.quote!!) }.isSuccess
+        }
+        if (candidate != null) {
+            val id = candidate.id!!
+            val verified = request { orders.order(id, it) }
+            FarmerCheckoutContract.verifyOrder(verified, expected.auth!!.userId.toLong(), record.items, record.quote!!)
+            mutable.update { it.copy(order = verified) }
+            save(record.copy(phase = "CONFIRMED", orderId = id, paymentId = paymentId))
+            return
+        }
+        paymentId ?: return
+        val latest = request { orders.payment(paymentId, it) }
+        mutable.update { it.copy(payment = latest) }
+        when (latest.status?.lowercase()) {
             "failed" -> save(record.copy(phase = "PAYMENT_FAILED", paymentId = latest.id))
             "cancelled" -> save(record.copy(phase = "PAYMENT_CANCELLED", paymentId = latest.id))
-            else -> save(record.copy(paymentId = latest.id))
         }
     }
     fun recover() = run {
@@ -226,7 +227,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
                 save(record.copy(phase = "PREPARING")); prepareSaved()
             }
             "PREPARING" -> prepareSaved() // Backend commits preparation/quote under original keys.
-            "ORDER_PENDING" -> recoverOrder() // Atomic quote replay returns the same owned order.
+            "ORDER_PENDING" -> recoverOrder()
             "ORDER_CREATED" -> readOrder()
             "PAYMENT_PENDING" -> { reconcilePayment(); poll() }
             "PAYMENT_FAILED", "PAYMENT_CANCELLED", "CONFIRMED" -> reconcilePayment()

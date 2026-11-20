@@ -24,7 +24,7 @@ import com.example.farmapp.buyers.model.formatKes
 import com.example.farmapp.buyers.ui.theme.*
 
 @Composable
-fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit) {
+fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit, pricesRefreshing: Boolean = false) {
     Column(Modifier.fillMaxSize().background(NeutralBackground).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Your cart", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
@@ -77,8 +77,8 @@ fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit) {
                                     Text(line.product.name, style = MaterialTheme.typography.titleLarge)
                                     line.product.sellerName?.let { Text("From $it", style = MaterialTheme.typography.bodySmall, color = TextSecondary) }
                                     Spacer(Modifier.height(10.dp))
-                                    Text(formatKes(line.product.pricePerUnit), style = MaterialTheme.typography.titleMedium, color = Green700)
-                                    Text("per ${line.product.unit}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                    Text(if (pricesRefreshing) "Checking current price…" else formatKes(line.product.pricePerUnit), style = MaterialTheme.typography.titleMedium, color = Green700)
+                                    if (!pricesRefreshing) Text("per ${line.product.unit}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                                 }
                             }
                             Spacer(Modifier.height(14.dp))
@@ -95,19 +95,20 @@ fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit) {
                                         onClick = { vm.decrement(line.product.id) },
                                         modifier = Modifier.size(42.dp),
                                         shape = RoundedCornerShape(13.dp),
-                                        enabled = line.quantity.toBigDecimal() > line.product.minimumOrder
+                                        enabled = !pricesRefreshing && line.quantity.toBigDecimal() > line.product.minimumOrder
                                     ) { Icon(Icons.Default.Remove, contentDescription = "Decrease quantity") }
                                     Text(line.quantity.toString(), style = MaterialTheme.typography.titleMedium)
                                     OutlinedIconButton(
                                         onClick = { vm.increment(line.product.id) },
                                         modifier = Modifier.size(42.dp),
-                                        shape = RoundedCornerShape(13.dp)
+                                        shape = RoundedCornerShape(13.dp),
+                                        enabled = !pricesRefreshing
                                     ) { Icon(Icons.Default.Add, contentDescription = "Increase quantity") }
                                 }
                                 Spacer(Modifier.weight(1f))
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("Line total", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                    Text(formatKes(line.product.pricePerUnit.multiply(line.quantity.toBigDecimal())), style = MaterialTheme.typography.titleMedium, color = Green700)
+                                    Text(if (pricesRefreshing) "Checking…" else formatKes(line.product.pricePerUnit.multiply(line.quantity.toBigDecimal())), style = MaterialTheme.typography.titleMedium, color = Green700)
                                 }
                             }
                             TextButton(
@@ -147,7 +148,7 @@ fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Items subtotal", color = TextSecondary)
-                        Text(formatKes(vm.subtotal))
+                        Text(if (pricesRefreshing) "Checking…" else formatKes(vm.subtotal))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Delivery", color = TextSecondary)
@@ -156,12 +157,12 @@ fun CartScreen(items: List<CartItem>, vm: CartViewModel, checkout: () -> Unit) {
                     HorizontalDivider(color = NeutralDivider)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total before delivery", style = MaterialTheme.typography.titleMedium)
-                        Text(formatKes(vm.subtotal), style = MaterialTheme.typography.titleMedium, color = Green700)
+                        Text(if (pricesRefreshing) "Checking…" else formatKes(vm.subtotal), style = MaterialTheme.typography.titleMedium, color = Green700)
                     }
                 }
             }
-            Button(onClick = checkout, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = items.isNotEmpty()) {
-                Text("Proceed to checkout")
+            Button(onClick = checkout, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = items.isNotEmpty() && !pricesRefreshing) {
+                Text(if (pricesRefreshing) "Checking current prices…" else "Proceed to checkout")
             }
         }
     }

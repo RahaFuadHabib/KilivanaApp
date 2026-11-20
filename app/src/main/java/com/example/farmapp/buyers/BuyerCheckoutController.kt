@@ -23,6 +23,16 @@ internal fun verifiedCheckoutOrderId(data:JsonElement):Long {
 internal fun verifyPurchasedOrder(row:BuyerOrderDto,buyer:Long,items:Map<Long,Int>,quote:DeliveryQuote):BuyerOrderDto {
     validateBuyerOrder(row,buyer)
     val lines=row.items!!
+    check(lines.isNotEmpty() && lines.map { requireNotNull(it.productId) }.distinct().size == lines.size && lines.map { line ->
+        requireNotNull(line.productId) to requireNotNull(line.quantity)
+    }.toMap() == items) { "The created order does not match your selected products and quantities. Do not pay; contact support." }
+    check(lines.all { line ->
+        val quantity = requireNotNull(line.quantity)
+        val unitPrice = requireNotNull(line.unitPrice)
+        val lineSubtotal = requireNotNull(line.subtotal)
+        quantity > 0 && unitPrice.signum() >= 0 &&
+            unitPrice.multiply(quantity.toBigDecimal()).compareTo(lineSubtotal) == 0
+    }) { "Order line prices could not be verified. Do not pay; contact support." }
     check(row.total!!.compareTo(quote.total)==0 && row.subtotal?.compareTo(quote.subtotal)==0 && row.deliveryFee?.compareTo(quote.deliveryFee)==0){"The order amount differs from the reviewed quote. Do not pay; refresh Orders."}
     val locationMatches = when (quote.deliveryMethod) {
         "DOOR_DELIVERY" -> row.addressId==quote.addressId && row.pickupStationId==null && row.pickupLocation==null
@@ -32,7 +42,7 @@ internal fun verifyPurchasedOrder(row:BuyerOrderDto,buyer:Long,items:Map<Long,In
         else -> false
     }
     check(locationMatches){"The order delivery location differs from your selection. Do not pay; contact support."}
-    check(lines.all{it.subtotal==null || it.subtotal.signum()>=0} && lines.fold(BigDecimal.ZERO){sum,line->sum+(line.subtotal ?: line.unitPrice!!.multiply(line.quantity!!.toBigDecimal()))}.compareTo(row.subtotal)==0){"Order line amounts could not be verified. Do not pay; contact support."}
+    check(lines.all{it.subtotal!!.signum()>=0} && lines.fold(BigDecimal.ZERO){sum,line->sum+line.subtotal!!}.compareTo(row.subtotal)==0){"Order line amounts could not be verified. Do not pay; contact support."}
     return row
 }
 internal class BrianCheckoutController(api:BrianCheckoutApi,orders:BuyerOrdersApi,sessions:SessionStore,
@@ -48,6 +58,8 @@ internal class BrianCheckoutController(api:BrianCheckoutApi,orders:BuyerOrdersAp
     fun consumeJustCreated()=delegate.consumeJustCreated()
     fun startNewBasket()=delegate.startNewBasket()
     fun recover()=delegate.recover()
+    fun confirmPaymentComplete()=delegate.confirmPaymentComplete()
+    suspend fun reconcilePaidAsyncOrder()=delegate.reconcilePaidAsyncOrder()
 }
 internal class BrianCheckoutModel(context:Context):ViewModel(){
     private val expected=TokenManager.session.value

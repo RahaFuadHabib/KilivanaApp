@@ -36,6 +36,7 @@ import com.example.farmapp.BuildConfig
 import com.example.farmapp.buyer.buyerScope
 import com.example.farmapp.data.remote.ApiClient
 import com.example.farmapp.network.*
+import com.example.farmapp.payments.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.math.BigDecimal
@@ -70,10 +71,33 @@ internal class BuyerPaymentController(private val api: BuyerOrdersApi, sessions:
     private val _timedOut = MutableStateFlow(false)
     val timedOut = _timedOut.asStateFlow()
     val state = delegate.state
+    private val _preOrderState = MutableStateFlow<PurchaserPaymentState<PaymentDto>?>(null)
+    val preOrderState = _preOrderState.asStateFlow()
     fun refresh(id: Long) = delegate.refresh(id)
     fun initiate(id: Long, phoneInput: String, reviewedTotal: BigDecimal? = state.value.total) =
         delegate.initiate(id, phoneInput, reviewedTotal)
     fun notifyTimeout() { _timedOut.value = true }
+    /** Poll a pre-order checkout payment. Returns terminal status, or null while unresolved. */
+    suspend fun pollPayment(paymentId: Long): String? {
+        val session = guard.current(com.example.farmapp.checkout.CheckoutOperation.READ_PAYMENTS)
+        val response = api.payment(paymentId, session)
+        if (!response.isSuccessful) { response.errorBody()?.close(); return null }
+        val payment = response.body()?.data ?: return null
+        val status = payment.status?.lowercase() ?: return null
+        if (status !in paymentStatuses) return null
+        val terminal = status in setOf("paid", "cancelled", "failed", "held", "settled", "refunded")
+        _preOrderState.value = PurchaserPaymentState<PaymentDto>(
+            orderId = null, busy = false, canInitiate = false,
+            payments = listOf(payment), total = payment.amount,
+            notice = when (status) {
+                "paid" -> "Payment confirmed. Your order is being created."
+                "cancelled" -> "Payment was cancelled. No order was created."
+                "failed" -> "Payment failed. No order was created."
+                else -> "Payment status: $status"
+            }
+        )
+        return if (terminal) status else null
+    }
     fun pollLatest(orderId: Long) {
         scope.launch {
             try {
@@ -104,6 +128,32 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
             }
         }
     }
+}
+/** Pre-order polling session for async checkout. Polls by paymentId until terminal. */
+@Composable internal fun BuyerPaymentSessionAsync(paymentId: Long,
+    orderCheck: suspend () -> Boolean = { false }, onTerminal: (String) -> Unit,
+    content: @Composable (PurchaserPaymentState<PaymentDto>, Boolean) -> Unit) {
+    val session by TokenManager.session.collectAsStateWithLifecycle()
+    val model: BuyerPaymentModel = viewModel(key = "buyer-payment-async-${session.generation}-$paymentId", factory = BuyerPaymentModel.factory(LocalContext.current))
+    val preState by model.controller.preOrderState.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var timeoutShown by remember { mutableStateOf(false) }
+    LaunchedEffect(paymentId, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val deadline = System.currentTimeMillis() + 120_000L
+            while (true) {
+                delay(if (timeoutShown) 10_000L else 3_000L)
+                val orderCreated = runCatching { orderCheck() }.getOrDefault(false)
+                if (orderCreated) { onTerminal("paid"); return@repeatOnLifecycle }
+                val terminal = model.controller.pollPayment(paymentId)
+                if (terminal != null) { onTerminal(terminal); return@repeatOnLifecycle }
+                if (!timeoutShown && System.currentTimeMillis() > deadline) {
+                    timeoutShown = true
+                }
+            }
+        }
+    }
+    content(preState ?: PurchaserPaymentState(), timeoutShown)
 }
 /** The same controller is shared by list/details/payment for an order; navigation only performs reads. */
 @Composable internal fun BuyerPaymentSession(order: BuyerOrderDto,

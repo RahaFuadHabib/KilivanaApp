@@ -16,6 +16,8 @@ internal interface CheckoutRepository<CartData, CreatedOrderId, OrderData> {
     suspend fun addItem(productId: Long, quantity: Int): Response<CanonicalApiResponse<CartData>>
     suspend fun setQuantity(cartId: Long, productId: Long, quantity: Int): Response<CanonicalApiResponse<CartData>>
     suspend fun removeItem(cartId: Long, productId: Long): Response<CanonicalApiResponse<Unit>> = error("Server cart reconciliation is unavailable")
+    /** Replace semantics for backends whose cart response cannot enumerate lines. */
+    suspend fun clearCart(cartId: Long): Response<CanonicalApiResponse<Unit>> = error("Server cart clearing is unavailable")
     suspend fun startCheckout(): Response<CanonicalApiResponse<Unit>>
     suspend fun deliveryQuote(request: CheckoutQuoteRequest): Response<CanonicalApiResponse<CheckoutQuote>>
     suspend fun createOrder(quoteId: String, phoneNumber: String): Response<CanonicalApiResponse<CreatedOrderId>>

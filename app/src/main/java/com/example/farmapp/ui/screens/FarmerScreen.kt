@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocalShipping
@@ -100,7 +101,7 @@ import com.example.farmapp.ui.theme.LeafGreen
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun FarmerScreen(
+internal fun FarmerScreen(
     modifier: Modifier = Modifier,
     farmerName: String = "David Karanja",
     showCreateAction: Boolean = true,
@@ -114,7 +115,11 @@ fun FarmerScreen(
     onOpenCrop: (com.example.farmapp.data.model.FarmerProductResponse) -> Unit = {},
     onOpenSupplies: (() -> Unit)? = null,
     onOpenOrders: (() -> Unit)? = null,
-    onOpenFarms: (() -> Unit)? = null
+    onOpenFarms: (() -> Unit)? = null,
+    realSellerOrders: List<com.example.farmapp.farmerpurchases.FarmerSellerOrderSummary>? = null,
+    sellerOrdersLoading: Boolean = false,
+    sellerOrdersError: String? = null,
+    onRefreshSellerOrders: () -> Unit = {}
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(1) } // Default to "My Crops" to showcase Behance listings
     val pullRefreshState = rememberPullToRefreshState()
@@ -242,10 +247,26 @@ fun FarmerScreen(
                 }
                 when (selectedTabIndex) {
                     0 -> {
-                        if (orders.isEmpty()) item { KilivanaEmptyState(if (realProducts != null) "Incoming orders unavailable" else "No incoming orders",
-                            if (realProducts != null) "A secure seller-scoped order API is required. An empty local list does not establish that you have no orders." else "Your incoming orders will appear here.") }
-                        items(orders.filter { it.productName.contains(farmerSearchQuery, true) || it.buyerName.contains(farmerSearchQuery, true) }, key = { "order_${it.id}" }) { order ->
-                            FarmerOrderCard(order, onTrackOrder = { activeTrackingOrder = order })
+                        if (realSellerOrders != null) {
+                            item {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    sellerOrdersError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)) }
+                                    TextButton(onClick = onRefreshSellerOrders, enabled = !sellerOrdersLoading) {
+                                        Text(if (sellerOrdersLoading) "Loading…" else "Refresh")
+                                    }
+                                }
+                            }
+                            if (realSellerOrders.isEmpty() && !sellerOrdersLoading) item {
+                                KilivanaEmptyState("No incoming orders", "Orders placed by buyers for your produce will appear here.")
+                            }
+                            items(realSellerOrders.filter { it.status.contains(farmerSearchQuery, true) }, key = { "seller_order_${it.id}" }) { order ->
+                                SellerOrderCard(order)
+                            }
+                        } else {
+                            if (orders.isEmpty()) item { KilivanaEmptyState("No incoming orders", "Your incoming orders will appear here.") }
+                            items(orders.filter { it.productName.contains(farmerSearchQuery, true) || it.buyerName.contains(farmerSearchQuery, true) }, key = { "order_${it.id}" }) { order ->
+                                FarmerOrderCard(order, onTrackOrder = { activeTrackingOrder = order })
+                            }
                         }
                     }
                     1 -> {
@@ -292,9 +313,32 @@ fun FarmerScreen(
                         }
                     }
                     2 -> {
-                        if (supplies.isEmpty()) item { KilivanaEmptyState(if (realProducts != null) "Supply purchases unavailable" else "No supplies ordered",
-                            if (realProducts != null) "Farmer purchase permissions are not confirmed. Browse published inputs in the Supplies marketplace." else "Your supply orders will appear here.") }
-                        items(supplies.filter { it.itemName.contains(farmerSearchQuery, true) || it.supplierName.contains(farmerSearchQuery, true) }, key = { "supply_${it.id}" }) { FarmerSupplyCard(it) }
+                        if (onOpenSupplies != null) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Surface(shape = KilivanaFarmerShapes.card, color = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Icon(Icons.Default.Agriculture, null, modifier = Modifier.size(22.dp))
+                                                Text("Supplier Marketplace", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                            }
+                                            Text("Browse and purchase inputs from verified suppliers. Track your orders and manage your cart.",
+                                                style = MaterialTheme.typography.bodyMedium)
+                                            FilledTonalButton(onClick = onOpenSupplies, modifier = Modifier.fillMaxWidth(),
+                                                shape = KilivanaFarmerShapes.pill) {
+                                                Icon(Icons.Default.AddShoppingCart, null, modifier = Modifier.size(18.dp))
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("Open Supplies & Purchases")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            if (supplies.isEmpty()) item { KilivanaEmptyState("No supplies ordered", "Your supply orders will appear here.") }
+                            items(supplies.filter { it.itemName.contains(farmerSearchQuery, true) || it.supplierName.contains(farmerSearchQuery, true) }, key = { "supply_${it.id}" }) { FarmerSupplyCard(it) }
+                        }
                     }
                 }
             }
@@ -703,6 +747,42 @@ private fun FarmerOrderCard(order: Order, onTrackOrder: () -> Unit) {
                 Icon(Icons.Default.LocalShipping, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Track & Delivery Handshake")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SellerOrderCard(order: com.example.farmapp.farmerpurchases.FarmerSellerOrderSummary) {
+    val (statusBg, statusFg) = when (order.status.lowercase()) {
+        "delivered", "completed" -> Color(0xFFE8F5E9) to Color(0xFF1B5E20)
+        "cancelled", "failed" -> Color(0xFFFFEBEE) to Color(0xFFB71C1C)
+        "confirmed", "in_transit" -> Color(0xFFE3F2FD) to Color(0xFF0D47A1)
+        else -> Color(0xFFFFF8E1) to Color(0xFFE65100)
+    }
+    Card(shape = KilivanaFarmerShapes.card, modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Order #${order.id}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Surface(shape = RoundedCornerShape(20.dp), color = statusBg) {
+                    Text(order.status.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                        Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium, color = statusFg, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${order.itemCount} ${if (order.itemCount == 1) "item" else "items"}",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("KES ${order.total.toPlainString()}",
+                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            order.createdAt?.let {
+                Text(com.example.farmapp.buyer.buyerDate(it),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

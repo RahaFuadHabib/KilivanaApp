@@ -89,7 +89,8 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
                     save(journal.copy(phase="CHECKOUT_ACKNOWLEDGED",quote=null))
                 }
             }
-            val pending=journal.phase !in setOf("NONE","QUOTE_READY","ORDER_VERIFIED")
+            val priceChanged = e is SubtotalMismatch
+            val pending=journal.phase !in setOf("NONE","QUOTE_READY","ORDER_VERIFIED") && !priceChanged
             mutable.update{it.copy(notice=if(e is Rejected)e.message else when(e){
                 is SubtotalMismatch->e.message
                 is QuoteContractMismatch->e.message
@@ -107,6 +108,9 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         check(journal.phase in setOf("NONE","CART_REJECTED","QUOTE_READY","CHECKOUT_ACKNOWLEDGED")){"An earlier checkout is unresolved. Check status instead of submitting again."}
         if(journal.phase in setOf("QUOTE_READY","CHECKOUT_ACKNOWLEDGED")) check(journal.items==items){"A different cart checkout is already in progress."}
         val refreshedSubtotal = repository.refreshedSubtotal(items) ?: subtotal
+        if (refreshedSubtotal.compareTo(subtotal) != 0) {
+            throw SubtotalMismatch("Product prices changed since the cart was displayed. Refresh the cart and review the updated prices before uploading.")
+        }
         if(journal.phase=="CHECKOUT_ACKNOWLEDGED") {
             check(journal.items==items){"A different cart checkout is already in progress."}
             // Preparation already succeeded. Retain its basket and refresh only its price expectation.
@@ -178,10 +182,8 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             throw QuoteContractMismatch("The backend returned a delivery quote without the cart ID and item lines needed to verify your selected products. No order was created. The backend must return cartId and items (productId, quantity, unitPrice and lineSubtotal); retry after it is updated.")
         }
         val quote=verifiedCheckoutQuote(responseQuote,boundRequest,now())
-        // Accept the server's subtotal as authoritative — it is the amount the buyer will pay.
-        // Update expectedSubtotal so subsequent re-quotes against the same cart don't mismatch.
         if (journal.expectedSubtotal != null && quote.subtotal.compareTo(journal.expectedSubtotal) != 0) {
-            save(journal.copy(expectedSubtotal=quote.subtotal))
+            throw SubtotalMismatch("The product prices changed while checkout was being prepared. Refresh cart prices and calculate the quote again before placing the order.")
         }
         if (repository.requiresCartIdentity) {
             try { verifyQuotedBasket(quote, checkNotNull(journal.cartId), journal.items) }
@@ -200,7 +202,22 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         val before=data(performRequest(CheckoutOperation.READ_ORDERS){repository.listOrders(current().auth!!.userId.toLong())},"Read existing orders")
             .map{contract.orderId(contract.validateOrder(it,current().auth!!.userId.toLong()))}.toSet()
         save(journal.copy(phase="ORDER_PENDING",beforeOrderIds=before))
-        val id=contract.createdOrderId(data(performRequest(CheckoutOperation.CREATE_ORDER){repository.createOrder(quote.quoteId,number)},"Create order"))
+        val response = data(performRequest(CheckoutOperation.CREATE_ORDER){repository.createOrder(quote.quoteId,number)},"Create order")
+        val isAsync=contract.isAsyncCheckout(response)
+        val paymentId=contract.paymentId(response)
+        val existingId=contract.existingOrderId(response)
+        if (isAsync) {
+            // Async checkout: no order row exists yet. Store the paymentId and wait for
+            // payment confirmation before showing an order screen.
+            check(paymentId != null && paymentId > 0) { "Async checkout response missing paymentId." }
+            check(existingId == null) { "Async checkout response must not include an orderId." }
+            save(journal.copy(phase="PAYMENT_PENDING",paymentId=paymentId))
+            mutable.update{it.copy(order=null,paymentId=paymentId,phone=number,quote=quote,uncertain=false,justCreated=true,
+                notice="Payment prompt sent. Check your phone for the M-Pesa STK push. The order will appear after payment is confirmed.")}
+            return@launch
+        }
+        // Sync checkout: orderId is returned immediately (legacy path).
+        val id = existingId ?: contract.createdOrderId(response)
         check(id !in before)
         save(journal.copy(phase="ORDER_RETURNED",orderId=id)) // durable before payment screen or any STK call
         val row=contract.verifyOrder(data(performRequest(CheckoutOperation.READ_ORDERS){repository.readOrder(id)},"Read created order"),current().auth!!.userId.toLong(),journal.items,quote)
@@ -219,6 +236,24 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
     }
     /** One-shot flag consumed by the UI to navigate to a freshly created order. Recovered orders never trigger it. */
     fun consumeJustCreated() { mutable.update { it.copy(justCreated = false) } }
+
+    /** Checks for the paid order created by the async payment callback. */
+    suspend fun reconcilePaidAsyncOrder(): Boolean {
+        if (journal.phase!="PAYMENT_PENDING" || journal.paymentId==null) return false
+        val rows=data(performRequest(CheckoutOperation.READ_ORDERS){repository.listOrders(current().auth!!.userId.toLong())},"List orders after payment")
+            .map{contract.validateOrder(it,current().auth!!.userId.toLong())}
+        val newOrder=rows.firstOrNull{contract.orderId(it) !in journal.beforeOrderIds && contract.isPaid(it) && runCatching{
+            contract.verifyOrder(it,current().auth!!.userId.toLong(),journal.items,checkNotNull(journal.quote))
+        }.isSuccess} ?: return false
+        save(journal.copy(phase="ORDER_VERIFIED",orderId=contract.orderId(newOrder),paymentId=null))
+        mutable.update{it.copy(order=newOrder,paymentId=null,uncertain=false,needsRecovery=false,justCreated=true,
+            notice="Payment confirmed. Your order has been created.")}
+        return true
+    }
+    fun confirmPaymentComplete()=launch {
+        if (journal.phase=="ORDER_VERIFIED" && journal.orderId!=null) return@launch
+        check(reconcilePaidAsyncOrder()) { "Payment was confirmed but no matching paid order was found yet." }
+    }
 
     /** Explicit new purchase only after the previous owned order is paid/refunded/cancelled. No server mutation. */
     fun startNewBasket()=launch {
@@ -245,6 +280,11 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
             }
             save(journal.copy(phase="ORDER_VERIFIED"))
             mutable.update{it.copy(order=row,uncertain=false,needsRecovery=false,justCreated=false,notice="Existing order recovered. No new order or payment was submitted.")}
+        }else if(journal.phase=="PAYMENT_PENDING" && journal.paymentId!=null && journal.quote!=null && journal.request!=null){
+            // Async checkout: payment is in flight but no order row exists yet.
+            // Keep the paymentId and quote so the payment screen can poll for completion.
+            mutable.update{it.copy(order=null,paymentId=journal.paymentId,uncertain=false,needsRecovery=false,justCreated=false,
+                notice="Payment is pending. Check your phone for the M-Pesa prompt. The order will appear after payment is confirmed.")}
         }else if(journal.phase=="CHECKOUT_ACKNOWLEDGED" && journal.request!=null && journal.items.isNotEmpty() && journal.expectedSubtotal!=null){
             // The acknowledged transition is durable. ACTIVE cart GET is not its status lookup.
             refreshQuote(journal.request!!)

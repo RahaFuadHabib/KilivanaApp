@@ -3,13 +3,14 @@ package com.example.farmapp.repository
 import com.example.farmapp.network.SessionSnapshot
 import com.example.farmapp.network.SessionStore
 import com.example.farmapp.network.canonical.CanonicalApiResponse
-import com.example.farmapp.network.canonical.CanonicalBackendApi
 import com.example.farmapp.network.canonical.CanonicalFarmDto
 import com.example.farmapp.network.canonical.CanonicalFarmRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Tag
 
 internal data class FarmerFarm(
@@ -19,21 +20,46 @@ internal data class FarmerFarm(
     val county: String,
     val subCounty: String?,
     val address: String?,
+    val latitude: Double?,
+    val longitude: Double?,
     val sizeAcres: Double,
     val ownershipType: String,
     val status: String,
     val description: String?
 ) {
-    val canDispatchFrom: Boolean get() = status == "ACTIVE" && !address.isNullOrBlank()
+    val canDispatchFrom: Boolean get() = status == "ACTIVE" && !address.isNullOrBlank() &&
+        latitude?.let { it.isFinite() && it in -90.0..90.0 } == true &&
+        longitude?.let { it.isFinite() && it in -180.0..180.0 } == true
 }
 
 internal interface FarmerFarmsApi {
     @GET("farmers/me/farms") suspend fun mine(@Tag session: SessionSnapshot): Response<CanonicalApiResponse<List<CanonicalFarmDto>>>
-    @POST("farmers/me/farms") suspend fun create(@Body request: CanonicalFarmRequest,
-        @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalFarmDto>>
+    @GET("profiles/farmers/{id}") suspend fun profile(@Path("id") id: Long,
+        @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalFarmerProfileDto>>
+    @POST("profiles/farmers/{id}") suspend fun createProfile(@Path("id") id: Long,
+        @Body request: CanonicalFarmerProfileRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalFarmerProfileDto>>
+    @PUT("profiles/farmers/{id}") suspend fun updateProfile(@Path("id") id: Long,
+        @Body request: CanonicalFarmerProfileRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalFarmerProfileDto>>
+    @PUT("farmers/me/farms/{id}") suspend fun updateFarm(@Path("id") id: Long,
+        @Body request: CanonicalFarmRequest, @Tag session: SessionSnapshot): Response<CanonicalApiResponse<CanonicalFarmDto>>
 }
 
-/** Own-farm endpoints: status is backend controlled; farmers cannot self-approve farms. */
+internal data class CanonicalFarmerProfileRequest(
+    val farmName: String,
+    val location: String,
+    val farmDetails: String? = null,
+    val sizeAcres: Double,
+    val ownershipType: String
+)
+
+internal data class CanonicalFarmerProfileDto(
+    val id: Long? = null,
+    val userId: Long? = null,
+    val farmName: String? = null,
+    val location: String? = null
+)
+
+/** Farm setup follows the web client: save/sync the Farmer profile, then update its linked Farm record. */
 internal class FarmerFarmsRepository(private val api: FarmerFarmsApi, private val sessions: SessionStore,
     private val expected: SessionSnapshot) {
     private fun current(): SessionSnapshot {
@@ -56,13 +82,39 @@ internal class FarmerFarmsRepository(private val api: FarmerFarmsApi, private va
     }
 
     suspend fun create(request: CanonicalFarmRequest): FarmerFarm {
-        val response = api.create(request, current())
-        val row = farmerFarm(read(response))
-        val owner = current().auth!!.userId.toLong()
-        check(row.farmerId == owner && row.name == request.name && row.status in setOf("PENDING", "ACTIVE")) {
-            "The new farm response did not match this Farmer's registration."
+        val snapshot = current()
+        val owner = snapshot.auth!!.userId.toLongOrNull()?.takeIf { it > 0 }
+            ?: error("Farmer identity could not be verified.")
+        val profileRequest = CanonicalFarmerProfileRequest(request.name,
+            listOfNotNull(request.subCounty, request.county).joinToString(", "), request.description,
+            request.sizeAcres, request.ownershipType)
+        val existingProfile = api.profile(owner, snapshot)
+        val profileResponse = when {
+            existingProfile.isSuccessful -> api.updateProfile(owner, profileRequest, current())
+            existingProfile.code() == 404 -> {
+                existingProfile.errorBody()?.close()
+                api.createProfile(owner, profileRequest, current())
+            }
+            else -> {
+                existingProfile.errorBody()?.close()
+                throw IllegalStateException("The Farmer profile could not be loaded (HTTP ${existingProfile.code()}).")
+            }
         }
-        return row
+        val profile = read(profileResponse)
+        check(profile.userId == owner && profile.farmName?.equals(request.name, ignoreCase = true) == true) {
+            "The saved farm profile did not match this Farmer."
+        }
+
+        // Profile create/update creates or synchronizes the linked ACTIVE farm as in the web flow.
+        val linkedFarm = mine().firstOrNull { it.name.equals(request.name, ignoreCase = true) }
+            ?: error("The linked farm was not returned after saving the Farmer profile.")
+        val updatedResponse = api.updateFarm(linkedFarm.id, request, current())
+        val updated = farmerFarm(read(updatedResponse))
+        check(updated.id == linkedFarm.id && updated.farmerId == owner &&
+            updated.name.equals(request.name, ignoreCase = true)) {
+            "The updated farm response did not match this Farmer's farm."
+        }
+        return updated
     }
 
     private fun farmerFarm(row: CanonicalFarmDto): FarmerFarm {
@@ -82,7 +134,8 @@ internal class FarmerFarmsRepository(private val api: FarmerFarmsApi, private va
             check(latitude.isFinite() && latitude in -90.0..90.0 &&
                 longitude.isFinite() && longitude in -180.0..180.0) { "Farm coordinates are invalid." }
         }
-        return FarmerFarm(id, owner, name, county, row.subCounty, row.address, size, ownership, status, row.description)
+        return FarmerFarm(id, owner, name, county, row.subCounty, row.address, latitude, longitude,
+            size, ownership, status, row.description)
     }
 
     private fun <T> read(response: Response<CanonicalApiResponse<T>>): T {

@@ -59,11 +59,16 @@ internal fun orderPaymentConfirmed(order: BuyerOrderDto, state: BuyerPaymentStat
         outline = Color(0xFF90B5A5)), content = content)
 }
 @Composable internal fun OrderHeader(title: String, back: () -> Unit, green: Boolean = false) {
-    Surface(color = if (green) Color(0xFF00644B) else OrderPaleGreen,
-        contentColor = if (green) Color.White else OrderInk) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
+    val bg = if (green) Color(0xFF00644B) else OrderPaleGreen
+    val fg = if (green) Color.White else OrderInk
+    Box(Modifier.fillMaxWidth().background(bg)) {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 58.dp).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = fg) }
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                color = fg, modifier = Modifier.padding(start = 4.dp))
         }
     }
 }

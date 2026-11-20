@@ -8,6 +8,7 @@ import com.example.farmapp.network.*
 import com.example.farmapp.orders.*
 import com.example.farmapp.payments.*
 import com.example.farmapp.tracking.DeliveryJobDto
+import com.google.gson.JsonObject
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.math.BigDecimal
@@ -45,7 +46,8 @@ internal class FarmerPurchaseController(
 ) {
     val backendCartEnabled get() = cart != null
     private val requests = FarmerPurchaseRequests(sessions, expected)
-    val checkout = CheckoutController(orders, FarmerCheckoutContract, sessions, expected, FarmerPurchaserPolicy, journal, scope)
+    val checkout = CheckoutController<JsonObject, BuyerStkResponse, BuyerOrderDto>(
+        orders, FarmerCheckoutContract, sessions, expected, FarmerPurchaserPolicy, journal, scope)
     val payments = PurchaserPaymentController(payment, FarmerPaymentContract, sessions, expected,
         FarmerPurchaserPolicy, attempts, scope, paymentAllowed = BuyerMpesaEnvironment::ready)
     private val mutable = MutableStateFlow(FarmerPurchaseState())

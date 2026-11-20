@@ -86,14 +86,14 @@ internal class FarmerPurchaseRequests(sessions: SessionStore, expected: SessionS
 
 /** Same numeric-ID e-commerce contracts as Buyer; all unsafe cart/checkout operations denied. */
 internal class FarmerCheckoutRepository(private val orders: BuyerOrdersApi,
-    sessions: SessionStore, expected: SessionSnapshot) : CheckoutRepository<JsonObject, JsonElement, BuyerOrderDto> {
+    sessions: SessionStore, expected: SessionSnapshot) : CheckoutRepository<JsonObject, BuyerStkResponse, BuyerOrderDto> {
     private val requests = FarmerPurchaseRequests(sessions, expected)
     override suspend fun readCart(purchaserId: Long): Response<CanonicalApiResponse<JsonObject>> = requests.blocked()
     override suspend fun addItem(productId: Long, quantity: Int): Response<CanonicalApiResponse<JsonObject>> = requests.blocked()
     override suspend fun setQuantity(cartId: Long, productId: Long, quantity: Int): Response<CanonicalApiResponse<JsonObject>> = requests.blocked()
     override suspend fun startCheckout(): Response<CanonicalApiResponse<Unit>> = requests.blocked()
     override suspend fun deliveryQuote(request: CheckoutQuoteRequest): Response<CanonicalApiResponse<CheckoutQuote>> = requests.blocked()
-    override suspend fun createOrder(quoteId: String, phoneNumber: String): Response<CanonicalApiResponse<JsonElement>> = requests.blocked()
+    override suspend fun createOrder(quoteId: String, phoneNumber: String): Response<CanonicalApiResponse<BuyerStkResponse>> = requests.blocked()
     override suspend fun listOrders(purchaserId: Long) = requests.call(CheckoutOperation.READ_ORDERS, { session ->
         require(purchaserId == requests.purchaserId()) { "Use the authenticated purchaser ID." }
         orders.orders(purchaserId, session)
@@ -127,7 +127,7 @@ internal class FarmerOrderSearchRepository(private val api: PurchaserOrderSearch
 }
 
 /** Wire validators are pure ownership/amount checks; Buyer policy is not reused. */
-internal object FarmerCheckoutContract : CheckoutContract<JsonObject, JsonElement, BuyerOrderDto> by BuyerCheckoutContract
+internal object FarmerCheckoutContract : CheckoutContract<JsonObject, BuyerStkResponse, BuyerOrderDto> by BuyerCheckoutContract
 internal object FarmerPaymentContract : PurchaserPaymentContract<BuyerOrderDto, PaymentDto, BuyerStkResponse> by BuyerPaymentContract {
     override fun validateOrder(order: BuyerOrderDto, orderId: Long, purchaserId: Long) =
         validateFarmerPurchaseOrder(order, purchaserId).also { check(it.id == orderId) }

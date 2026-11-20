@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -330,16 +331,18 @@ fun OrganicChartHeader(
     onNotificationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .clip(OrganicHeaderWaveShape())
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(ColorDeepForestGreen, ColorVibrantLeafGreen)
+    Box(modifier.fillMaxWidth().background(ColorDeepForestGreen)) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .statusBarsPadding()
+                .clip(OrganicHeaderWaveShape())
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(ColorDeepForestGreen, ColorVibrantLeafGreen)
+                    )
                 )
-            )
-            .padding(top = 48.dp, bottom = 48.dp, start = 20.dp, end = 20.dp)
-    ) {
+                .padding(bottom = 48.dp, start = 20.dp, end = 20.dp)
+        ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Identity Header Bar
             Row(
@@ -503,7 +506,8 @@ fun OrganicChartHeader(
             }
         }
     }
-}
+} // end inner Box
+} // end outer Box (status bar background)
 
 // ---------------------------------------------------------------------------
 // Native Compose Vertical Pillar Bar Chart

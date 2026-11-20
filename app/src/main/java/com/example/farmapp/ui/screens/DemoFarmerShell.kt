@@ -129,6 +129,8 @@ internal fun DemoFarmerShell(isDarkTheme: Boolean, onToggleTheme: () -> Unit, on
                     repository.add(request); query = ""; select(FarmerDestination.HOME); feedback("Demo crop saved locally. No upload was made.")
                 }
                 FarmerDestination.MAP -> DemoFarmLocations(content)
+                FarmerDestination.FARMS -> FarmerFeatureShell("My Farms · Demo", Icons.Default.Agriculture,
+                    "Farm registration uses your shared-backend account. Demo mode never submits farm records.", content)
                 FarmerDestination.SUPPLIES -> FarmerFeatureShell("Supplies · Coming soon", Icons.Default.Agriculture,
                     "Supplier product browsing is not implemented yet. This preview contains no operational inventory or purchasing flow.", content)
                 FarmerDestination.PROFILE -> FarmerAccount(FarmerAccountDetails(DemoData.profile.name, DemoData.profile.email,

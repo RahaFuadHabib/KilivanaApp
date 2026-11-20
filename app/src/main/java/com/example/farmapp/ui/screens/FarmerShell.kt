@@ -3,6 +3,7 @@ package com.example.farmapp.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,6 +58,13 @@ internal fun FarmerShell(
     val cropPhotos = rememberCropPhotoController(auth.userId)
     val scope = rememberCoroutineScope()
     val repository = remember { com.example.farmapp.repository.ProductRepository(com.example.farmapp.data.remote.ApiClient.farmApiService) }
+    val farmsApi = remember(auth.userId) { ApiClient.authenticatedService(com.example.farmapp.repository.FarmerFarmsApi::class.java) }
+    val farmsRepository = remember(auth.userId) { com.example.farmapp.repository.FarmerFarmsRepository(farmsApi, TokenManager, TokenManager.session.value) }
+    var farms by remember(auth.userId) { mutableStateOf<List<com.example.farmapp.repository.FarmerFarm>>(emptyList()) }
+    var farmsLoading by remember(auth.userId) { mutableStateOf(false) }
+    var farmsBusy by remember(auth.userId) { mutableStateOf(false) }
+    var farmsError by remember(auth.userId) { mutableStateOf<String?>(null) }
+    var farmsMessage by remember(auth.userId) { mutableStateOf<String?>(null) }
     var products by remember { mutableStateOf<List<com.example.farmapp.data.model.FarmerProductResponse>>(emptyList()) }
     var productsError by remember { mutableStateOf<String?>(null) }
     val productRefresh = remember { CropRefreshController() }
@@ -75,6 +83,46 @@ internal fun FarmerShell(
             error = "Unable to load categories. Check your connection and retry.") }
     }
     LaunchedEffect(auth.userId) { refreshCategories() }
+    suspend fun refreshFarms() {
+        if (!repository.canonical || farmsLoading) return
+        farmsLoading = true
+        farmsError = null
+        try { farms = farmsRepository.mine() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { farmsError = e.message ?: "My Farms could not be loaded. Retry." }
+        finally { farmsLoading = false }
+    }
+    LaunchedEffect(auth.userId, repository.canonical) { refreshFarms() }
+    val createFarm: (com.example.farmapp.network.canonical.CanonicalFarmRequest) -> Unit = { request ->
+        if (!farmsBusy) {
+            farmsBusy = true
+            farmsError = null
+            farmsMessage = null
+            scope.launch {
+                try {
+                    val created = farmsRepository.create(request)
+                    farms = (farms.filterNot { it.id == created.id } + created).sortedByDescending { it.id }
+                    farmsMessage = when (created.status) {
+                        "ACTIVE" -> "Farm created as Active. Admin can assign an inspector to review it."
+                        else -> "Farm submitted as Pending for Admin review and inspection assignment."
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) {
+                    // A timed-out POST may already have created the farm. Reconcile by exact
+                    // owner-entered fields before showing any option to submit again.
+                    val rows = runCatching { farmsRepository.mine() }.getOrNull()
+                    if (rows != null) farms = rows
+                    val matches = rows.orEmpty().filter { it.name == request.name && it.county == request.county &&
+                        it.address == request.address && it.sizeAcres == request.sizeAcres && it.ownershipType == request.ownershipType }
+                    if (matches.size == 1) farmsMessage = when (matches.single().status) {
+                        "ACTIVE" -> "Farm registration confirmed as Active. Admin can assign an inspector to review it."
+                        else -> "Farm registration confirmed as Pending for Admin review and inspection assignment."
+                    }
+                    else farmsError = "Farm registration was not confirmed. Refresh My Farms before submitting again to avoid duplicates."
+                } finally { farmsBusy = false }
+            }
+        }
+    }
     var selectedCropId by rememberSaveable { mutableStateOf<String?>(null) }
     var showingCropOrders by rememberSaveable { mutableStateOf(false) }
     var managementBusy by remember { mutableStateOf(false) }
@@ -100,7 +148,7 @@ internal fun FarmerShell(
         }
     }
     LaunchedEffect(destination, auth.userId, repository.canonical) {
-        if (destination == FarmerDestination.ORDERS && repository.canonical) refreshSellerOrders()
+        if (repository.canonical && destination in setOf(FarmerDestination.ORDERS, FarmerDestination.HOME)) refreshSellerOrders()
     }
     val selectedCrop = products.firstOrNull { it.productId == selectedCropId }
     val sellerOrders = orders?.let { cropOrders(it, auth.userId) }
@@ -151,6 +199,8 @@ internal fun FarmerShell(
                 val original = cropPhotos.draft
                 try {
                     original.validationError()?.let { throw com.example.farmapp.repository.ProductFailure(it) }
+                    if (original.productId == null && farms.none { it.id == original.farmId && it.canDispatchFrom })
+                        throw com.example.farmapp.repository.ProductFailure("Select one of your Admin-approved active farms before uploading produce.")
                     if (original.productId == null && !categories.contains(original.categoryId))
                         throw com.example.farmapp.repository.ProductFailure("Load categories and select an available category before publishing.")
                     // Validate every original before creating a listing; streaming bodies are small handles.
@@ -162,7 +212,7 @@ internal fun FarmerShell(
                     products = publisher.publish(original, cropPhotos.update) { publishMessage = it }
                     productsError = null
                     original.photos.forEach { cropPhotos.storage.delete(it) }
-                    publishMessage = "Crop published successfully."
+                    publishMessage = "Produce submitted to Admin for approval. It will appear in the marketplace after approval."
                     destination = FarmerDestination.HOME
                 } catch (e: kotlinx.coroutines.CancellationException) { throw e }
                 catch (e: Exception) { publishMessage = "Publishing stopped. Your draft and recorded progress are kept. " + productError(e) }
@@ -234,29 +284,27 @@ internal fun FarmerShell(
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(
-                    title = {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Kilivana", style = MaterialTheme.typography.titleLarge)
-                            if (destination == FarmerDestination.HOME) {
-                                Text("Farmer", style = MaterialTheme.typography.titleMedium,
-                                    color = colors.primary)
-                            }
+                Box(Modifier.fillMaxWidth().background(ForestGreen)) {
+                    Row(
+                        Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text("Kilivana", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            if (destination == FarmerDestination.HOME)
+                                Text("Farmer Portal", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                         }
-                    },
-                    actions = {
                         if (destination == FarmerDestination.HOME) {
                             IconButton(onClick = { searchOpen = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search your farm", tint = colors.primary)
+                                Icon(Icons.Default.Search, contentDescription = "Search your farm", tint = Color.White)
                             }
                             com.example.farmapp.ui.components.FarmerThemeToggle(isDarkTheme, onToggleTheme, iconOnly = true)
                             IconButton(onClick = onLogout, enabled = !isLoading) {
-                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Log Out",
-                                    tint = colors.primary)
+                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Log Out", tint = Color.White)
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface))
+                    }
+                }
             },
             bottomBar = {
                 FarmerBottomBar(destination) { tab ->
@@ -319,7 +367,12 @@ internal fun FarmerShell(
                         onRefreshProducts = { scope.launch { refreshProducts() } }, publishMessage = publishMessage,
                         onResumeExisting = if (cropPhotos.draft.creationUncertain && !publishing) ({ recoveryProduct = it }) else null,
                         onOpenCrop = { cropSave.reset(); selectedCropId = it.productId; showingCropOrders = false; managementMessage = null; scope.launch { refreshOrders() } },
-                        onOpenSupplies = { destination = FarmerDestination.SUPPLIES }, onOpenOrders = { destination = FarmerDestination.ORDERS })
+                        onOpenSupplies = { destination = FarmerDestination.SUPPLIES }, onOpenOrders = { destination = FarmerDestination.ORDERS },
+                        onOpenFarms = { destination = FarmerDestination.FARMS },
+                        realSellerOrders = if (repository.canonical) sellerOrderRefresh.orders else null,
+                        sellerOrdersLoading = sellerOrderRefresh.refreshing,
+                        sellerOrdersError = sellerOrderRefresh.error,
+                        onRefreshSellerOrders = { scope.launch { refreshSellerOrders() } })
                     FarmerDestination.ORDERS -> if (repository.canonical) {
                         FarmerSellerOrdersScreen(sellerOrderRefresh.orders, sellerOrderRefresh.error,
                             sellerOrderRefresh.refreshing, contentModifier) { scope.launch { refreshSellerOrders() } }
@@ -327,7 +380,10 @@ internal fun FarmerShell(
                         null, contentModifier, null, { scope.launch { refreshOrders() } },
                         onTracking = { trackingFrom = FarmerDestination.ORDERS })
                     FarmerDestination.ADD -> AddCropScreen(cropPhotos, contentModifier, publishing, publishMessage, publish, checkCreation,
-                        categories, { scope.launch { refreshCategories() } })
+                        categories, { scope.launch { refreshCategories() } }, farms, farmsLoading, farmsError,
+                        { scope.launch { refreshFarms() } }, { destination = FarmerDestination.FARMS })
+                    FarmerDestination.FARMS -> FarmerFarmsScreen(farms, farmsLoading, farmsBusy, farmsError, farmsMessage,
+                        { scope.launch { refreshFarms() } }, createFarm, contentModifier)
                     FarmerDestination.MAP -> FarmerMapScreen(contentModifier)
                     FarmerDestination.SUPPLIES -> FarmerSuppliesScreen(contentModifier) { trackingFrom = FarmerDestination.SUPPLIES }
                     FarmerDestination.PROFILE -> FarmerProfileScreen(auth, errorMessage, contentModifier, isDarkTheme, onToggleTheme, onLogout, isLoading)
@@ -389,6 +445,7 @@ private fun FarmerDestination.icon(): ImageVector = when (this) {
     FarmerDestination.MAP -> Icons.Default.LocationOn
     FarmerDestination.SUPPLIES -> Icons.Default.Agriculture
     FarmerDestination.PROFILE -> Icons.Default.Person
+    FarmerDestination.FARMS -> Icons.Default.Agriculture
 }
 
 @Composable

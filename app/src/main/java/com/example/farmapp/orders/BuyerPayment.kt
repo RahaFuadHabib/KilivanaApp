@@ -36,6 +36,7 @@ import com.example.farmapp.BuildConfig
 import com.example.farmapp.buyer.buyerScope
 import com.example.farmapp.data.remote.ApiClient
 import com.example.farmapp.network.*
+import com.example.farmapp.payments.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.math.BigDecimal
@@ -70,10 +71,33 @@ internal class BuyerPaymentController(private val api: BuyerOrdersApi, sessions:
     private val _timedOut = MutableStateFlow(false)
     val timedOut = _timedOut.asStateFlow()
     val state = delegate.state
+    private val _preOrderState = MutableStateFlow<PurchaserPaymentState<PaymentDto>?>(null)
+    val preOrderState = _preOrderState.asStateFlow()
     fun refresh(id: Long) = delegate.refresh(id)
     fun initiate(id: Long, phoneInput: String, reviewedTotal: BigDecimal? = state.value.total) =
         delegate.initiate(id, phoneInput, reviewedTotal)
     fun notifyTimeout() { _timedOut.value = true }
+    /** Poll a pre-order checkout payment. Returns terminal status, or null while unresolved. */
+    suspend fun pollPayment(paymentId: Long): String? {
+        val session = guard.current(com.example.farmapp.checkout.CheckoutOperation.READ_PAYMENTS)
+        val response = api.payment(paymentId, session)
+        if (!response.isSuccessful) { response.errorBody()?.close(); return null }
+        val payment = response.body()?.data ?: return null
+        val status = payment.status?.lowercase() ?: return null
+        if (status !in paymentStatuses) return null
+        val terminal = status in setOf("paid", "cancelled", "failed", "held", "settled", "refunded")
+        _preOrderState.value = PurchaserPaymentState<PaymentDto>(
+            orderId = null, busy = false, canInitiate = false,
+            payments = listOf(payment), total = payment.amount,
+            notice = when (status) {
+                "paid" -> "Payment confirmed. Your order is being created."
+                "cancelled" -> "Payment was cancelled. No order was created."
+                "failed" -> "Payment failed. No order was created."
+                else -> "Payment status: $status"
+            }
+        )
+        return if (terminal) status else null
+    }
     fun pollLatest(orderId: Long) {
         scope.launch {
             try {
@@ -105,6 +129,32 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
         }
     }
 }
+/** Pre-order polling session for async checkout. Polls by paymentId until terminal. */
+@Composable internal fun BuyerPaymentSessionAsync(paymentId: Long,
+    orderCheck: suspend () -> Boolean = { false }, onTerminal: (String) -> Unit,
+    content: @Composable (PurchaserPaymentState<PaymentDto>, Boolean) -> Unit) {
+    val session by TokenManager.session.collectAsStateWithLifecycle()
+    val model: BuyerPaymentModel = viewModel(key = "buyer-payment-async-${session.generation}-$paymentId", factory = BuyerPaymentModel.factory(LocalContext.current))
+    val preState by model.controller.preOrderState.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var timeoutShown by remember { mutableStateOf(false) }
+    LaunchedEffect(paymentId, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val deadline = System.currentTimeMillis() + 120_000L
+            while (true) {
+                delay(if (timeoutShown) 10_000L else 3_000L)
+                val orderCreated = runCatching { orderCheck() }.getOrDefault(false)
+                if (orderCreated) { onTerminal("paid"); return@repeatOnLifecycle }
+                val terminal = model.controller.pollPayment(paymentId)
+                if (terminal != null) { onTerminal(terminal); return@repeatOnLifecycle }
+                if (!timeoutShown && System.currentTimeMillis() > deadline) {
+                    timeoutShown = true
+                }
+            }
+        }
+    }
+    content(preState ?: PurchaserPaymentState(), timeoutShown)
+}
 /** The same controller is shared by list/details/payment for an order; navigation only performs reads. */
 @Composable internal fun BuyerPaymentSession(order: BuyerOrderDto,
     content: @Composable (BuyerPaymentState, Boolean, () -> Unit, (String, BigDecimal?) -> Unit) -> Unit) {
@@ -117,17 +167,21 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             model.controller.refresh(order.id!!)
             val deadline = System.currentTimeMillis() + 120_000L
+            var timeoutShown = false
             while (true) {
-                delay(3_000)
+                delay(if (timeoutShown) 10_000L else 3_000L)
                 val latest = model.controller.state.value
                 val terminalStatus = latest.payments.lastOrNull()?.status
                 if (terminalStatus in setOf("paid", "cancelled", "failed")) break
                 val noPaymentPossible = !latest.canInitiate && latest.payments.isEmpty() && !latest.busy
                 if (noPaymentPossible) break
-                if (latest.payments.any { it.status == "pending" } && System.currentTimeMillis() > deadline) {
+                if (!timeoutShown && latest.payments.any { it.status == "pending" } && System.currentTimeMillis() > deadline) {
                     model.controller.notifyTimeout()
-                    break
+                    timeoutShown = true
                 }
+                // Keep checking after the local timeout. The backend reconciles stale STK
+                // requests asynchronously; once it reports failed/cancelled, retry unlocks
+                // on this same order without requiring the buyer to leave and rebuild it.
                 model.controller.pollLatest(order.id!!)
             }
         }
@@ -202,9 +256,9 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
                             sb.toString().ifBlank { null }
                         }
                         "pending" -> if (hasPendingPayment)
-                            "M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment." else null
-                        "cancelled" -> "You cancelled the M-Pesa payment. Your order has not been paid. You can try again when you are ready."
-                        "failed" -> "Payment was unsuccessful."
+                            "M-Pesa request sent for order #${order.id}. Enter your PIN on your phone and wait for confirmation. This payment stays on the same order; another prompt is available after this attempt finishes." else null
+                        "cancelled" -> "You cancelled the M-Pesa payment for order #${order.id}. The order is unpaid; retry payment here when you are ready."
+                        "failed" -> "Payment for order #${order.id} was unsuccessful. Retry here to pay this order without creating another one."
                         "held" -> "Payment is held in escrow pending delivery confirmation."
                         "settled" -> "Payment has been released to the seller."
                         "refunded" -> "Payment has been refunded."
@@ -215,12 +269,14 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
                     }
                     state.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                     if (timedOut && displayStatus == "pending" && hasPendingPayment)
-                        Text("Payment confirmation timed out. Please check your M-Pesa messages or try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Text("Confirmation is taking longer than expected. Check your M-Pesa messages and refresh this order after a few minutes. Once the backend marks this attempt failed or cancelled, you can enter your number and retry on this same order.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = OrderGreen)
                 }
             }
+            if (displayStatus == "pending" && state.payments.any { it.status == "pending" } && !state.busy)
+                OrderPrimaryButton("Check payment for this order", refresh)
             if (displayStatus in setOf("cancelled", "failed") && orderPayable && !state.busy)
-                OrderPrimaryButton("Retry Payment", { showPayment = true })
+                OrderPrimaryButton("Retry payment for order #${order.id}", { showPayment = true; refresh() })
             if (!state.busy && !state.canInitiate && state.payments.isEmpty() && state.notice == null && displayStatus == null)
                 Text("Payment is not available for this order. Refresh to check its current status.")
             if (state.canInitiate) {

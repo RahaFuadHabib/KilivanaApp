@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -104,8 +103,8 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
             sum + product.unitPrice.multiply(quantity.toBigDecimal())
         } else null
     Column(modifier.fillMaxSize().background(NeutralBackground)) {
-        Surface(color = OrderGreen) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxWidth().background(OrderGreen)) {
+            Row(Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("My Purchases", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -180,16 +179,7 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                     }
                 }
                 if (page == "delivery") {
-                    item { Text(if (transactions?.enabled == true) "Delivery selection" else "Delivery selection (read-only checkout review)", style = MaterialTheme.typography.titleMedium) }
-                    items(state.addresses, key = { "a${it.id}" }) { address ->
-                        val selected = state.selection == DeliverySelection.Door(address.id!!)
-                        OutlinedButton(onClick = { controller.selectAddress(address.id!!) }, enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = if (selected) ButtonDefaults.outlinedButtonColors(contentColor = OrderGreen, containerColor = com.example.farmapp.buyers.ui.theme.MessaTint) else ButtonDefaults.outlinedButtonColors()) {
-                            Icon(Icons.Default.Home, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                            Text("Address #${address.id}: ${address.addressText}")
-                        }
-                    }
+                    item { Text("Select a pickup station (required)", style = MaterialTheme.typography.titleMedium) }
                     items(state.stations, key = { "s${it.id}" }) { station ->
                         val selected = state.selection == DeliverySelection.Station(station.id!!)
                         OutlinedButton(onClick = { controller.selectStation(station.id!!) }, enabled = !state.busy,
@@ -202,8 +192,16 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                     item {
                         state.selection?.let {
                             OrderSection("Selected delivery") {
-                                Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = OrderGreen, fontWeight = FontWeight.SemiBold)
+                                val label = when (it) {
+                                    is DeliverySelection.Station -> "Pickup station: ${state.stations.firstOrNull { row -> row.id == it.pickupStationId }?.name ?: "#${it.pickupStationId}"}"
+                                    is DeliverySelection.TypedPickup, is DeliverySelection.Door -> "Select an available pickup station."
+                                }
+                                Text(label, style = MaterialTheme.typography.bodyMedium, color = OrderGreen, fontWeight = FontWeight.SemiBold)
                             }
+                        }
+                        if (state.selection !is DeliverySelection.Station) {
+                            Text("Choose an available pickup station before requesting a quote or creating an order.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
                         if (transactions?.enabled == true) FarmerTransactionPanel(transactions, state.items, state.selection, autoStart = true)
                         else {
@@ -289,7 +287,10 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                         style = MaterialTheme.typography.labelLarge)
                     OrderPrimaryButton("Proceed to checkout", { page = "delivery"; controller.delivery() },
                         !state.busy && !state.cartWriteBlocked && state.items.isNotEmpty())
-                    if (state.cartWriteBlocked) Text("Resolve the pending cart update before continuing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    if (state.cartWriteBlocked) {
+                        Text("A cart update may have reached the server, but its item quantities cannot be read back. Checkout and further cart changes are paused to prevent duplicate items. Contact support to reconcile this cart.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     else if (state.items.isEmpty()) Text("Add supplier products to continue.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }

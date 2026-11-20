@@ -13,6 +13,7 @@ internal data class CheckoutJournal(
     val quote: CheckoutQuote? = null,
     val request: CheckoutQuoteRequest? = null,
     val orderId: Long? = null,
+    val paymentId: Long? = null,
     val beforeOrderIds: Set<Long> = emptySet()
 ) {
     override fun toString() = "CheckoutJournal(redacted)"

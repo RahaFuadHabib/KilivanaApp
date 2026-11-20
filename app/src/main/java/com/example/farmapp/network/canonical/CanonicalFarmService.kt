@@ -20,7 +20,7 @@ fun CanonicalProductDto.toAndroidProduct(): FarmerProductResponse {
     return FarmerProductResponse(view.productId, view.name, view.description, view.unit, view.unitPrice,
         view.availableQuantity, images.orEmpty().sortedBy { it.sortOrder ?: 0 }.map { it.toAndroidImage() },
         view.status.name, view.categoryId, minimumOrderQuantity = view.minimumOrderQuantity,
-        sellerId = view.sellerId, reservedQuantity = view.reservedQuantity)
+        sellerId = view.sellerId, reservedQuantity = view.reservedQuantity, farmId = farmId, statusReason = statusReason)
 }
 fun canonicalWholeQuantity(value: BigDecimal): Int = try { canonicalStockQuantity(value) }
 catch (_: CanonicalContractException) { throw ProductFailure("Enter a whole-number quantity within the supported range. Fractional quantities cannot be rounded.", true) }
@@ -56,9 +56,11 @@ class CanonicalFarmService(private val api: CanonicalBackendApi, private val ses
     override suspend fun createProduct(request: CreateProductRequest): Response<FarmerProductResponse> {
         farmerId()
         if (request.lowStockThreshold != null) throw ProductFailure("Low-stock thresholds are not supported by the shared backend.", true)
+        val farmId = request.farmId?.takeIf { it > 0 }
+            ?: throw ProductFailure("Select one of your Admin-approved active farms before submitting produce.", true)
         return api.create(CanonicalProductRequest(request.title, request.description, request.unit, request.unitPrice,
             canonicalWholeQuantity(request.availableQuantity), canonicalWholeQuantity(request.minimumOrderQuantity ?: BigDecimal.ONE),
-            numericId(request.categoryId ?: throw ProductFailure("Choose a category.", true)))).mapped { it.toAndroidProduct() }
+            numericId(request.categoryId ?: throw ProductFailure("Choose a category.", true)), farmId)).mapped { it.toAndroidProduct() }
     }
     override suspend fun updateProduct(id: String, request: UpdateProductRequest): Response<FarmerProductResponse> {
         val owner = farmerId()
@@ -66,6 +68,8 @@ class CanonicalFarmService(private val api: CanonicalBackendApi, private val ses
         if (!current.isSuccessful) return Response.error(current.code(), current.errorBody() ?: throw IOException("Missing error response"))
         val dto = current.body()?.requireData() ?: throw IOException("Missing product")
         if (dto.sellerId != owner) throw ProductFailure("This crop belongs to another seller.", true)
+        val farmId = dto.farmId?.takeIf { it > 0 }
+            ?: throw IOException("This crop is not linked to a verified farm. Contact support before editing it.")
         // UI edits sellable quantity. Preserve current reservations when writing total stock.
         val available = canonicalWholeQuantity(request.availableQuantity)
         val reserved = dto.reservedQty ?: throw IOException("Missing reserved stock")
@@ -73,7 +77,7 @@ class CanonicalFarmService(private val api: CanonicalBackendApi, private val ses
         val total = canonicalWholeQuantity(BigDecimal.valueOf(available.toLong()).add(BigDecimal.valueOf(reserved.toLong())))
         return api.update(numericId(id), CanonicalProductRequest(request.title, request.description, request.unit,
             request.unitPrice, total, canonicalWholeQuantity(request.minimumOrderQuantity ?: BigDecimal.ONE),
-            numericId(request.categoryId ?: throw ProductFailure("Choose a category.", true)))).mapped { it.toAndroidProduct() }
+            numericId(request.categoryId ?: throw ProductFailure("Choose a category.", true)), farmId)).mapped { it.toAndroidProduct() }
     }
     override suspend fun productImages(productId: String) = api.images(numericId(productId)).mapped { it.map { image -> image.toAndroidImage() } }
     override suspend fun uploadProductImage(productId: String, file: MultipartBody.Part): Response<ProductImageResponse> {

@@ -213,10 +213,10 @@ class FarmerTransactionReadinessTest {
 
     // ── Section E: Farmer purchaser authorization ─────────────────────────────
 
-    @Test fun farmerPurchaserPolicyPermitsCartOperationsButKeepsTransactionsBlocked() {
+    @Test fun farmerPurchaserPolicyPermitsFarmerOwnedOrderPayments() {
         val readable = setOf(
             CheckoutOperation.READ_CART, CheckoutOperation.UPLOAD_CART, CheckoutOperation.SET_QUANTITY,
-            CheckoutOperation.READ_ORDERS, CheckoutOperation.READ_PAYMENTS,
+            CheckoutOperation.READ_ORDERS, CheckoutOperation.READ_PAYMENTS, CheckoutOperation.INITIATE_PAYMENT,
             CheckoutOperation.READ_ADDRESSES, CheckoutOperation.READ_PICKUP_STATIONS,
             CheckoutOperation.READ_LOGISTICS
         )

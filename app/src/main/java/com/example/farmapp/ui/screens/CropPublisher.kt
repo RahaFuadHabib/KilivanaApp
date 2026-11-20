@@ -6,7 +6,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 internal fun CropDraft.toCreateProductRequest() = CreateProductRequest(
-    name.trim(), description.trim(), unit.label, pricePerUnit.toBigDecimal(), quantity.toBigDecimal(), categoryId = requireNotNull(categoryId?.takeIf { it.isNotBlank() }) { "Select a category." })
+    name.trim(), description.trim(), unit.label, pricePerUnit.toBigDecimal(), quantity.toBigDecimal(),
+    categoryId = requireNotNull(categoryId?.takeIf { it.isNotBlank() }) { "Select a category." }, farmId = farmId)
 
 /** Checkpoints must be persisted before returning, including before a non-idempotent create call. */
 internal class CropPublisher(

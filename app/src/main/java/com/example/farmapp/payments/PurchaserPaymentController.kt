@@ -39,6 +39,16 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
         }
         return response.body()?.requireData() ?: error("Incomplete response")
     }
+    /** Lightweight read used by refresh(): fetches order + payment list only, no per-payment status calls. */
+    private suspend fun inspectList(id: Long): Pair<Order, List<Payment>> {
+        val order = contract.validateOrder(read(request(CheckoutOperation.READ_ORDERS) { repository.order(id) }), id, current().auth!!.userId.toLong())
+        val rows = read(request(CheckoutOperation.READ_PAYMENTS) { repository.payments(id) })
+        check(rows.map { contract.paymentId(it) }.distinct().size == rows.size)
+        val checked = rows.map { row -> contract.validateReference(row, id); contract.validateStatus(row, row, id) }
+        current()
+        return order to checked
+    }
+    /** Full inspect used by initiate(): also fetches each payment's individual status for pre-flight verification. */
     private suspend fun inspect(id: Long): Pair<Order, List<Payment>> {
         val order = contract.validateOrder(read(request(CheckoutOperation.READ_ORDERS) { repository.order(id) }), id, current().auth!!.userId.toLong())
         val rows = read(request(CheckoutOperation.READ_PAYMENTS) { repository.payments(id) })
@@ -60,7 +70,7 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
             else PurchaserPaymentState<Payment>(orderId=id,busy=true,submitted=startedBeforeRead,submissionEnabled=paymentAllowed()) }
         scope.launch {
             try {
-                val (order, rows) = inspect(id)
+                val (order, rows) = inspectList(id)
                 val started = attempts.started(id)
                 val allTerminal = rows.isNotEmpty() && rows.all { contract.status(it) in setOf("failed", "cancelled") }
                 // Stale lock: server has no payments and order is payable, OR all payments are terminal and order is still payable.
@@ -105,9 +115,29 @@ internal class PurchaserPaymentController<Order, Payment, Initiation>(
                     total=contract.total(order),submitted=true,submissionEnabled=paymentAllowed(),notice = "Check your phone for the M-Pesa prompt. Payment is pending.")
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                val detail = e.message?.takeIf { it.isNotBlank() && it != "Request not confirmed" }
-                    ?: "Initiation was not confirmed. Check payment status before taking any further action; no automatic retry was made."
-                if (runCatching { current() }.isSuccess) mutable.update{it.copy(busy=false,canInitiate=false,notice=detail)}
+                if (runCatching { current() }.isFailure) return@launch
+                val message = e.message ?: ""
+                when {
+                    // Web: "already being processed" → treat as pending and poll, never fail.
+                    message.contains("already being processed", ignoreCase = true) -> {
+                        val rows = runCatching { inspect(id).second }.getOrElse { emptyList() }
+                        val pendingRows = rows.filter { contract.status(it) == "pending" }
+                        mutable.update { it.copy(busy = false, canInitiate = false,
+                            payments = pendingRows.ifEmpty { it.payments },
+                            notice = "A payment request is already being processed. Enter your PIN if prompted while we check its status.") }
+                    }
+                    // Web: 403 / "not authorized to request payment for this order" → specific message.
+                    message.contains("not authorized to request payment", ignoreCase = true) ||
+                    (e is java.io.IOException && message.contains("403")) -> {
+                        mutable.update { it.copy(busy = false, canInitiate = false,
+                            notice = "The payment service did not authorise this account for the order. No payment was taken. Check that you are signed in with the account that placed this order, or contact support.") }
+                    }
+                    else -> {
+                        val detail = message.takeIf { it.isNotBlank() && it != "Request not confirmed" }
+                            ?: "Initiation was not confirmed. Check payment status before taking any further action; no automatic retry was made."
+                        mutable.update { it.copy(busy = false, canInitiate = false, notice = detail) }
+                    }
+                }
             }
         }
     }

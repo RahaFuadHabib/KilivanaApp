@@ -1,8 +1,12 @@
 package com.example.farmapp.buyers
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -10,10 +14,17 @@ import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -27,6 +38,10 @@ import com.example.farmapp.buyers.data.CartViewModel
 import com.example.farmapp.buyer.*
 import com.example.farmapp.network.TokenManager
 import com.example.farmapp.orders.*
+import com.example.farmapp.payments.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -63,20 +78,25 @@ import kotlinx.coroutines.flow.first
     fun go(target:String){nav.navigate(target){launchSingleTop=true}}
     LaunchedEffect(query,filter){delay(350);snapshotFlow{state.busy}.first{!it};val id=filter?.let{name->state.categories.singleOrNull{it.name==name}?.id};if(query!=state.query || id!=state.category)model.shopping.refresh(query,id)}
     LaunchedEffect(route){
-        if(route in setOf("cart","savedItems"))model.shopping.refreshSelections()
+        if(route in setOf("cart","savedItems","checkout"))model.shopping.refreshSelections()
         if(route in setOf("checkout","addresses"))model.addresses.refresh()
         if(route=="pickup")model.pickups.refresh()
+        if(route=="orders")ordersModel.refresh()
         BrianUiPresence.enter(when{route=="home"->BrianScreen.HOME;route.startsWith("products")->BrianScreen.PRODUCTS;route.startsWith("product/")->BrianScreen.PRODUCT;route=="cart"->BrianScreen.CART;route=="search"->BrianScreen.SEARCH;route=="savedItems"->BrianScreen.SAVED;route=="orders"->BrianScreen.ORDERS;route.startsWith("order/")->BrianScreen.ORDER;route.startsWith("payment/")->BrianScreen.PAYMENT;route=="addresses"->BrianScreen.ADDRESSES;route=="checkout"->BrianScreen.CHECKOUT;route=="pickup"->BrianScreen.PICKUP;route=="profile"->BrianScreen.PROFILE;else->BrianScreen.ACCOUNT})
     }
     LaunchedEffect(route, checkoutState.uncertain, checkoutState.needsRecovery){
         if(route=="checkout" && (checkoutState.uncertain || checkoutState.needsRecovery) && !checkoutState.busy) checkoutModel.controller.recover()
     }
     DisposableEffect(session.generation){onDispose{BrianUiPresence.leave()}}
-    LaunchedEffect(checkoutState.order?.id, checkoutState.justCreated){
-        if(checkoutState.justCreated && checkoutState.order!=null && !checkoutState.busy){
+    LaunchedEffect(checkoutState.order?.id, checkoutState.paymentId, checkoutState.justCreated){
+        if(checkoutState.justCreated && !checkoutState.busy){
             checkoutModel.controller.consumeJustCreated()
             model.shopping.clearCart()
-            ordersModel.refresh();go("payment/${checkoutState.order!!.id}")
+            if(checkoutState.order!=null){
+                ordersModel.refresh();go("payment/${checkoutState.order!!.id}")
+            } else if(checkoutState.paymentId!=null){
+                go("async-payment/${checkoutState.paymentId}")
+            }
         }
     }
     var previousOrderId by remember { mutableStateOf<Long?>(null) }
@@ -85,9 +105,19 @@ import kotlinx.coroutines.flow.first
             model.shopping.clearCart()
         previousOrderId=checkoutState.order?.id
     }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { ordersModel.refresh() }
+    }
     LaunchedEffect(state.notice){state.notice?.let{snackbar.showSnackbar(it);model.shopping.dismissNotice()}}
     KilivanabuyerTheme {
-        Scaffold(modifier.fillMaxSize().testTag("brian-buyer-app"),containerColor=NeutralBackground,snackbarHost={SnackbarHost(snackbar)},bottomBar={
+        val statusBarHeightPx = WindowInsets.statusBars.getTop(LocalDensity.current).toFloat()
+        // Draw green only behind the transparent status bar; keep screen content neutral
+        // so text and cards retain their normal contrast.
+        Scaffold(modifier.fillMaxSize().testTag("brian-buyer-app").drawWithContent {
+            drawContent()
+            drawRect(Green600, size = Size(size.width, statusBarHeightPx))
+        },containerColor=NeutralBackground,snackbarHost={SnackbarHost(snackbar)},bottomBar={
             if(selectedTabRoute in tabs)NavigationBar(containerColor=NeutralSurface){
                 listOf(Triple("home","Home",Icons.Default.Home),Triple("products","Products",Icons.Default.Storefront),Triple("cart","Cart",Icons.Default.ShoppingCart),Triple("orders","Orders",Icons.AutoMirrored.Filled.ReceiptLong),Triple("dashboard","Account",Icons.Default.Person)).forEach{(destination,label,icon)->
                     NavigationBarItem(selected=selectedTabRoute==destination,onClick={nav.navigate(destination){popUpTo(nav.graph.startDestinationId){saveState=true};launchSingleTop=true;restoreState=true}},icon={BadgedBox(badge={if(destination=="cart" && state.selection.cart.isNotEmpty())Badge{Text(state.selection.cart.values.sumOf{it.toLong()}.toString())}}){Icon(icon,label)}},label={Text(label)})
@@ -116,7 +146,7 @@ import kotlinx.coroutines.flow.first
                 composable("cart"){
                     Column{BuyerCartDiagnosticEntry(state)
                         if(items.size!=state.selection.cart.size)Text("Some cart products could not be verified. Refresh availability before checkout.",Modifier.padding(12.dp),color=ErrorRed)
-                        CartScreen(items,cart,{if(state.selection.cart.isEmpty())go("products") else if(buyerCartSubtotal(state)!=null)go("checkout") else model.shopping.refreshSelections()})}
+                        CartScreen(items,cart,{if(state.selection.cart.isEmpty())go("products") else if(!state.selectionBusy && state.unavailable.isEmpty() && buyerCartSubtotal(state)!=null)go("checkout") else model.shopping.refreshSelections()},pricesRefreshing=state.selectionBusy)}
                 }
                 composable("savedItems"){SavedItemsScreen(state.selection.saved.mapNotNull{known[it]},{go("product/${it.id}")},{add(it)},{nav.popBackStack()},{go("products")})}
                 composable("dashboard"){AccountScreen(true,session.auth?.fullName,session.auth?.email,session.auth?.phoneNumber,orders,{},{onLogout()},{},{go("orders")},{go("savedItems")},{go("addresses")},{go("profile")})}
@@ -135,7 +165,7 @@ import kotlinx.coroutines.flow.first
                     fun requestPreparation(addressId:Long?=addresses.selectedId) {
                         deliverySelectionError=null
                         if(checkoutState.uncertain){checkoutModel.controller.recover();return}
-                        if(state.selection.cart.isEmpty() || buyerCartSubtotal(state)==null || items.size!=state.selection.cart.size)return
+                        if(state.selectionBusy || state.unavailable.isNotEmpty() || state.selection.cart.isEmpty() || buyerCartSubtotal(state)==null || items.size!=state.selection.cart.size)return
                         if(deliveryMethod=="DOOR_DELIVERY") {
                             if(addresses.busy || addresses.error!=null || addresses.rows.none{it.id==addressId})return
                             deliverySelectionError=buyerDoorDeliveryIssue(addresses.rows.firstOrNull { it.id==addressId })
@@ -159,7 +189,7 @@ import kotlinx.coroutines.flow.first
                             checkoutState.notice?.let{Text(it,Modifier.padding(16.dp))}
                         } else CheckoutScreen(items,addresses.rows.map(::brianAddress),addresses.busy,addresses.error,quote,{},
                             requestQuote={requestPreparation(it)},manageAddresses={go("addresses")},
-                            place={id,_,phone->confirmOrder=id to phone},back={nav.popBackStack()},submitting=checkoutState.busy,
+                            place={id,_,phone->confirmOrder=id to phone},back={nav.popBackStack()},submitting=checkoutState.busy || state.selectionBusy || state.unavailable.isNotEmpty(),
                             initialAddressId=addresses.selectedId,onAddressSelected=model.addresses::select,feedback=deliverySelectionError ?: checkoutState.notice,
                             deliveryMethodContent={Column{
                                 TabRow(selectedTabIndex=if(deliveryMethod=="DOOR_DELIVERY")0 else 1){
@@ -193,9 +223,9 @@ import kotlinx.coroutines.flow.first
                             dismissButton={TextButton(onClick={prepareRequest=null}){Text("Cancel")}})
                     }
                     confirmOrder?.let { (id,phone) ->
-                        AlertDialog(onDismissRequest={confirmOrder=null},title={Text("Create this order?")},
-                            text={Text("Server-confirmed total: ${com.example.farmapp.buyers.model.formatKes(quote?.total)}. M-Pesa number: ${runCatching{buyerMpesaPhone(phone)}.getOrDefault("")}. Payment will require a separate confirmation after the order is verified.")},
-                            confirmButton={TextButton(onClick={confirmOrder=null;checkoutModel.controller.create(model.shopping.state.value.selection.cart.toMap(),id,phone)}){Text("Confirm order")}},
+                        AlertDialog(onDismissRequest={confirmOrder=null},title={Text("Confirm payment prompt?")},
+                            text={Text("Server-confirmed total: ${com.example.farmapp.buyers.model.formatKes(quote?.total)}. M-Pesa number: ${runCatching{buyerMpesaPhone(phone)}.getOrDefault("")}. The order will be created after payment succeeds.")},
+                            confirmButton={TextButton(onClick={confirmOrder=null;checkoutModel.controller.create(model.shopping.state.value.selection.cart.toMap(),id,phone)}){Text("Send M-Pesa prompt")}},
 dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     }
                 }
@@ -226,11 +256,11 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     ordersContent = {
                         OrdersScreen(orders, { go("order/${it.id}") }, { go("products") }, ordersState.busy, ordersState.error,
                             extraAction = { displayOrder ->
-                                ordersState.rows.firstOrNull { it.id?.toString() == displayOrder.id }?.let { original ->
-                                    BuyerPaymentSession(original) { payment, _, _, _ ->
-                                        if (payment.canInitiate && !payment.busy) Button(onClick = { go("payment/${displayOrder.id}") }) { Text("Pay with M-Pesa") }
-                                    }
-                                }
+                                val original = ordersState.rows.firstOrNull { it.id?.toString() == displayOrder.id }
+                                val payable = original != null &&
+                                    original.status in setOf("placed", "confirmed") &&
+                                    original.paymentStatus in setOf("pending", "failed", "cancelled")
+                                if (payable) Button(onClick = { go("payment/${displayOrder.id}") }) { Text("Pay with M-Pesa") }
                             })
                     },
                     orderContent = { id ->
@@ -256,9 +286,89 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     paymentContent = { id ->
                         val row=checkoutState.order?.takeIf{it.id==id} ?: ordersState.rows.firstOrNull{it.id==id}
                         if(row==null)Text("Refresh Orders to verify this order.")
-                        else BuyerPaymentSession(row){payment,timedOut,refresh,send->BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty())}
+                        else BuyerPaymentSession(row){payment,timedOut,refresh,send->
+                            val terminalStatus = payment.payments.lastOrNull()?.status
+                            LaunchedEffect(terminalStatus){
+                                if(terminalStatus in setOf("paid","held","settled","cancelled","failed","refunded")) ordersModel.refresh()
+                            }
+                            // Use the checkout phone for a freshly created order; fall back to the
+                            // phone saved on the order (web: order.phone on retry), then the session
+                            // phone — matching the web app's retryPayment() pre-fill behaviour.
+                            // Web: pre-fill from checkout phone, then most recent payment's phone,
+                            // then session phone — matching retryPayment() pre-fill in order-history.
+                            val paymentPhone = ordersState.payments.lastOrNull()?.phoneNumber.orEmpty()
+                            val initialPhone = checkoutState.phone.takeIf{checkoutState.order?.id==row.id}.orEmpty()
+                                .ifBlank { paymentPhone }
+                                .ifBlank {
+                                    val raw = TokenManager.session.value.auth?.phoneNumber?.replace("\\s+".toRegex(),"") ?: ""
+                                    when {
+                                        Regex("^\\+254[17]\\d{8}$").matches(raw) -> raw
+                                        Regex("^254[17]\\d{8}$").matches(raw) -> "+$raw"
+                                        Regex("^0[17]\\d{8}$").matches(raw) -> "+254${raw.drop(1)}"
+                                        else -> ""
+                                    }
+                                }
+                            BrianPaymentReview(row,payment,{nav.popBackStack()},refresh,send,initialPhone)}
+                    },
+                    asyncPaymentContent = { paymentId ->
+                        AsyncPaymentContent(
+                            paymentId = paymentId,
+                            orderCheck = { checkoutModel.controller.reconcilePaidAsyncOrder() },
+                            onPaid = {
+                                checkoutModel.controller.confirmPaymentComplete()
+                                nav.navigate("orders") {
+                                    popUpTo("async-payment/{paymentId}") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            },
+                            onBack = { nav.popBackStack() }
+                        )
                     }
                 )
+            }
+        }
+    }
+}
+
+/** Async checkout payment screen: polls by paymentId, then transitions to order on PAID. */
+@Composable private fun AsyncPaymentContent(paymentId: Long, orderCheck: suspend () -> Boolean,
+    onPaid: () -> Unit, onBack: () -> Unit) {
+    BuyerPaymentSessionAsync(paymentId, orderCheck = orderCheck,
+        onTerminal = { status -> if (status == "paid") onPaid() }) { state, _ ->
+        Column(Modifier.fillMaxSize().background(NeutralBackground)) {
+            OrderHeader("M-Pesa Payment", onBack, green = true)
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(16.dp)) {
+                val displayStatus = state.payments.lastOrNull()?.status ?: "pending"
+                Surface(shape = RoundedCornerShape(16.dp), color = Color.White, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(42.dp).background(AmberSurface, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.PhoneAndroid, null, tint = AmberIcon, modifier = Modifier.size(24.dp))
+                            }
+                            Column {
+                                Text(when (displayStatus.lowercase()) {
+                                    "paid" -> "Payment confirmed"
+                                    "held", "settled" -> "Payment status: ${displayStatus.uppercase()}"
+                                    "failed" -> "Payment failed"
+                                    "cancelled" -> "Payment cancelled"
+                                    else -> "Payment pending"
+                                }, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                                Text(orderMoney(state.total), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Surface(color = AmberSurface, shape = RoundedCornerShape(20.dp)) {
+                                Text(displayStatus.uppercase(), color = AmberIcon, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                            }
+                        }
+                        state.notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, lineHeight = 22.sp) }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(if (displayStatus.lowercase() in setOf("failed", "cancelled", "refunded"))
+                    "No order was created. Return to checkout and request a fresh quote to try again."
+                    else "Check your phone for the M-Pesa STK prompt. Enter your PIN to complete payment. The order appears after payment succeeds.",
+                    style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = OrderGreen)
             }
         }
     }
@@ -269,7 +379,8 @@ internal fun NavGraphBuilder.buyerOrderDestinations(
     ordersContent: @Composable () -> Unit,
     orderContent: @Composable (Long) -> Unit,
     trackingContent: @Composable (Long) -> Unit,
-    paymentContent: @Composable (Long) -> Unit
+    paymentContent: @Composable (Long) -> Unit,
+    asyncPaymentContent: @Composable (Long) -> Unit
 ) {
     composable("orders") { ordersContent() }
     composable("order/{id}", arguments=listOf(navArgument("id"){type=NavType.LongType})) { entry ->
@@ -281,7 +392,8 @@ internal fun NavGraphBuilder.buyerOrderDestinations(
     composable("payment/{id}", arguments=listOf(navArgument("id"){type=NavType.LongType})) { entry ->
         paymentContent(entry.arguments!!.getLong("id"))
     }
+    composable("async-payment/{paymentId}", arguments=listOf(navArgument("paymentId"){type=NavType.LongType})) { entry ->
+        asyncPaymentContent(entry.arguments!!.getLong("paymentId"))
+    }
 }
-
-
 

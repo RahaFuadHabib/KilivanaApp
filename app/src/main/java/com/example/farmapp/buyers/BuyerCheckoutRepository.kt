@@ -8,6 +8,7 @@ import com.example.farmapp.network.SessionStore
 import com.example.farmapp.network.canonical.CanonicalApiResponse
 import com.example.farmapp.orders.BuyerOrderDto
 import com.example.farmapp.orders.BuyerOrdersApi
+import com.example.farmapp.orders.BuyerStkResponse
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import retrofit2.Response
@@ -20,10 +21,11 @@ internal interface BrianCheckoutApi {
     @POST("cart/items") suspend fun add(@Body item:CartUpload,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>>
     @PUT("carts/{cartId}/items/{productId}") suspend fun quantity(@Path("cartId") cartId:Long,@Path("productId") productId:Long,@Query("quantity") quantity:Int,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<JsonObject>>
     @DELETE("carts/{cartId}/items/{productId}") suspend fun remove(@Path("cartId") cartId:Long,@Path("productId") productId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
+    @DELETE("carts/{cartId}") suspend fun clear(@Path("cartId") cartId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
     @POST("checkout") suspend fun checkout(@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
-    @POST("checkout") suspend fun checkoutCart(@Query("cartId") cartId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
+    @POST("carts/{cartId}/checkout") suspend fun checkoutCart(@Path("cartId") cartId:Long,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<Unit>>
     @POST("checkout/delivery-quote") suspend fun quote(@Body request:DeliveryQuoteRequest,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<DeliveryQuote>>
-    @POST("checkout/order") suspend fun order(@Body request:QuoteOrderRequest,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<JsonElement>>
+    @POST("checkout/order") suspend fun order(@Body request:QuoteOrderRequest,@Tag session:SessionSnapshot):Response<CanonicalApiResponse<BuyerStkResponse>>
 }
 
 /** Buyer-only adapter. No Farmer permission or endpoint substitution is inferred. */
@@ -33,7 +35,7 @@ internal class BuyerCheckoutRepository(
     sessions: SessionStore,
     private val expected: SessionSnapshot,
     private val marketplace: com.example.farmapp.marketplace.MarketplaceRepository? = null
-) : CheckoutRepository<JsonObject, JsonElement, BuyerOrderDto> {
+) : CheckoutRepository<JsonObject, BuyerStkResponse, BuyerOrderDto> {
     override val requiresCartIdentity = false
     private val guard = CheckoutSessionGuard(sessions, expected, BuyerPurchaserPolicy)
 
@@ -76,6 +78,7 @@ internal class BuyerCheckoutRepository(
     }
 
     override suspend fun removeItem(cartId: Long, productId: Long) = call(CheckoutOperation.SET_QUANTITY) { api.remove(cartId, productId, it) }
+    override suspend fun clearCart(cartId: Long) = call(CheckoutOperation.UPLOAD_CART) { api.clear(cartId, it) }
     override suspend fun startCheckout(cartId: Long) = call(CheckoutOperation.START_CHECKOUT) { api.checkoutCart(cartId, it) }
     override suspend fun startCheckout() = call(CheckoutOperation.START_CHECKOUT) { api.checkout(it) }
     override suspend fun deliveryQuote(request: CheckoutQuoteRequest) = call(CheckoutOperation.REQUEST_QUOTE) {

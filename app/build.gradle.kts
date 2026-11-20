@@ -111,6 +111,13 @@ listOf(canonicalBaseUrl, debugBaseUrl).forEach { baseUrl ->
 val isolateDevelopmentBackend =
     providers.gradleProperty("kilivana.isolateDevelopmentBackend").orNull == "true"
 
+// Mapbox tokens are supplied per developer/build environment and must not be
+// committed in Android resources.
+val mapboxAccessToken = providers.gradleProperty("kilivana.mapboxAccessToken")
+    .orElse(providers.environmentVariable("MAPBOX_ACCESS_TOKEN"))
+    .orElse("")
+    .get()
+
 // Generate a short identifier from the debug backend URL.
 // SHA-256 produces a hash; take(8) keeps the first eight bytes.
 // Each byte becomes two hexadecimal characters,
@@ -134,6 +141,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        resValue("string", "mapbox_access_token", mapboxAccessToken)
         buildConfigField("boolean", "FARMER_TRANSACTIONS_ENABLED", (providers.gradleProperty("kilivana.farmerTransactions").orNull == "true").toString())
 
         // Base application ID used to identify the installed app.

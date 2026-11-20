@@ -48,7 +48,17 @@ fun CheckoutScreen(
     feedback: String? = null,
     deliveryMethodContent: @Composable () -> Unit = {}
 ) {
-    var phone by remember { mutableStateOf("") }
+    // Pre-fill from the session phone number, matching the web app's savedPhoneNumber() behaviour.
+    val sessionPhone = remember {
+        val raw = com.example.farmapp.network.TokenManager.session.value.auth?.phoneNumber?.replace("\\s+".toRegex(), "") ?: ""
+        when {
+            Regex("^\\+254[17]\\d{8}$").matches(raw) -> raw
+            Regex("^254[17]\\d{8}$").matches(raw) -> "+$raw"
+            Regex("^0[17]\\d{8}$").matches(raw) -> "+254${raw.drop(1)}"
+            else -> ""
+        }
+    }
+    var phone by remember { mutableStateOf(sessionPhone) }
     var selectedAddressId by remember(addresses) {
         mutableStateOf(initialAddressId?.takeIf { id -> addresses.any { it.id == id } } ?: addresses.firstOrNull()?.id)
     }
@@ -71,9 +81,9 @@ fun CheckoutScreen(
         Modifier.fillMaxSize().background(NeutralBackground)
     ) {
         // Branded header
-        Surface(color = GreenCard) {
+        Box(Modifier.fillMaxWidth().background(GreenCard)) {
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+                Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White) }

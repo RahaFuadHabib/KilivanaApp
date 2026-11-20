@@ -16,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.farmapp.buyers.model.Order
 import com.example.farmapp.buyers.model.OrderStatus
@@ -32,8 +34,24 @@ fun OrdersScreen(orders: List<Order>, open: (Order) -> Unit, shop: () -> Unit, l
         "Cancelled" -> orders.filter { it.status == OrderStatus.Cancelled }
         else -> orders
     }
-    Column(Modifier.fillMaxSize().background(NeutralBackground).padding(top = 12.dp)) {
-        Text("My orders", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.headlineMedium)
+    Column(Modifier.fillMaxSize().background(NeutralBackground)) {
+        Box(Modifier.fillMaxWidth().background(Color(0xFF00644B))) {
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "My Orders",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (loading && orders.isNotEmpty()) CircularProgressIndicator(
+                    Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp
+                )
+            }
+        }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)

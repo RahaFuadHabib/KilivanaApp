@@ -34,24 +34,32 @@ import com.example.farmapp.buyers.ui.theme.NeutralSurface
 import com.example.farmapp.buyers.ui.theme.SuccessSurface
 import com.example.farmapp.buyers.ui.theme.TextSecondary
 import com.example.farmapp.checkout.DeliverySelection
+import com.example.farmapp.checkout.CheckoutQuoteRequest
 import com.example.farmapp.orders.OrderPrimaryButton
 import com.example.farmapp.orders.OrderSection
 import com.example.farmapp.orders.OrderStatusBadge
+
+private fun validFarmerPickup(selection: DeliverySelection?): Boolean = when (selection) {
+    is DeliverySelection.Station -> selection.pickupStationId > 0
+    is DeliverySelection.TypedPickup, is DeliverySelection.Door, null -> false
+}
+private fun validFarmerPickup(request: CheckoutQuoteRequest): Boolean =
+    request.deliveryMethod == "PICKUP_STATION" && request.pickupStationId != null &&
+        request.pickupStationId > 0 && request.addressId == null && request.pickupLocation == null
 
 @Composable internal fun FarmerTransactionPanel(controller: FarmerTransactionController,
     items: Map<Long, Int>, selection: DeliverySelection?, autoStart: Boolean = false) {
     val state by controller.state.collectAsStateWithLifecycle()
     var phone by remember(controller) { mutableStateOf(controller.state.value.record?.phoneNumber.orEmpty()) }
-    var confirmOrder by remember { mutableStateOf(false) }
     var confirmPayment by remember { mutableStateOf(false) }
     LaunchedEffect(controller) { if (controller.enabled && controller.state.value.record != null) controller.recover() }
     // When arriving from the basket with items, auto-start a fresh quote if the previous transaction is done.
     // Key on record.phase so it fires when the phase transitions to CONFIRMED (e.g. after recover()).
     val recordPhase = state.record?.phase
     LaunchedEffect(autoStart, selection, items, recordPhase) {
-        if (autoStart && controller.enabled && selection != null && items.isNotEmpty()) {
-            if (recordPhase == null || recordPhase == "CONFIRMED" || recordPhase == "PAYMENT_FAILED" || recordPhase == "PAYMENT_CANCELLED") {
-                controller.prepare(items, selection)
+        if (autoStart && controller.enabled && validFarmerPickup(selection) && items.isNotEmpty()) {
+            if (recordPhase == null || recordPhase == "CONFIRMED") {
+                selection?.let { controller.prepare(items, it) }
             }
         }
     }
@@ -69,9 +77,9 @@ import com.example.farmapp.orders.OrderStatusBadge
         if (record == null || showFresh) {
             // ── Get delivery quote ───────────────────────────────────────
             OrderSection("Get delivery quote") {
-                Text("Select a delivery address or pickup station, then request a quote to see the total before creating your order.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Text("Select an available pickup station before requesting a quote. You can review the total before paying.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 OrderPrimaryButton("Get delivery quote", { selection?.let { controller.prepare(items, it) } },
-                    controller.enabled && selection != null && items.isNotEmpty())
+                    controller.enabled && validFarmerPickup(selection) && items.isNotEmpty())
             }
         } else {
             // ── Quote summary card ───────────────────────────────────────
@@ -91,18 +99,17 @@ import com.example.farmapp.orders.OrderStatusBadge
                         Text("KES ${quote.total.stripTrailingZeros()}", style = MaterialTheme.typography.titleMedium, color = com.example.farmapp.orders.OrderGreen, fontWeight = FontWeight.Bold)
                     }
                     if (quote.cartId == null && quote.items == null)
-                        Text("Quote totals and delivery will be checked against the created order before payment.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        Text("The final order will be checked against this quote after payment succeeds.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }
 
             // ── Phase-specific status card ───────────────────────────────
             val statusCard = when (record.phase) {
-                "QUOTE_READY" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Ready to order", "Review your order summary above, enter your M-Pesa number, and create the purchase order.")
-                "ORDER_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.Refresh, "Creating order…", "Submitting your purchase order. Please wait.", spinner = true)
-                "ORDER_CREATED" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Order created", "Purchase order #${record.orderId}. Enter your M-Pesa number below to send a payment prompt.")
-                "PAYMENT_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Awaiting M-Pesa confirmation", "M-Pesa request sent. Please enter your PIN on your phone and wait while we confirm your payment.", spinner = true)
-                "PAYMENT_FAILED" -> FarmerStatusCard(DangerSurface, ErrorRed, Icons.Default.Cancel, "Payment was unsuccessful", "The M-Pesa transaction did not complete. You can try again.")
-                "PAYMENT_CANCELLED" -> FarmerStatusCard(CancelledSurface, CancelledText, Icons.Default.Cancel, "Payment cancelled", "You cancelled the M-Pesa prompt. Your order has not been paid. You can try again when ready.")
+                "QUOTE_READY" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Ready to pay", "Review the quote above. The purchase order will be created only after M-Pesa confirms payment.")
+                "ORDER_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.Refresh, "Checking checkout…", "Waiting for the backend payment result. No order exists yet.", spinner = true)
+                "PAYMENT_PENDING" -> FarmerStatusCard(AmberSurface, AmberIcon, Icons.Default.PhoneAndroid, "Awaiting M-Pesa confirmation", "Enter your PIN on your phone. Your order will appear after payment succeeds.", spinner = true)
+                "PAYMENT_FAILED" -> FarmerStatusCard(DangerSurface, ErrorRed, Icons.Default.Cancel, "Payment was unsuccessful", "No purchase order was created. Request a fresh quote to try again.")
+                "PAYMENT_CANCELLED" -> FarmerStatusCard(CancelledSurface, CancelledText, Icons.Default.Cancel, "Payment cancelled", "No purchase order was created. Request a fresh quote to try again.")
                 "CONFIRMED" -> FarmerStatusCard(SuccessSurface, com.example.farmapp.buyers.ui.theme.Green600, Icons.Default.CheckCircle, "Payment confirmed", "Your purchase has been paid. Purchase order #${record.orderId}.")
                 else -> null
             }
@@ -112,6 +119,8 @@ import com.example.farmapp.orders.OrderStatusBadge
 
             // ── Phase-specific controls ──────────────────────────────────
             when (record.phase) {
+                "PAYMENT_PENDING" -> OrderPrimaryButton("Check payment status", controller::recover,
+                    controller.enabled && !state.busy)
                 "QUOTE_READY" -> {
                     OrderSection("M-Pesa payment") {
                         Text("Enter the Kenyan mobile number to use for payment.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -122,35 +131,12 @@ import com.example.farmapp.orders.OrderStatusBadge
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MessaGreen))
                         if (phone.isNotBlank() && runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.isFailure)
                             Text("Enter a valid Kenyan mobile number.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        OrderPrimaryButton("Create purchase order", { confirmOrder = true },
-                            !state.busy && runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.isSuccess)
+                        OrderPrimaryButton("Pay with M-Pesa", { confirmPayment = true },
+                            controller.enabled && !state.busy && validFarmerPickup(record.delivery) && runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.isSuccess)
                         TextButton(onClick = controller::refreshQuote, enabled = !state.busy, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Request a new quote") }
                     }
                 }
-                "ORDER_CREATED", "PAYMENT_FAILED", "PAYMENT_CANCELLED" -> {
-                    val isRetry = record.phase == "PAYMENT_FAILED" || record.phase == "PAYMENT_CANCELLED"
-                    if (state.order?.id != record.orderId)
-                        OrderSection {
-                            Text("Enter your number now. Refresh order details; payment stays disabled until the created order is verified.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                        }
-                    OrderSection("M-Pesa payment") {
-                        if (isRetry)
-                            Text("Your previous payment attempt did not go through. Enter your M-Pesa number below to try again, or start a new purchase with different items.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                        OutlinedTextField(phone, { phone = it }, label = { Text("M-Pesa phone number") },
-                            placeholder = { Text("07XXXXXXXX or 2547XXXXXXXX") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            shape = RoundedCornerShape(10.dp), enabled = !state.busy, modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MessaGreen))
-                        if (phone.isNotBlank() && runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.isFailure)
-                            Text("Enter a valid Kenyan mobile number.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        OrderPrimaryButton(if (isRetry) "Retry M-Pesa prompt" else "Send M-Pesa prompt", { confirmPayment = true },
-                            controller.enabled && !state.busy && phone.isNotBlank() && state.order?.id == record.orderId)
-                        if (isRetry)
-                            OrderPrimaryButton("Start new purchase", {
-                                selection?.let { sel -> controller.prepare(items, sel) }
-                            }, controller.enabled && !state.busy && selection != null && items.isNotEmpty())
-                    }
-                }
+                "PAYMENT_FAILED", "PAYMENT_CANCELLED" -> OrderPrimaryButton("Request a new quote", controller::refreshQuote, controller.enabled && !state.busy)
                 "CONFIRMED" -> {
                     // Receipt / amount details card
                     Surface(shape = RoundedCornerShape(14.dp), color = NeutralSurface, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
@@ -187,13 +173,13 @@ import com.example.farmapp.orders.OrderStatusBadge
                     } else {
                         OrderPrimaryButton("Start another purchase", {
                             selection?.let { sel -> controller.prepare(items, sel) }
-                        }, selection != null && items.isNotEmpty())
+                        }, validFarmerPickup(selection) && items.isNotEmpty())
                     }
                 }
             }
 
             // ── Payment security info ────────────────────────────────────
-            if (record.phase in setOf("QUOTE_READY", "ORDER_CREATED", "PAYMENT_FAILED", "PAYMENT_CANCELLED")) {
+            if (record.phase in setOf("QUOTE_READY", "PAYMENT_FAILED", "PAYMENT_CANCELLED")) {
                 Surface(shape = RoundedCornerShape(14.dp), color = MessaTint, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -208,17 +194,13 @@ import com.example.farmapp.orders.OrderStatusBadge
             // ── Refresh action ───────────────────────────────────────────
             TextButton(onClick = controller::recover, enabled = !state.busy && controller.enabled, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Icon(Icons.Default.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                Text(if (state.order?.id == record.orderId) "Refresh checkout status" else "Refresh order details")
+                Text(if (record.phase == "CONFIRMED") "Refresh order details" else "Refresh checkout status")
             }
         }
     }
-    if (confirmOrder) AlertDialog(onDismissRequest = { confirmOrder = false }, title = { Text("Confirm purchase") },
-        text = { Text("Submit this order for KES ${record?.quote?.total?.stripTrailingZeros()} using ${runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.getOrDefault("")}?") },
-        confirmButton = { TextButton(onClick = { confirmOrder = false; controller.submitOrder(phone) }) { Text("Submit order") } },
-        dismissButton = { TextButton(onClick = { confirmOrder = false }) { Text("Cancel") } })
-    if (confirmPayment) AlertDialog(onDismissRequest = { confirmPayment = false }, title = { Text("Confirm M-Pesa prompt") },
-        text = { Text("Request payment for purchase #${record?.orderId}, KES ${record?.quote?.total?.stripTrailingZeros()}?") },
-        confirmButton = { TextButton(onClick = { confirmPayment = false; controller.initiate(phone) }) { Text("Confirm STK Push") } },
+    if (confirmPayment) AlertDialog(onDismissRequest = { confirmPayment = false }, title = { Text("Confirm payment") },
+        text = { Text("Send an M-Pesa prompt for KES ${record?.quote?.total?.stripTrailingZeros()} to ${runCatching { com.example.farmapp.payments.mpesaPhone(phone) }.getOrDefault("")}? The order is created only after successful payment.") },
+        confirmButton = { TextButton(onClick = { confirmPayment = false; controller.submitOrder(phone) }) { Text("Send prompt") } },
         dismissButton = { TextButton(onClick = { confirmPayment = false }) { Text("Cancel") } })
 }
 

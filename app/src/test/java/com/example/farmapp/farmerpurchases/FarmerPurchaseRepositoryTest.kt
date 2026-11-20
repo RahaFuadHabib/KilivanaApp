@@ -35,17 +35,17 @@ class FarmerPurchaseRepositoryTest {
         f.handler = { """{"success":true,"data":[{"id":105,"status":"CONFIRMED","total":376.50,"createdAt":"2026-11-12T10:00:00","itemCount":2},{"id":105,"status":"CONFIRMED","total":376.50,"itemCount":2}]}""" }
         rejects { FarmerSellerOrdersRepository(f.api(), f.sessions, f.expected).list() }
     }
-    @Test fun legacyReadOnlyAdapterRemainsBlockedWhileDedicatedCartAdapterIsAuthorized() = runBlocking {
+    @Test fun legacyCheckoutAdapterRemainsBlockedWhileFarmerOrderPaymentIsAuthorized() = runBlocking {
         val f = FarmerPurchaseFixture()
         listOf<suspend () -> Unit>({ f.orders.readCart(42) }, { f.orders.addItem(7, 3) },
             { f.orders.setQuantity(10, 7, 3) }, { f.orders.startCheckout() },
             { f.orders.deliveryQuote(CheckoutQuoteRequest("PICKUP_STATION", pickupStationId = 3)) },
-            { f.orders.createOrder("quote", "254700000000") }, { f.payment.initiate(105, "254700000000") },
+            { f.orders.createOrder("quote", "254700000000") },
             { f.addresses.create(BuyerAddressRequest("Synthetic")) }, { f.pickup.save(BuyerSavePickupRequest(3)) },
             { f.pickup.remove(91) }, { f.pickup.setDefault(91) }).forEach { rejects(it) }
         assertTrue(f.requests.isEmpty())
         assertTrue(FarmerPurchaserPolicy.permits(CheckoutOperation.READ_CART))
-        assertFalse(FarmerPurchaserPolicy.permits(CheckoutOperation.INITIATE_PAYMENT))
+        assertTrue(FarmerPurchaserPolicy.permits(CheckoutOperation.INITIATE_PAYMENT))
         assertTrue(BuyerPurchaserPolicy.permits(CheckoutOperation.CREATE_ORDER))
         assertTrue(CheckoutOperation.entries.none { UnverifiedFarmerPurchaserPolicy.permits(it) })
     }

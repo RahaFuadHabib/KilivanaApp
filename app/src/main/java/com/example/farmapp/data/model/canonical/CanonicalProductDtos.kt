@@ -16,6 +16,8 @@ data class CanonicalProductDto(
     val soldQty: Int? = null,
     val minimumOrderQty: Int? = null,
     val status: String? = null,
+    val farmId: Long? = null,
+    val statusReason: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val images: List<CanonicalProductImageDto>? = null

@@ -315,7 +315,14 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
                     mutable.update{it.copy(order=order,uncertain=false,needsRecovery=false,justCreated=true,
                         notice="Your order was created. Review it in Orders.")}
                 }
-                matching.isEmpty() -> mutable.update{it.copy(uncertain=true,notice="No matching order found yet. Refresh again once the backend confirms the submission.")}
+                matching.isEmpty() -> {
+                    // Checkout was attempted (ORDER_PENDING is set before createOrder is called).
+                    // The createOrder result is unknown — the order may exist on the server even
+                    // though we can't match it yet. Transition to CHECKOUT_ACKNOWLEDGED so the
+                    // user can check Orders and reset/retry instead of being stuck.
+                    save(journal.copy(phase="CHECKOUT_ACKNOWLEDGED"))
+                    mutable.update{it.copy(uncertain=true,notice="Your checkout may have reached the server. Inspect Orders before creating another order.")}
+                }
                 else -> mutable.update{it.copy(uncertain=true,notice="Order submission remains unresolved. ${matching.size} matching new order(s) found. Inspect Orders and contact support; do not create another order.")}
             }
         }else {

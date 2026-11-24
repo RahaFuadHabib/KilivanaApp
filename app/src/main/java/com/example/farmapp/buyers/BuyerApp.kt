@@ -88,7 +88,7 @@ import kotlinx.coroutines.flow.first
         if(route=="checkout" && (checkoutState.uncertain || checkoutState.needsRecovery) && !checkoutState.busy) checkoutModel.controller.recover()
     }
     DisposableEffect(session.generation){onDispose{BrianUiPresence.leave()}}
-    LaunchedEffect(checkoutState.order?.id, checkoutState.paymentId, checkoutState.justCreated){
+    LaunchedEffect(checkoutState.order?.id, checkoutState.paymentId, checkoutState.justCreated, checkoutState.busy){
         if(checkoutState.justCreated && !checkoutState.busy){
             checkoutModel.controller.consumeJustCreated()
             model.shopping.clearCart()

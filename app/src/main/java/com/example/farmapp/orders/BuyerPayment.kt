@@ -146,7 +146,14 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
                 val orderCreated = runCatching { orderCheck() }.getOrDefault(false)
                 if (orderCreated) { onTerminal("paid"); return@repeatOnLifecycle }
                 val terminal = model.controller.pollPayment(paymentId)
-                if (terminal != null) { onTerminal(terminal); return@repeatOnLifecycle }
+                if (terminal != null) {
+                    if (paymentOutcome(terminal) == "confirmed") {
+                        // Payment confirmed but the backend may not have created the order row yet.
+                        // Keep polling so orderCheck() can find it and trigger onTerminal. Don't exit.
+                        continue
+                    }
+                    onTerminal(terminal); return@repeatOnLifecycle
+                }
                 if (!timeoutShown && System.currentTimeMillis() > deadline) {
                     timeoutShown = true
                 }

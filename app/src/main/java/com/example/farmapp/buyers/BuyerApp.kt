@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /** Brian's Buyer NavHost/scaffold and actual screens. FarmApp owns transport/session/cart/payment state. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -321,7 +322,27 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                                     launchSingleTop = true
                                 }
                             },
-                            onBack = { nav.popBackStack() }
+                            onBack = { nav.popBackStack() },
+                            onViewOrders = {
+                                nav.navigate("orders") {
+                                    popUpTo("async-payment/{paymentId}") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            },
+                            onCheckStatus = {
+                                val found = runCatching { checkoutModel.controller.reconcilePaidAsyncOrder() }.getOrDefault(false)
+                                if (found) {
+                                    nav.navigate("orders") {
+                                        popUpTo("async-payment/{paymentId}") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            onRetry = {
+                                checkoutModel.controller.resetJournal()
+                                model.shopping.clearCart()
+                                nav.popBackStack()
+                            }
                         )
                     }
                 )
@@ -332,7 +353,11 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
 
 /** Async checkout payment screen: polls by paymentId, then transitions to order on PAID. */
 @Composable private fun AsyncPaymentContent(paymentId: Long, orderCheck: suspend () -> Boolean,
-    onPaid: () -> Unit, onBack: () -> Unit) {
+    onPaid: () -> Unit, onBack: () -> Unit,
+    onViewOrders: () -> Unit = {},
+    onCheckStatus: suspend () -> Unit = {},
+    onRetry: () -> Unit = {}) {
+    val scope = rememberCoroutineScope()
     BuyerPaymentSessionAsync(paymentId, orderCheck = orderCheck,
         onTerminal = { status -> if (paymentOutcome(status) == "confirmed") onPaid() }) { state, _ ->
         Column(Modifier.fillMaxSize().background(NeutralBackground)) {
@@ -364,10 +389,29 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                Text(if (displayStatus.lowercase() in setOf("failed", "cancelled", "refunded"))
-                    "No order was created. Return to checkout and request a fresh quote to try again."
-                    else "Check your phone for the M-Pesa STK prompt. Enter your PIN to complete payment. The order appears after payment succeeds.",
-                    style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                when (displayStatus.lowercase()) {
+                    "paid", "held", "settled" -> {
+                        Text("Payment confirmed. Your order is being finalized.",
+                            style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        TextButton(onClick = onViewOrders, enabled = !state.busy) {
+                            Text("View your orders")
+                        }
+                    }
+                    "pending", "unknown" -> {
+                        Text("Check your phone for the M-Pesa STK prompt. Enter your PIN to complete payment. The order appears after payment succeeds.",
+                            style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        TextButton(onClick = { scope.launch { onCheckStatus() } }, enabled = !state.busy) {
+                            Text("Check payment status")
+                        }
+                    }
+                    "failed", "cancelled", "refunded" -> {
+                        Text("No order was created. You can start checkout again when you are ready.",
+                            style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        Button(onClick = onRetry, enabled = !state.busy) {
+                            Text("Start checkout again")
+                        }
+                    }
+                }
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = OrderGreen)
             }
         }

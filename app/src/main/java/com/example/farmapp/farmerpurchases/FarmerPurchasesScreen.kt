@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -175,7 +176,19 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                         }
                         Text("Delivery and final total are confirmed during checkout.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                         TextButton(onClick = controller::reviewBasket, enabled = !state.busy) { Text("Refresh items and prices") }
-                        checkout.notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        checkout.notice?.let { notice ->
+                            Column {
+                                Text(notice, color = MaterialTheme.colorScheme.error)
+                                if (checkout.uncertain) {
+                                    TextButton(onClick = { controller.checkout.recover() },
+                                        enabled = !checkout.busy, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                                        Icon(Icons.Default.Refresh, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Refresh checkout status")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 if (page == "delivery") {

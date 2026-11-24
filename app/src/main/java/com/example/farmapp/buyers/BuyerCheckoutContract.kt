@@ -5,6 +5,7 @@ import com.example.farmapp.checkout.CheckoutCartMetadata
 import com.example.farmapp.checkout.CheckoutContract
 import com.example.farmapp.checkout.CheckoutQuote
 import com.example.farmapp.orders.*
+import com.example.farmapp.payments.paymentOutcome
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
@@ -29,7 +30,7 @@ internal object BuyerCheckoutContract : CheckoutContract<JsonObject, BuyerStkRes
         verifyPurchasedOrder(order, purchaserId, items, quote)
     override fun orderId(order: BuyerOrderDto) = order.id!!
     override fun isPayable(order: BuyerOrderDto) = order.status in setOf("placed", "confirmed")
-    override fun isPaid(order: BuyerOrderDto) = order.paymentStatus?.lowercase() == "paid"
+    override fun isPaid(order: BuyerOrderDto) = paymentOutcome(order.paymentStatus) == "confirmed"
     override fun isFinished(order: BuyerOrderDto) =
         buyerPaymentOutcome(order.paymentStatus) in setOf("confirmed", "refunded", "cancelled", "failed") || order.status == "cancelled"
     override fun isAwaitingPayment(order: BuyerOrderDto) = buyerPaymentOutcome(order.paymentStatus) == "pending"

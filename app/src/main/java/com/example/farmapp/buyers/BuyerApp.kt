@@ -334,7 +334,7 @@ dismissButton={TextButton(onClick={confirmOrder=null}){Text("Cancel")}})
 @Composable private fun AsyncPaymentContent(paymentId: Long, orderCheck: suspend () -> Boolean,
     onPaid: () -> Unit, onBack: () -> Unit) {
     BuyerPaymentSessionAsync(paymentId, orderCheck = orderCheck,
-        onTerminal = { status -> if (status == "paid") onPaid() }) { state, _ ->
+        onTerminal = { status -> if (paymentOutcome(status) == "confirmed") onPaid() }) { state, _ ->
         Column(Modifier.fillMaxSize().background(NeutralBackground)) {
             OrderHeader("M-Pesa Payment", onBack, green = true)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(16.dp)) {

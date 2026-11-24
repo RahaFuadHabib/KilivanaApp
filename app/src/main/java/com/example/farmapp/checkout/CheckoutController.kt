@@ -291,8 +291,17 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         }else if(journal.phase=="ORDER_PENDING"){
             val rows=data(performRequest(CheckoutOperation.READ_ORDERS){repository.listOrders(current().auth!!.userId.toLong())},"Reconcile orders")
                 .map{contract.validateOrder(it,current().auth!!.userId.toLong())}
-            val candidates=rows.count{contract.orderId(it) !in journal.beforeOrderIds && runCatching{contract.verifyOrder(it,current().auth!!.userId.toLong(),journal.items,journal.quote!!)}.isSuccess}
-            mutable.update{it.copy(uncertain=true,notice="Order submission remains unresolved. $candidates matching new order(s) found. Inspect Orders and contact support; do not create another order.")}
+            val matching=rows.filter{contract.orderId(it) !in journal.beforeOrderIds && runCatching{contract.verifyOrder(it,current().auth!!.userId.toLong(),journal.items,journal.quote!!)}.isSuccess}
+            when {
+                matching.size == 1 -> {
+                    val order=matching.first()
+                    save(journal.copy(phase="ORDER_VERIFIED",orderId=contract.orderId(order)))
+                    mutable.update{it.copy(order=order,uncertain=false,needsRecovery=false,justCreated=true,
+                        notice="Your order was created. Review it in Orders.")}
+                }
+                matching.isEmpty() -> mutable.update{it.copy(uncertain=true,notice="No matching order found yet. Refresh again once the backend confirms the submission.")}
+                else -> mutable.update{it.copy(uncertain=true,notice="Order submission remains unresolved. ${matching.size} matching new order(s) found. Inspect Orders and contact support; do not create another order.")}
+            }
         }else {
             val cart=data(performRequest(CheckoutOperation.READ_CART){repository.readCart(current().auth!!.userId.toLong())},"Reconcile cart").let(::metadata)
             if(journal.phase in setOf("CHECKOUT_PENDING","CHECKOUT_ACKNOWLEDGED") && journal.cartId!=null &&

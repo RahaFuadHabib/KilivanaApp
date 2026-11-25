@@ -5,6 +5,7 @@ import com.example.farmapp.network.*
 import com.example.farmapp.network.canonical.CanonicalApiResponse
 import com.example.farmapp.orders.*
 import com.example.farmapp.payments.mpesaPhone
+import com.example.farmapp.payments.paymentOutcome
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import retrofit2.Response
@@ -198,7 +199,7 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
         // quote and basket before exposing it as the completed purchase.
         val rows = request { orders.orders(expected.auth!!.userId.toLong(), it) }
         val candidate = rows.firstOrNull { order ->
-            order.id !in record.beforeOrderIds.orEmpty() && order.paymentStatus?.lowercase() == "paid" &&
+            order.id !in record.beforeOrderIds.orEmpty() && paymentOutcome(order.paymentStatus) == "confirmed" &&
                 runCatching { FarmerCheckoutContract.verifyOrder(order, expected.auth!!.userId.toLong(), record.items, record.quote!!) }.isSuccess
         }
         if (candidate != null) {
@@ -209,12 +210,24 @@ internal class FarmerTransactionController(private val api: FarmerTransactionApi
             save(record.copy(phase = "CONFIRMED", orderId = id, paymentId = paymentId))
             return
         }
+        // A new order exists with confirmed payment but it does not match the reviewed quote.
+        // Do not keep polling forever; surface the mismatch so the user can contact support.
+        val unmatched = rows.firstOrNull { order ->
+            order.id !in record.beforeOrderIds.orEmpty() && paymentOutcome(order.paymentStatus) == "confirmed"
+        }
+        if (unmatched != null) {
+            save(record.copy(phase = "PAYMENT_FAILED"))
+            mutable.update { it.copy(notice = "Payment was confirmed but the created order does not match your reviewed basket. Do not pay again; contact support.") }
+            return
+        }
         paymentId ?: return
         val latest = request { orders.payment(paymentId, it) }
         mutable.update { it.copy(payment = latest) }
-        when (latest.status?.lowercase()) {
+        val outcome = paymentOutcome(latest.status)
+        when (outcome) {
             "failed" -> save(record.copy(phase = "PAYMENT_FAILED", paymentId = latest.id))
             "cancelled" -> save(record.copy(phase = "PAYMENT_CANCELLED", paymentId = latest.id))
+            "confirmed" -> mutable.update { it.copy(notice = "Payment confirmed. Waiting for your order to appear.") }
         }
     }
     fun recover() = run {

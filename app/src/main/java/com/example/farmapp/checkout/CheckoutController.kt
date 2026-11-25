@@ -242,9 +242,21 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
         if (journal.phase!="PAYMENT_PENDING" || journal.paymentId==null) return false
         val rows=data(performRequest(CheckoutOperation.READ_ORDERS){repository.listOrders(current().auth!!.userId.toLong())},"List orders after payment")
             .map{contract.validateOrder(it,current().auth!!.userId.toLong())}
-        val newOrder=rows.firstOrNull{contract.orderId(it) !in journal.beforeOrderIds && contract.isPaid(it) && runCatching{
+        val confirmed=rows.filter{contract.orderId(it) !in journal.beforeOrderIds && contract.isPaid(it)}
+        val newOrder=confirmed.firstOrNull{runCatching{
             contract.verifyOrder(it,current().auth!!.userId.toLong(),journal.items,checkNotNull(journal.quote))
-        }.isSuccess} ?: return false
+        }.isSuccess} ?: run {
+            // A confirmed payment produced an order that doesn't match the reviewed quote —
+            // do not keep polling or let the user submit another order for the same basket.
+            val unmatched=confirmed.firstOrNull()
+            if (unmatched!=null) {
+                save(journal.copy(phase="ORDER_VERIFIED",orderId=contract.orderId(unmatched),paymentId=null))
+                mutable.update{it.copy(order=unmatched,paymentId=null,uncertain=false,needsRecovery=false,justCreated=true,
+                    notice="Your order was created but its amounts or items differ from the reviewed quote. Review it in Orders.")}
+                return true
+            }
+            return false
+        }
         save(journal.copy(phase="ORDER_VERIFIED",orderId=contract.orderId(newOrder),paymentId=null))
         mutable.update{it.copy(order=newOrder,paymentId=null,uncertain=false,needsRecovery=false,justCreated=true,
             notice="Payment confirmed. Your order has been created.")}
@@ -252,7 +264,11 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
     }
     fun confirmPaymentComplete()=launch {
         if (journal.phase=="ORDER_VERIFIED" && journal.orderId!=null) return@launch
-        check(reconcilePaidAsyncOrder()) { "Payment was confirmed but no matching paid order was found yet." }
+        if (!reconcilePaidAsyncOrder()) {
+            // Backend confirmed payment but the order row has not appeared yet.
+            // Keep the journal in PAYMENT_PENDING so the user can retry from Orders.
+            mutable.update{it.copy(notice="Payment confirmed. Your order is being created; refresh Orders shortly.")}
+        }
     }
 
     /** Explicit new purchase only after the previous owned order is paid/refunded/cancelled. No server mutation. */
@@ -299,7 +315,14 @@ internal class CheckoutController<CartData,CreatedOrderId,OrderData>(
                     mutable.update{it.copy(order=order,uncertain=false,needsRecovery=false,justCreated=true,
                         notice="Your order was created. Review it in Orders.")}
                 }
-                matching.isEmpty() -> mutable.update{it.copy(uncertain=true,notice="No matching order found yet. Refresh again once the backend confirms the submission.")}
+                matching.isEmpty() -> {
+                    // Checkout was attempted (ORDER_PENDING is set before createOrder is called).
+                    // The createOrder result is unknown — the order may exist on the server even
+                    // though we can't match it yet. Transition to CHECKOUT_ACKNOWLEDGED so the
+                    // user can check Orders and reset/retry instead of being stuck.
+                    save(journal.copy(phase="CHECKOUT_ACKNOWLEDGED"))
+                    mutable.update{it.copy(uncertain=true,notice="Your checkout may have reached the server. Inspect Orders before creating another order.")}
+                }
                 else -> mutable.update{it.copy(uncertain=true,notice="Order submission remains unresolved. ${matching.size} matching new order(s) found. Inspect Orders and contact support; do not create another order.")}
             }
         }else {

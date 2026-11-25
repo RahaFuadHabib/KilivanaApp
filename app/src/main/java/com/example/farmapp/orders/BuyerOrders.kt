@@ -208,7 +208,7 @@ internal class BuyerOrdersModel : ViewModel() {
                         BuyerOrderCard(order, payment, { paymentFor = null; model.open(order) }, { model.open(order); paymentFor = order.id })
                     }
                 } else BuyerPaymentSession(row) { payment, timedOut, refresh, initiate ->
-                    if (paymentFor == row.id) BuyerPaymentPage(row, payment, timedOut, { paymentFor = null }, { refresh(); model.open(row) }, initiate)
+                    if (paymentFor == row.id) BuyerPaymentPage(row, payment, timedOut, { paymentFor = null }, { refresh(); model.open(row) }, initiate, { confirmReceipt = true })
                     else BuyerOrderDetailsDesign(row, payment, ::back, { paymentFor = row.id }) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             state.detailError?.let { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = { model.open(row) }) { Text("Retry order details") } }

@@ -279,7 +279,7 @@ internal class FarmerPurchasesModel(application: Application) : AndroidViewModel
                     }
                     item {
                         BuyerPaymentSession(order) { paymentState, timedOut, refresh, initiate ->
-                            BuyerPaymentControls(order, paymentState, timedOut, { refresh(); controller.payments.refresh(order.id!!) }, initiate, startExpanded = true)
+                            BuyerPaymentControls(order, paymentState, timedOut, { refresh(); controller.payments.refresh(order.id!!) }, initiate, startExpanded = true, confirmReceipt = {})
                         }
                         TextButton(onClick = controller::track, enabled = !state.busy, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("View purchase tracking") }
                     }

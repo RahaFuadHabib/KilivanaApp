@@ -199,16 +199,16 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
     BuyerPaymentSession(order) { state, timedOut, refresh, initiate -> BuyerPaymentControls(order, state, timedOut, { refresh(); refreshOrder() }, initiate) }
 }
 @Composable internal fun BuyerPaymentPage(order: BuyerOrderDto, state: BuyerPaymentState, timedOut: Boolean, back: () -> Unit,
-    refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit) {
+    refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit, confirmReceipt: () -> Unit = {}) {
     Column(Modifier.fillMaxSize().background(com.example.farmapp.buyers.ui.theme.NeutralBackground)) {
         OrderHeader("Pay with M-Pesa", back, green = true)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(16.dp).testTag("payment-page")) {
-            BuyerPaymentControls(order, state, timedOut, refresh, initiate, startExpanded = true)
+            BuyerPaymentControls(order, state, timedOut, refresh, initiate, startExpanded = true, confirmReceipt = confirmReceipt)
         }
     }
 }
 @Composable internal fun BuyerPaymentControls(order: BuyerOrderDto, state: BuyerPaymentState,
-    timedOut: Boolean = false, refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit, startExpanded: Boolean = false) {
+    timedOut: Boolean = false, refresh: () -> Unit, initiate: (String, BigDecimal?) -> Unit, startExpanded: Boolean = false, confirmReceipt: () -> Unit = {}) {
     var phone by rememberSaveable(order.id) { mutableStateOf("") }
     var showPayment by rememberSaveable(order.id) { mutableStateOf(startExpanded) }
     var confirm by remember(order.id) { mutableStateOf(false) }
@@ -284,6 +284,8 @@ internal class BuyerPaymentModel(context: Context) : ViewModel() {
                 OrderPrimaryButton("Check payment for this order", refresh)
             if (displayStatus in setOf("cancelled", "failed") && orderPayable && !state.busy)
                 OrderPrimaryButton("Retry payment for order #${order.id}", { showPayment = true; refresh() })
+            if (order.status?.lowercase() == "delivered" && displayStatus !in setOf("pending") && !state.busy)
+                OutlinedButton(onClick = confirmReceipt, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Confirm receipt") }
             if (!state.busy && !state.canInitiate && state.payments.isEmpty() && state.notice == null && displayStatus == null)
                 Text("Payment is not available for this order. Refresh to check its current status.")
             if (state.canInitiate) {

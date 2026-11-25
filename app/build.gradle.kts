@@ -115,6 +115,7 @@ val isolateDevelopmentBackend =
 // committed in Android resources.
 val mapboxAccessToken = providers.gradleProperty("kilivana.mapboxAccessToken")
     .orElse(providers.environmentVariable("MAPBOX_ACCESS_TOKEN"))
+    .orElse(localDevelopmentProperties.getProperty("kilivana.mapboxAccessToken"))
     .orElse("")
     .get()
 
